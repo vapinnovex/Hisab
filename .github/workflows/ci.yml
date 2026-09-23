@@ -1,0 +1,49 @@
+name: Phase 1 checks
+on:
+  push:
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7.0
+        ports:
+          - 27018:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - name: Backend checks
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -r requirements.lock.txt
+          .venv/bin/ruff check .
+          .venv/bin/ruff format --check .
+          .venv/bin/pytest -q
+      - name: Mobile checks and end-to-end flow
+        working-directory: mobile
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+          npm run format:check
+          npx expo-doctor
+          npx expo export --platform ios --platform android --platform web
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results
+          path: mobile/test-results/
