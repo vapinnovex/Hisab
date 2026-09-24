@@ -20,6 +20,18 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
     description: string;
   }[] = [
     {
+      key: 'manager_can_access_hishob',
+      title: 'Managers can access Hishob',
+      description:
+        'Allow viewing cash history, opening a day, updating opening cash with a reason, and adding transactions. Corrections and deletions stay owner-only.',
+    },
+    {
+      key: 'manager_can_close_hishob',
+      title: 'Managers can close Hishob',
+      description:
+        'Allow daily closing when Hishob access is also enabled. Only the owner can reopen a closed day.',
+    },
+    {
       key: 'manager_can_mark_own_attendance',
       title: 'Managers can mark their own attendance',
       description:

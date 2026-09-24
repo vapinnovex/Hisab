@@ -18,6 +18,12 @@ def permissions_for(membership, shop):
     manager = membership["role"] in {"MANAGER", "ADMIN"}
     config = settings_for(shop)
     return {
+        "view_hishob": owner or (manager and config["manager_can_access_hishob"]),
+        "add_hishob_transactions": owner or (manager and config["manager_can_access_hishob"]),
+        "edit_hishob_transactions": owner,
+        "close_hishob": owner
+        or (manager and config["manager_can_access_hishob"] and config["manager_can_close_hishob"]),
+        "reopen_hishob": owner,
         "manage_attendance": owner or (manager and config["manager_can_manage_attendance"]),
         "add_workers": owner or (manager and config["manager_can_add_workers"]),
         "edit_workers": owner or (manager and config["manager_can_edit_workers"]),

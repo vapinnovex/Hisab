@@ -1,6 +1,6 @@
-# Hishob — Phase 1
+# Hishob — Phases 1 & 2
 
-A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile OTP login, and owner-managed attendance. No accounting logic is included.
+A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile OTP login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
 
 ## Run locally
 
@@ -91,6 +91,77 @@ When you belong to more than one shop, the top-right header shows the current sh
 The supplied Hishob logo appears on the welcome screen, navigation headers, account screen, app icon, splash screen, and web favicon. Green, cream, and gold styling follows the logo. Native icons, splash screens, and the installed display name require a new native build; Expo Go does not represent the final standalone branding. Internal bundle/package IDs, token storage keys, JWT identifiers, and the database name retain their existing values to preserve compatibility. No environment-variable changes are required.
 
 The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
+
+## Phase 2 — Daily Hishob
+
+Open **Home → Today’s Hishob**. Financial history is also available in **Account → Hishob history**. Existing role tabs, attendance, shop switching and session limits remain in place.
+
+### Daily calculation
+
+```
+Expected closing cash = Opening cash + Cash sales + Other cash in
+                        - Expenses - Supplier payments - Bank deposits - Withdrawals
+Difference = Actual cash in galla - Expected closing cash
+```
+
+Enter money as decimal strings, for example `"15000.00"`. The backend validates at most two decimal places, converts to integer paise using `Decimal`, and recalculates totals from every non-deleted transaction. MongoDB stores money as integer paise; JSON responses use two-decimal strings. The client uses `BigInt` paise for difference previews and formatting. No floating-point currency calculations are used. Each entered amount is at most ₹99,99,99,999.99; transaction amounts must be positive, opening/actual cash can be zero. Expected cash and the difference may be negative.
+
+A shop has one day per business date, using its saved IANA timezone. The first day requires manual opening cash. Later days default to the **latest earlier CLOSED day's actual cash**, with source date, ID, revision and amount recorded. Overrides require a reason. Opening cash is fixed when a day is created: reopening or correcting an earlier day does not silently cascade into later days.
+
+Closing requires actual cash and a difference note when the difference is nonzero. It preserves a complete snapshot: totals, entries, cash count, notes, actor and timestamp. Closed days reject mutations. Only owners can reopen them, with a reason. Each subsequent closing creates another snapshot; older snapshots remain readable in Day details.
+
+### Financial permissions
+
+| Action | Owner | Manager | Worker |
+| --- | --- | --- | --- |
+| View current day/history/audit | Yes | Requires `manager_can_access_hishob` | No |
+| Start day, add transactions, override opening with reason | Yes | Requires `manager_can_access_hishob` | No |
+| Edit / soft-delete transactions | Yes, with reason | No | No |
+| Close day | Yes | Requires both financial access and `manager_can_close_hishob` | No |
+| Reopen day | Yes, with reason | No | No |
+
+Both manager settings default to **false** on new and existing shops. Set them in **Account → Shop settings**. The backend checks live membership, shop and permission on every request; workers cannot read financial data even by guessing a URL. Permission changes remove financial screens from an open manager session on refresh.
+
+### Financial storage and consistency
+
+`hishob_days` is a new collection with unique `(shop_id, date)` and lookup `(shop_id, status, date)` indexes. Daily documents contain individually addressable transaction records with IDs, shop/day/date, type, amount, category, description, creator, timestamps and soft-deletion metadata. They also contain calculated totals, a revision, append-only audit events and immutable closing snapshots. This is intentionally a **single-document aggregate**, not a totals-only ledger: one atomic compare-and-swap saves the entry, totals and audit together, and works with the existing standalone MongoDB without introducing replica-set transactions.
+
+All updates require the revision the editor originally loaded. Concurrent edits/closing return **409**, requiring a refresh and review; they never silently overwrite another change. Transaction creation also requires a stable `request_id`, so retrying the same save after a network failure does not duplicate an entry. Reusing it with different values is rejected. Soft deletion retains the original entry and before/after audit. Day details show actors, timestamps, reasons and before/after values; snapshots expose the exact entries that were closed.
+
+No audit events or snapshots are truncated. A 12 MB per-day document guard rejects further growth before MongoDB's 16 MB limit; unusually large daily registers need a future storage migration. History queries accept date ranges up to 366 days and return summaries without transaction/audit payloads; open a day for full details. The API also supports creating a missing past day between shop creation and today; the mobile creation flow deliberately starts today's day only. No new environment variables or destructive migrations are needed. Restart the API to create the new indexes automatically.
+
+### Phase 2 APIs
+
+Prefix every path below with `/api/shops/{shop_id}/hishob`. All routes require a bearer session and financial shop permission.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/today` | Today's record, date/timezone, suggested opening and permissions |
+| POST | `/days` | Create day; `{opening_cash?, date?, reason?}` |
+| GET | `/days?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD` | Date-filtered summaries |
+| GET | `/days/{day_id}` | Full breakdown, entries, snapshots and audit |
+| PATCH | `/days/{day_id}/opening` | `{revision, opening_cash, reason}` |
+| POST | `/days/{day_id}/transactions` | `{revision, request_id, type, amount, category?, description}` |
+| PATCH | `/days/{day_id}/transactions/{transaction_id}` | `{revision, type, amount, category?, description, reason}` |
+| POST | `/days/{day_id}/transactions/{transaction_id}/delete` | Soft-delete; `{revision, reason}` |
+| POST | `/days/{day_id}/close` | `{revision, actual_closing_cash, notes?, difference_note?}` |
+| POST | `/days/{day_id}/reopen` | Owner only; `{revision, reason}` |
+
+The existing `/settings` and `/auth/me` responses include the two new shop settings and effective `view_hishob`, `add_hishob_transactions`, `edit_hishob_transactions`, `close_hishob`, `reopen_hishob` permissions. `/docs` has the full schemas.
+
+### Test Phase 2 manually
+
+1. Log in as Owner (development OTP `123456`) and create a fresh shop. Open **Today's Hishob** from Home.
+2. Enter opening cash **0** and start the day.
+3. Add **Cash sales ₹15,000**, **Expense ₹500** (Transport), and **Bank deposit ₹2,000**. Expected Galla is **₹12,500**.
+4. Open **Close day**, enter **₹12,300** actual cash. Difference is **-₹200**. Choose **Cash shortage**, then close.
+5. Open **Hishob history**, filter the date range/status, and open the day. Review its entries, creator names, audit and preserved closing.
+6. Reopen with a reason, correct an entry or soft-delete a duplicate, then close again. Both closing snapshots remain available.
+7. On the next local business date, start the new day. Opening defaults to the last closed day's **actual** cash. Override only with a reason. Automated API tests advance the clock to verify this without waiting a real day.
+8. Add a manager. Initially Hishob is unavailable. Enable financial access: they can view/add but cannot close. Enable closing separately and verify they can close but cannot edit/delete/reopen. Disable access and verify the open manager app loses financial screens.
+9. Switch to another shop: its register and opening cash are independent. Workers have no financial entry point and financial API requests are denied.
+
+New implementation files: `backend/app/financial_schemas.py`, `backend/app/routers/hishob.py`, `backend/tests/test_hishob.py`, and `mobile/src/financial/{types,money,components,screens}.*`. Existing database setup, app factory, shop policy/settings, navigation, Home/Account screens and browser tests are extended. Use the same run/test commands below; no new dependencies are required.
 
 ## Concurrent logins
 
@@ -262,8 +333,8 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 33 backend integration tests passed against MongoDB 7.0.2.
-- 7 Playwright browser tests cover the full owner/manager/worker flow and staff login eligibility.
+- 47 backend integration tests passed against MongoDB 7.0.2.
+- 8 Playwright browser tests cover Phase 1 plus the cash-register flow, financial corrections, closing snapshots, history and manager permissions.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.
 - iOS, Android, and web production JavaScript bundles exported successfully.

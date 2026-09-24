@@ -101,3 +101,5 @@ class ShopSettings(Input):
     manager_can_add_workers: bool = False
     manager_can_edit_workers: bool = False
     workers_can_view_attendance: bool = True
+    manager_can_access_hishob: bool = False
+    manager_can_close_hishob: bool = False

@@ -6,8 +6,15 @@ export type ShopSettings = {
   manager_can_add_workers: boolean;
   manager_can_edit_workers: boolean;
   workers_can_view_attendance: boolean;
+  manager_can_access_hishob: boolean;
+  manager_can_close_hishob: boolean;
 };
 export type Permissions = {
+  view_hishob: boolean;
+  add_hishob_transactions: boolean;
+  edit_hishob_transactions: boolean;
+  close_hishob: boolean;
+  reopen_hishob: boolean;
   manage_attendance: boolean;
   mark_own_attendance: boolean;
   add_workers: boolean;
@@ -97,6 +104,12 @@ export type TabRoutes = {
 };
 export type Routes = {
   MainTabs: undefined;
+  HishobToday: undefined;
+  HishobHistory: undefined;
+  HishobDetails: { dayId: string };
+  HishobTransaction: { dayId: string; entryId?: string };
+  HishobTransactions: { dayId: string };
+  HishobClose: { dayId: string };
   OwnerProfile: undefined;
   ChangeMobile: undefined;
   RoleSelection: undefined;

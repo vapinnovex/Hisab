@@ -207,6 +207,16 @@ export function OwnerDashboard() {
           }
         />
       </View>
+      {selected!.permissions.view_hishob && (
+        <Card>
+          <View style={styles.row}>
+            <Text style={styles.heading}>Your daily cash, made clear</Text>
+            <Ionicons name="wallet-outline" color={colors.green} size={24} />
+          </View>
+          <Text style={styles.small}>Record cash in and out. Count your galla. Close the day.</Text>
+          <Button title="Today’s Hishob" onPress={() => navigation.navigate('HishobToday')} />
+        </Card>
+      )}
       <View style={{ backgroundColor: colors.green, borderRadius: 26, padding: 22, gap: 20 }}>
         <View style={styles.row}>
           <View style={{ flex: 1, gap: 4 }}>

@@ -24,6 +24,8 @@ def get_db(request: Request):
 
 
 def create_indexes(db):
+    db.hishob_days.create_index([("shop_id", 1), ("date", 1)], unique=True)
+    db.hishob_days.create_index([("shop_id", 1), ("status", 1), ("date", -1)])
     db.users.create_index("mobile", unique=True)
     db.shops.create_index("created_by")
     db.memberships.create_index(

@@ -25,6 +25,15 @@ import { Profile, OwnerProfile, ChangeMobile } from './src/screens/AccountScreen
 import { Routes, TabRoutes } from './src/types';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
+import {
+  HishobToday,
+  HishobHistory,
+  HishobDetails,
+  HishobTransaction,
+  HishobTransactions,
+  HishobClose,
+} from './src/financial/screens';
+
 const Stack = createNativeStackNavigator<Routes>();
 const Tabs = createBottomTabNavigator<TabRoutes>();
 const tabIcons: Record<
@@ -177,6 +186,16 @@ function Navigation() {
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
             {session.role !== 'WORKER' && (
               <>
+                {selected.permissions.view_hishob && (
+                  <>
+                    <Stack.Screen name="HishobToday" component={HishobToday} />
+                    <Stack.Screen name="HishobHistory" component={HishobHistory} />
+                    <Stack.Screen name="HishobDetails" component={HishobDetails} />
+                    <Stack.Screen name="HishobTransaction" component={HishobTransaction} />
+                    <Stack.Screen name="HishobTransactions" component={HishobTransactions} />
+                    <Stack.Screen name="HishobClose" component={HishobClose} />
+                  </>
+                )}
                 <Stack.Screen
                   name="WorkerForm"
                   component={WorkerForm}

@@ -113,6 +113,14 @@ export function Profile() {
             <Text style={styles.small}>{selected?.shop.timezone}</Text>
           </View>
         </View>
+        {selected!.permissions.view_hishob && (
+          <AccountLink
+            title="Hishob history"
+            detail="Daily cash records and preserved closings"
+            icon="wallet-outline"
+            onPress={() => navigation.navigate('HishobHistory')}
+          />
+        )}
         {owner && (
           <>
             <AccountLink
