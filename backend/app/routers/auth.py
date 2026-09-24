@@ -11,6 +11,7 @@ from ..db import get_db, new_id, now, public
 from ..otp import code_hash
 from ..schemas import OTPRequest, OTPVerify
 from ..security import current_identity
+from ..sessions import legacy_session_ids, session_group, session_limit
 from ..shop_policy import permissions_for, shop_view
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -141,6 +142,22 @@ def create_session(request, db, user, role):
     session_id = new_id()
     timestamp = now()
     expiry = timestamp + timedelta(minutes=settings.jwt_expire_minutes)
+    group = session_group(role)
+    limit = session_limit(role)
+    legacy = legacy_session_ids(db, user, role) if group not in user.get("session_slots", {}) else []
+    known = user.get("session_slots", {}).get(group, legacy)
+    live = {
+        record["_id"]
+        for record in db.sessions.find(
+            {
+                "_id": {"$in": known},
+                "revoked": False,
+                "expires_at": {"$gt": timestamp},
+            },
+            {"_id": 1},
+        )
+    }
+    stale = [key for key in known if key not in live]
     db.sessions.insert_one(
         {
             "_id": session_id,
@@ -148,9 +165,51 @@ def create_session(request, db, user, role):
             "role": role,
             "auth_version": user.get("auth_version", 0),
             "revoked": False,
+            "created_at": timestamp,
+            "slot_managed": True,
             "expires_at": expiry,
         }
     )
+    # The bounded array is the authority. Concurrent verifications serialize on this
+    # single MongoDB document; cleanup order can never reactivate an evicted token.
+    field = f"session_slots.{group}"
+    previous = db.users.find_one_and_update(
+        {
+            "_id": user["_id"],
+            "$expr": {"$eq": [{"$ifNull": ["$auth_version", 0]}, user.get("auth_version", 0)]},
+        },
+        [
+            {
+                "$set": {
+                    field: {
+                        "$slice": [
+                            {
+                                "$concatArrays": [
+                                    {
+                                        "$filter": {
+                                            "input": {"$ifNull": [f"${field}", legacy]},
+                                            "as": "id",
+                                            "cond": {"$not": [{"$in": ["$$id", stale]}]},
+                                        }
+                                    },
+                                    [session_id],
+                                ]
+                            },
+                            -limit,
+                        ]
+                    }
+                }
+            }
+        ],
+        return_document=ReturnDocument.BEFORE,
+    )
+    if previous is None:
+        db.sessions.update_one({"_id": session_id}, {"$set": {"revoked": True}})
+        raise HTTPException(401, "Your account changed. Please log in again.")
+    old_ids = [key for key in previous.get("session_slots", {}).get(group, legacy) if key not in stale]
+    evicted = old_ids[: max(0, len(old_ids) + 1 - limit)]
+    if evicted:
+        db.sessions.update_many({"_id": {"$in": evicted}}, {"$set": {"revoked": True}})
     token = jwt.encode(
         {
             "sub": user["_id"],
@@ -216,9 +275,17 @@ def me(identity=Depends(current_identity), db=Depends(get_db)):
                     "worker_name": profile["name"] if profile else membership.get("name"),
                 }
             )
-    return {"user": public(identity.user), "role": identity.role, "memberships": memberships}
+    return {
+        "user": public({key: value for key, value in identity.user.items() if key != "session_slots"}),
+        "role": identity.role,
+        "memberships": memberships,
+    }
 
 
 @router.post("/logout", status_code=204)
 def logout(identity=Depends(current_identity), db=Depends(get_db)):
     db.sessions.update_one({"_id": identity.session_id}, {"$set": {"revoked": True}})
+    db.users.update_one(
+        {"_id": identity.user["_id"]},
+        {"$pull": {f"session_slots.{session_group(identity.role)}": identity.session_id}},
+    )

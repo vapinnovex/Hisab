@@ -46,3 +46,4 @@ def create_indexes(db):
     db.otp_challenges.create_index("expires_at", expireAfterSeconds=0)
     db.otp_limits.create_index("expires_at", expireAfterSeconds=0)
     db.sessions.create_index("expires_at", expireAfterSeconds=0)
+    db.sessions.create_index([("user_id", 1), ("role", 1), ("revoked", 1), ("expires_at", -1)])

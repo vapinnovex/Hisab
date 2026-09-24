@@ -5,6 +5,7 @@ from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .db import get_db, now
+from .sessions import legacy_session_ids, session_group
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -49,6 +50,13 @@ def current_identity(
         raise unauthorized
     if session.get("auth_version", 0) != user.get("auth_version", 0):
         raise unauthorized
+    slots = user.get("session_slots", {}).get(session_group(claims["portal"]))
+    if slots is None:
+        slots = legacy_session_ids(db, user, claims["portal"])
+    if claims["jti"] not in slots:
+        raise HTTPException(
+            401, "You were signed out because this account was used on another device. Please log in again."
+        )
     return Identity(user, claims["portal"], claims["jti"])
 
 

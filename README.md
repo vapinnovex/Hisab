@@ -92,6 +92,12 @@ The supplied Hishob logo appears on the welcome screen, navigation headers, acco
 
 The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
 
+## Concurrent logins
+
+Workers and managers share **one active staff session per account**, across all shops. A successful new OTP verification replaces their previous staff session. Owners may keep **three active Owner sessions**; the fourth successful login replaces the oldest. The limits are separate by login portal group, so an Owner session never grants worker/manager permissions. Requests for OTP and failed verification do not log anyone out.
+
+Session limits are enforced by an atomic, bounded allowlist on the User document, including concurrent verifications. Every protected API checks the allowlist. A displaced app returns to login on its next request, normally within five seconds while open, or when resumed. Explicit logout and expiry free their slots. Legacy sessions are checked against the same limits and carried forward when a new login initializes the allowlist. No environment changes are needed.
+
 ## Owner account details
 
 New owners enter their name when setting up their first shop. Existing owners can use **Account → Add your name**; saved names can be updated through **Edit your name**. Names belong to the global User identity, while staff names remain membership/profile-specific.
@@ -256,7 +262,7 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 25 backend integration tests passed against MongoDB 7.0.2.
+- 33 backend integration tests passed against MongoDB 7.0.2.
 - 7 Playwright browser tests cover the full owner/manager/worker flow and staff login eligibility.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.

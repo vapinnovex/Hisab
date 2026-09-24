@@ -19,7 +19,7 @@ def update_profile(body: OwnerProfileUpdate, identity=Depends(require_owner), db
         {"$set": {"name": body.name, "updated_at": now()}},
         return_document=ReturnDocument.AFTER,
     )
-    return public(user)
+    return public({key: value for key, value in user.items() if key != "session_slots"})
 
 
 def scope(identity):

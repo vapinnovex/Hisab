@@ -158,11 +158,18 @@ test('owner-managed attendance, manager permissions, and worker monthly calendar
     .click();
   await owner.getByRole('button', { name: 'Save shop settings', exact: true }).click();
   await expect(worker.getByRole('button', { name: /^\d{4}-\d{2}-\d{2}, Half day$/ })).toBeVisible();
-  await tab(worker, 'Account');
-  await worker.getByRole('button', { name: 'Sign out', exact: true }).click();
+  const replacementWorker = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await login(replacementWorker, 'Worker', '+9197' + suffix);
+  await expect(replacementWorker.getByText('Hello, Asha', { exact: true })).toBeVisible();
   await expect(
     worker.getByRole('button', { name: 'Continue as Worker', exact: true }),
   ).toBeVisible();
+  await tab(replacementWorker, 'Account');
+  await replacementWorker.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(
+    replacementWorker.getByRole('button', { name: 'Continue as Worker', exact: true }),
+  ).toBeVisible();
+  await replacementWorker.close();
   expect(errors).toEqual([]);
   await owner.close();
   await manager.close();
