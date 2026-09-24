@@ -1,8 +1,10 @@
 """Daily cash book: entries, totals, audit and snapshots commit as one Mongo document."""
 
+import re
 from copy import deepcopy
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal, Optional
 from zoneinfo import ZoneInfo
 
 from bson import BSON
@@ -17,6 +19,7 @@ from ..financial_schemas import (
     ReasonInput,
     TransactionCreate,
     TransactionEdit,
+    TransactionType,
 )
 from ..security import current_identity, shop_access
 from ..shop_policy import permissions_for, require_permission
@@ -236,6 +239,105 @@ def list_days(
         {"transactions": 0, "audit": 0, "closing_snapshots": 0},
     ).sort("date", -1)
     return [serialize(day) for day in records]
+
+
+@router.get("/transactions")
+def search_transactions(
+    shop_id: str,
+    q: str = Query(default="", max_length=100),
+    transaction_type: Optional[TransactionType] = Query(default=None, alias="type"),
+    from_date: Optional[date] = Query(default=None),
+    to_date: Optional[date] = Query(default=None),
+    entry_status: Literal["ACTIVE", "ALL", "DELETED"] = Query(default="ACTIVE"),
+    page: int = Query(default=1, ge=1, le=10000),
+    page_size: int = Query(default=30, ge=1, le=100),
+    identity=Depends(current_identity),
+    db=Depends(get_db),
+):
+    access(db, shop_id, identity)
+    if (from_date is None) != (to_date is None):
+        raise HTTPException(422, "Choose both a start and end date, or search all dates.")
+    match = {"shop_id": shop_id}
+    if from_date is not None:
+        if from_date > to_date or (to_date - from_date).days > 366:
+            raise HTTPException(422, "Choose a date range of at most 366 days.")
+        match["date"] = {"$gte": str(from_date), "$lte": str(to_date)}
+    entries = {}
+    if entry_status != "ALL":
+        entries["transactions.deleted"] = entry_status == "DELETED"
+    if transaction_type:
+        entries["transactions.type"] = transaction_type.value
+    if q.strip():
+        # A literal substring search: user input can never become a regex expression.
+        entries["$or"] = [
+            {f"transactions.{field}": {"$regex": re.escape(q.strip()), "$options": "i"}}
+            for field in ["description", "category", "created_by.name"]
+        ]
+    incoming = {"$in": ["$transactions.type", ["CASH_SALE", "OTHER_CASH_IN"]]}
+    active = {"$eq": ["$transactions.deleted", False]}
+    result = next(
+        db.hishob_days.aggregate(
+            [
+                # Reuses the shop/date index; excludes audit and snapshots before unwinding.
+                {"$match": match},
+                {"$project": {"date": 1, "status": 1, "transactions": 1}},
+                {"$unwind": "$transactions"},
+                {"$match": entries},
+                {"$sort": {"date": -1, "transactions.created_at": -1, "transactions.id": -1}},
+                {
+                    "$facet": {
+                        "items": [
+                            {"$skip": (page - 1) * page_size},
+                            {"$limit": page_size},
+                            {
+                                "$project": {
+                                    "_id": 0,
+                                    "day_id": "$_id",
+                                    "date": 1,
+                                    "day_status": "$status",
+                                    "entry": "$transactions",
+                                }
+                            },
+                        ],
+                        "summary": [
+                            {
+                                "$group": {
+                                    "_id": None,
+                                    "total": {"$sum": 1},
+                                    "cash_in": {
+                                        "$sum": {
+                                            "$cond": [{"$and": [active, incoming]}, "$transactions.amount", 0]
+                                        }
+                                    },
+                                    "cash_out": {
+                                        "$sum": {
+                                            "$cond": [
+                                                {"$and": [active, {"$not": [incoming]}]},
+                                                "$transactions.amount",
+                                                0,
+                                            ]
+                                        }
+                                    },
+                                }
+                            }
+                        ],
+                    }
+                },
+            ],
+            allowDiskUse=True,
+            maxTimeMS=10000,
+        )
+    )
+    summary = result["summary"][0] if result["summary"] else {"total": 0, "cash_in": 0, "cash_out": 0}
+    return {
+        "items": serialize(result["items"]),
+        "total": summary["total"],
+        "cash_in": serialize(summary["cash_in"], "amount"),
+        "cash_out": serialize(summary["cash_out"], "amount"),
+        "page": page,
+        "page_size": page_size,
+        "has_more": page * page_size < summary["total"],
+    }
 
 
 @router.get("/days/{day_id}")

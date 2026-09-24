@@ -1,8 +1,9 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Platform, ScrollView, Text, View } from 'react-native';
+import { FilterChips } from '../components/ListControls';
 import { Card, colors, Field, styles } from '../components/ui';
-import { money } from './money';
-import { Totals, transactionTypes } from './types';
+import { editMoneyInput, formatMoneyInput, money } from './money';
+import { Totals, TransactionType, transactionTypes } from './types';
 
 export function MoneyField({
   label,
@@ -13,14 +14,40 @@ export function MoneyField({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const caret = useRef({ start: 0, end: 0 });
+  const [selection, setSelection] = useState<{ start: number; end: number }>();
   return (
     <Field
       label={label}
-      value={value}
-      onChangeText={onChange}
+      value={formatMoneyInput(value)}
+      selection={selection}
+      onSelectionChange={(event) => {
+        caret.current = event.nativeEvent.selection;
+      }}
+      onChange={(event) => {
+        // Web exposes the caret after paste/replacement directly on the input event.
+        const nativeCaret =
+          Platform.OS === 'web'
+            ? (event.target as unknown as { selectionStart: number }).selectionStart
+            : undefined;
+        const next = editMoneyInput(
+          value,
+          event.nativeEvent.text,
+          caret.current.start,
+          caret.current.end,
+          nativeCaret,
+        );
+        if (next) {
+          onChange(next.value);
+          setSelection({ start: next.position, end: next.position });
+        } else {
+          setSelection({ ...caret.current });
+        }
+      }}
       keyboardType="decimal-pad"
+      autoCorrect={false}
       placeholder="0.00"
-      maxLength={12}
+      style={[styles.input, { fontSize: 24, fontWeight: '600', fontVariant: ['tabular-nums'] }]}
     />
   );
 }
@@ -82,4 +109,30 @@ export function timestamp(value: string, zone: string) {
     timeStyle: 'short',
     timeZone: zone,
   }).format(new Date(value));
+}
+
+export function TransactionTypeFilter({
+  value,
+  onChange,
+}: {
+  value: TransactionType | 'ALL';
+  onChange: (value: TransactionType | 'ALL') => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingVertical: 2 }}
+    >
+      <FilterChips
+        label="Filter transaction type"
+        value={value}
+        onChange={onChange}
+        options={[
+          { value: 'ALL', label: 'All types' },
+          ...transactionTypes.map((item) => ({ value: item.type, label: item.label })),
+        ]}
+      />
+    </ScrollView>
+  );
 }

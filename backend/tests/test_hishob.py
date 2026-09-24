@@ -148,7 +148,7 @@ def test_permissions_isolation_and_live_revocation(client, setup_shop):
     day = create(client, setup_shop)
     url = base + f"/days/{day['id']}"
     for actor in [worker, manager]:
-        for suffix in ["/today", f"/days/{day['id']}"]:
+        for suffix in ["/today", "/transactions", f"/days/{day['id']}"]:
             assert client.get(base + suffix, headers=actor).status_code == 403
     settings_url = f"/api/shops/{shop}/settings"
     settings = client.get(settings_url, headers=owner).json()
@@ -156,6 +156,8 @@ def test_permissions_isolation_and_live_revocation(client, setup_shop):
     client.put(settings_url, headers=owner, json=settings)
     day = add(client, base, manager, day, "CASH_SALE", "100")
     assert day["transactions"][0]["created_by"]["name"] == "Ravi"
+    found = client.get(base + "/transactions", headers=manager, params={"q": "ravi"})
+    assert found.status_code == 200 and found.json()["total"] == 1
     assert (
         client.post(
             url + "/close", headers=manager, json={"revision": day["revision"], "actual_closing_cash": "100"}
@@ -185,9 +187,14 @@ def test_permissions_isolation_and_live_revocation(client, setup_shop):
     second = client.post("/api/shops", headers=owner, json={"name": "Second"}).json()["id"]
     assert client.get(f"/api/shops/{second}/hishob/days/{day['id']}", headers=owner).status_code == 404
     assert client.get(f"/api/shops/{second}/hishob/today", headers=manager).status_code == 403
+    assert client.get(f"/api/shops/{second}/hishob/transactions", headers=owner).json()["total"] == 0
+    assert client.get(f"/api/shops/{second}/hishob/transactions", headers=manager).status_code == 403
+    stranger = login(client, "+919876543219")
+    assert client.get(base + "/transactions", headers=stranger).status_code == 403
     settings["manager_can_access_hishob"] = False
     client.put(settings_url, headers=owner, json=settings)
     assert client.get(url, headers=manager).status_code == 403
+    assert client.get(base + "/transactions", headers=manager).status_code == 403
     assert (
         client.get(
             base + "/days", headers=worker, params={"from_date": day["date"], "to_date": day["date"]}
@@ -334,3 +341,87 @@ def test_negative_expected_allowed_but_zero_or_forged_transaction_totals_rejecte
         },
     ).json()
     assert result["difference"] == "0.30"
+
+
+def test_transaction_search_filters_pagination_totals_and_literal_text(client, setup_shop, monkeypatch):
+    owner = setup_shop[0]
+    base = root(setup_shop)
+    day = add(client, base, owner, create(client, setup_shop), "EXPENSE", "1.10")
+    first_id = day["transactions"][0]["id"]
+    day = client.patch(
+        base + f"/days/{day['id']}/transactions/{first_id}",
+        headers=owner,
+        json={
+            "revision": day["revision"],
+            "type": "EXPENSE",
+            "amount": "1.10",
+            "description": "Tea [urgent]",
+            "category": "Staff refreshments",
+            "reason": "Description",
+        },
+    ).json()
+    day = add(client, base, owner, day, "CASH_SALE", "10.00")
+    day = add(client, base, owner, day, "EXPENSE", "2.20")
+    deleted_id = day["transactions"][-1]["id"]
+    day = client.post(
+        base + f"/days/{day['id']}/transactions/{deleted_id}/delete",
+        headers=owner,
+        json={"revision": day["revision"], "reason": "Duplicate"},
+    ).json()
+    closed = client.post(
+        base + f"/days/{day['id']}/close",
+        headers=owner,
+        json={"revision": day["revision"], "actual_closing_cash": "8.90"},
+    )
+    assert closed.status_code == 200
+    tomorrow = datetime.fromisoformat(day["date"] + "T12:00:00+00:00") + timedelta(days=1)
+    monkeypatch.setattr(hishob, "now", lambda: tomorrow)
+    next_day = client.post(base + "/days", headers=owner, json={}).json()
+    next_day = add(client, base, owner, next_day, "EXPENSE", "3.40")
+    add(client, base, owner, next_day, "BANK_DEPOSIT", "5.00")
+
+    def search(**params):
+        response = client.get(base + "/transactions", headers=owner, params=params)
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    first = search(page_size=2)
+    assert first["total"] == 4 and first["has_more"] is True
+    assert first["cash_in"] == "10.00" and first["cash_out"] == "9.50"
+    assert all(item["date"] == next_day["date"] for item in first["items"])
+    second = search(page_size=2, page=2)
+    assert second["has_more"] is False
+    assert len({(item["day_id"], item["entry"]["id"]) for item in first["items"] + second["items"]}) == 4
+    assert all(item["day_status"] == "CLOSED" for item in second["items"])
+    assert search(page=99)["items"] == []
+    assert search(type="EXPENSE")["total"] == 2
+    assert search(type="EXPENSE")["cash_out"] == "4.50"
+    assert search(q="  TEA  ")["items"][0]["entry"]["id"] == first_id
+    assert search(q="refreshments")["total"] == 1
+    assert search(q="[urgent]")["total"] == 1
+    assert search(q=".*")["total"] == 0
+    assert search(from_date=day["date"], to_date=day["date"])["total"] == 2
+    assert search(entry_status="ALL")["total"] == 5
+    assert search(entry_status="ALL")["cash_out"] == "9.50"
+    deleted = search(entry_status="DELETED")
+    assert deleted["items"][0]["entry"]["id"] == deleted_id
+    assert deleted["cash_out"] == "0.00"
+    assert all("audit" not in item and "transactions" not in item for item in first["items"])
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"page": 0},
+        {"page_size": 101},
+        {"q": "x" * 101},
+        {"type": "INVALID"},
+        {"entry_status": "INVALID"},
+        {"from_date": "2026-01-01"},
+        {"from_date": "2026-02-01", "to_date": "2026-01-01"},
+        {"from_date": "2024-01-01", "to_date": "2026-01-01"},
+    ],
+)
+def test_transaction_search_validates_filters(client, setup_shop, params):
+    response = client.get(root(setup_shop) + "/transactions", headers=setup_shop[0], params=params)
+    assert response.status_code == 422

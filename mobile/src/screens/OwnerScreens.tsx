@@ -23,6 +23,7 @@ import {
 import { useAction, useResource } from '../hooks';
 import { OwnerToday, Routes, Shop, Status, Worker } from '../types';
 import { FilterChips, matchesPerson, SearchField } from '../components/ListControls';
+import { PhoneField } from '../components/PhoneField';
 
 export function ShopSetup() {
   const { api, reload, selected, signOut, session } = useAuth();
@@ -214,7 +215,10 @@ export function OwnerDashboard() {
             <Ionicons name="wallet-outline" color={colors.green} size={24} />
           </View>
           <Text style={styles.small}>Record cash in and out. Count your galla. Close the day.</Text>
-          <Button title="Today’s Hishob" onPress={() => navigation.navigate('HishobToday')} />
+          <Button
+            title="Today’s Hishob"
+            onPress={() => navigation.navigate('Hishob', { screen: 'HishobToday' })}
+          />
         </Card>
       )}
       <View style={{ backgroundColor: colors.green, borderRadius: 26, padding: 22, gap: 20 }}>
@@ -483,14 +487,7 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
         placeholder="Full name"
         maxLength={100}
       />
-      <Field
-        label="Mobile number"
-        value={mobile}
-        onChangeText={setMobile}
-        keyboardType="phone-pad"
-        autoComplete="tel"
-        maxLength={20}
-      />
+      <PhoneField value={mobile} onChange={setMobile} helperText="Used for their OTP login" />
       {worker && (
         <Card>
           <View style={styles.row}>

@@ -113,12 +113,22 @@ export function Profile() {
             <Text style={styles.small}>{selected?.shop.timezone}</Text>
           </View>
         </View>
+        {session!.role === 'MANAGER' && (
+          <AccountLink
+            title="My attendance"
+            detail="Your workday and monthly attendance"
+            icon="checkmark-circle-outline"
+            onPress={() => navigation.navigate('MyAttendance')}
+          />
+        )}
         {selected!.permissions.view_hishob && (
           <AccountLink
             title="Hishob history"
             detail="Daily cash records and preserved closings"
             icon="wallet-outline"
-            onPress={() => navigation.navigate('HishobHistory')}
+            onPress={() =>
+              navigation.navigate('Hishob', { screen: 'HishobHistory', initial: false })
+            }
           />
         )}
         {owner && (

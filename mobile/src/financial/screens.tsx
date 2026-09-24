@@ -6,7 +6,6 @@ import { useAction, useResource } from '../hooks';
 import {
   Button,
   Card,
-  colors,
   EmptyState,
   ErrorText,
   Field,
@@ -14,13 +13,13 @@ import {
   Loading,
   Page,
   styles,
-  monthInZone,
 } from '../components/ui';
-import { FilterChips } from '../components/ListControls';
+import { FilterChips, SearchField } from '../components/ListControls';
 import { Routes } from '../types';
-import { Breakdown, Galla, MoneyField, timestamp } from './components';
+import { Breakdown, Galla, MoneyField, timestamp, TransactionTypeFilter } from './components';
 import { decimal, money, parseMoney, signedPaise } from './money';
 import { Day, Entry, TodayHishob, TransactionType, transactionTypes } from './types';
+export { HishobHistory } from './history';
 
 function NewDay({ initial, refresh }: { initial: TodayHishob; refresh: () => Promise<void> }) {
   const { api, selected } = useAuth();
@@ -80,11 +79,24 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
         title="Today’s Hishob"
         subtitle={`${selected!.shop.name} · ${resource.data?.date || 'Your daily cash register'}`}
       />
-      <Button
-        title="Hishob history"
-        secondary
-        onPress={() => navigation.navigate('HishobHistory')}
-      />
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Search"
+            accessibilityLabel="Search transactions"
+            secondary
+            onPress={() => navigation.navigate('HishobSearch')}
+          />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button
+            title="Calendar"
+            accessibilityLabel="Hishob history"
+            secondary
+            onPress={() => navigation.navigate('HishobHistory')}
+          />
+        </View>
+      </View>
       <ErrorText message={resource.error} />
       {resource.loading && <Loading />}
       {resource.data && !day && (
@@ -245,7 +257,17 @@ export function HishobTransaction({
   );
 }
 
-function EntryCard({ entry, zone, edit }: { entry: Entry; zone: string; edit?: () => void }) {
+export function EntryCard({
+  entry,
+  zone,
+  edit,
+  footer,
+}: {
+  entry: Entry;
+  zone: string;
+  edit?: () => void;
+  footer?: React.ReactNode;
+}) {
   return (
     <Card>
       <View style={styles.row}>
@@ -267,6 +289,7 @@ function EntryCard({ entry, zone, edit }: { entry: Entry; zone: string; edit?: (
       )}
       {entry.deleted_by && <Text style={styles.small}>Deleted by {entry.deleted_by.name}</Text>}
       {edit && <Button title={`Edit · ${entry.description}`} secondary onPress={edit} />}
+      {footer}
     </Card>
   );
 }
@@ -280,16 +303,37 @@ export function HishobTransactions({
     true,
   );
   const [filter, setFilter] = useState<'ACTIVE' | 'ALL'>('ACTIVE');
+  const [query, setQuery] = useState('');
+  const [type, setType] = useState<TransactionType | 'ALL'>('ALL');
   const [deleting, setDeleting] = useState<{ entry: Entry; revision: number } | null>(null);
   const [reason, setReason] = useState('');
   const action = useAction();
   const editable =
     selected!.permissions.edit_hishob_transactions && resource.data?.status === 'OPEN';
   const entries =
-    resource.data?.transactions.filter((entry) => filter === 'ALL' || !entry.deleted) || [];
+    resource.data?.transactions.filter(
+      (entry) =>
+        (filter === 'ALL' || !entry.deleted) &&
+        (type === 'ALL' || entry.type === type) &&
+        [entry.description, entry.category, entry.created_by.name].some((text) =>
+          text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+        ),
+    ) || [];
   return (
     <Page refresh={resource.refresh}>
       <Heading title="Transactions" subtitle={resource.data?.date} />
+      <SearchField
+        label="Search this day’s transactions"
+        placeholder="Description, category or recorded by"
+        value={query}
+        onChange={setQuery}
+      />
+      <TransactionTypeFilter value={type} onChange={setType} />
+      <Button
+        title="Search across all dates"
+        secondary
+        onPress={() => navigation.navigate('HishobSearch')}
+      />
       {resource.data?.status === 'OPEN' && (
         <Button
           title="Add transaction"
@@ -342,8 +386,12 @@ export function HishobTransactions({
       )}
       {resource.data && entries.length === 0 && (
         <EmptyState
-          title="No entries yet"
-          description="Add a sale, expense or another cash movement."
+          title={query || type !== 'ALL' ? 'No matching transactions' : 'No entries yet'}
+          description={
+            query || type !== 'ALL'
+              ? 'Try another search or transaction type.'
+              : 'Add a sale, expense or another cash movement.'
+          }
         />
       )}
       {entries.map((entry) => (
@@ -471,90 +519,6 @@ export function HishobClose({ route, navigation }: NativeStackScreenProps<Routes
           done={() => navigation.replace('HishobDetails', { dayId: route.params.dayId })}
         />
       )}
-    </Page>
-  );
-}
-
-export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'HishobHistory'>) {
-  const { selected } = useAuth();
-  const month = monthInZone(selected!.shop.timezone);
-  const [from, setFrom] = useState(month + '-01');
-  const [to, setTo] = useState(
-    month + '-' + new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate(),
-  );
-  const [range, setRange] = useState({ from, to });
-  const [status, setStatus] = useState<'ALL' | 'OPEN' | 'CLOSED'>('ALL');
-  const resource = useResource<Day[]>(
-    `/shops/${selected!.shop_id}/hishob/days?from_date=${encodeURIComponent(range.from)}&to_date=${encodeURIComponent(range.to)}`,
-    true,
-  );
-  const days = resource.data?.filter((day) => status === 'ALL' || day.status === status);
-  return (
-    <Page refresh={resource.refresh}>
-      <Heading title="Hishob history" subtitle={selected!.shop.name} />
-      <Card>
-        <Field
-          label="From date"
-          value={from}
-          onChangeText={setFrom}
-          placeholder="YYYY-MM-DD"
-          maxLength={10}
-        />
-        <Field
-          label="To date"
-          value={to}
-          onChangeText={setTo}
-          placeholder="YYYY-MM-DD"
-          maxLength={10}
-        />
-        <Button
-          title="Apply dates"
-          disabled={!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)}
-          onPress={() => setRange({ from, to })}
-        />
-      </Card>
-      <FilterChips
-        label="Hishob status"
-        value={status}
-        onChange={setStatus}
-        options={[
-          { value: 'ALL', label: 'All days' },
-          { value: 'OPEN', label: 'Open' },
-          { value: 'CLOSED', label: 'Closed' },
-        ]}
-      />
-      <ErrorText message={resource.error} />
-      {resource.loading && <Loading />}
-      {days?.length === 0 && (
-        <EmptyState
-          title="No Hishob days found"
-          description="Try another date range, or start today’s Hishob."
-        />
-      )}
-      {days?.map((day) => (
-        <Card key={day.id}>
-          <View style={styles.row}>
-            <Text style={styles.heading}>{day.date}</Text>
-            <Text style={styles.eyebrow}>{day.status}</Text>
-          </View>
-          <Text style={styles.small}>
-            Expected {money(day.expected_closing_cash)} · Actual {money(day.actual_closing_cash)}
-          </Text>
-          <Text
-            style={[
-              styles.heading,
-              { color: day.difference?.startsWith('-') ? colors.red : colors.green },
-            ]}
-          >
-            Difference {money(day.difference, true)}
-          </Text>
-          <Button
-            title={`Open Hishob · ${day.date}`}
-            secondary
-            onPress={() => navigation.navigate('HishobDetails', { dayId: day.id })}
-          />
-        </Card>
-      ))}
     </Page>
   );
 }

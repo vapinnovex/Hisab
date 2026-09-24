@@ -20,10 +20,12 @@ export function PhoneField({
   value,
   onChange,
   label = 'Mobile number',
+  helperText = 'We’ll send your OTP to this number',
 }: {
   value: string;
   onChange: (value: string) => void;
   label?: string;
+  helperText?: string;
 }) {
   const [focused, setFocused] = useState(false);
   const [preferred, setPreferred] = useState(india);
@@ -107,7 +109,9 @@ export function PhoneField({
           }}
         />
       </View>
-      <Text style={styles.small}>{country.name} · We’ll send your OTP to this number</Text>
+      <Text style={styles.small}>
+        {country.name} · {helperText}
+      </Text>
       {open && (
         <Modal transparent visible animationType="fade" onRequestClose={() => setOpen(false)}>
           <View

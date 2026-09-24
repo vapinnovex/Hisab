@@ -78,8 +78,8 @@ Workers never mark or edit attendance. The self-check-in/out endpoints accept on
 
 Bottom navigation follows each role:
 
-- **Owner:** Home, Register, Team, Account. Team lists workers and managers together; manage managers from Team or Account. Shop settings are available from Home or Account.
-- **Manager:** Home, Register, My day, Team, Account. My day combines personal attendance actions and the monthly calendar.
+- **Owner:** Home, Register, Hishob, Team, Account. Team lists workers and managers together; manage managers from Team or Account. Shop settings are available from Home or Account.
+- **Manager:** Home, Register, My day, Team, Account. With financial access, Hishob replaces My day in the tab bar; personal attendance actions and the monthly calendar stay available from Home and Account.
 - **Worker:** Home, Attendance, Account. Attendance remains read-only.
 
 When you belong to more than one shop, the top-right header shows the current shop with a dropdown arrow. Tap it to open the shop picker. Selecting a shop resets navigation and filters to that shop; the picker is hidden for single-shop accounts.
@@ -90,11 +90,23 @@ When you belong to more than one shop, the top-right header shows the current sh
 
 The supplied Hishob logo appears on the welcome screen, navigation headers, account screen, app icon, splash screen, and web favicon. Green, cream, and gold styling follows the logo. Native icons, splash screens, and the installed display name require a new native build; Expo Go does not represent the final standalone branding. Internal bundle/package IDs, token storage keys, JWT identifiers, and the database name retain their existing values to preserve compatibility. No environment-variable changes are required.
 
-The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
+The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number and when adding or editing workers and managers. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
 
 ## Phase 2 — Daily Hishob
 
-Open **Home → Today’s Hishob**. Financial history is also available in **Account → Hishob history**. Existing role tabs, attendance, shop switching and session limits remain in place.
+Open the **Hishob** bottom tab for today’s cash register, transaction search and the monthly calendar. Home and Account shortcuts also open this tab. It is visible to owners and managers with financial access; workers cannot access it. For managers with financial access, personal attendance is available from Home and Account, keeping the bottom bar to five tabs.
+
+Amount fields show Indian comma grouping as you type (for example `1,25,000.50`), including opening cash, transactions, corrections and closing cash. API values remain plain decimal strings.
+
+**Hishob history** opens as a monthly calendar. Tap a date for its cash summary, then open the full day. Gold marks open days, green marks closed days, and a red dot flags a closing cash difference. Month arrows, status counts and a current-month shortcut help with reviews; **Date range** retains the custom-range list. Dates follow the shop timezone, and missing days remain “Not started” rather than being treated as zero cash.
+
+Main app detail pages retain the bottom tabs, including Hishob, team forms, attendance history, account changes and shop settings. Switching tabs preserves your place and unsaved form fields; tapping the active tab again returns to its main page. Login and first-shop onboarding remain outside the tabs.
+
+### Finding transactions
+
+Open **Hishob → Search transactions**. Search descriptions, categories or the person who recorded the entry. Filter by cash sales, other cash in, expenses, supplier payments, bank deposits or withdrawals. Search defaults to all dates; choose Today, This month or a custom date range. Each result opens its original day for details and permitted corrections. Individual day transaction lists also support text and type filters.
+
+Results show matching counts and separate cash-in/cash-out totals across all matching active entries, with 30 results per page. **More filters** can include deleted entries or show only deleted entries; these never contribute to the totals. Search is case-insensitive literal text (up to 100 characters). The backend validates the shop membership and financial permission on every request, and uses the existing shop/date index before searching embedded transactions. No database migration or new environment variables are required.
 
 ### Daily calculation
 
@@ -136,6 +148,7 @@ Prefix every path below with `/api/shops/{shop_id}/hishob`. All routes require a
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/transactions?q=tea&type=EXPENSE` | Search entries; optional `from_date` + `to_date`, `entry_status=ACTIVE/ALL/DELETED`, `page`, `page_size` (1–100); returns items, count and active cash-in/out totals |
 | GET | `/today` | Today's record, date/timezone, suggested opening and permissions |
 | POST | `/days` | Create day; `{opening_cash?, date?, reason?}` |
 | GET | `/days?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD` | Date-filtered summaries |
@@ -155,13 +168,13 @@ The existing `/settings` and `/auth/me` responses include the two new shop setti
 2. Enter opening cash **0** and start the day.
 3. Add **Cash sales ₹15,000**, **Expense ₹500** (Transport), and **Bank deposit ₹2,000**. Expected Galla is **₹12,500**.
 4. Open **Close day**, enter **₹12,300** actual cash. Difference is **-₹200**. Choose **Cash shortage**, then close.
-5. Open **Hishob history**, filter the date range/status, and open the day. Review its entries, creator names, audit and preserved closing.
+5. Open **Hishob history**, tap the date in the calendar, and open the day. Try month navigation, status counts and the **Date range** list. Review its entries, creator names, audit and preserved closing.
 6. Reopen with a reason, correct an entry or soft-delete a duplicate, then close again. Both closing snapshots remain available.
 7. On the next local business date, start the new day. Opening defaults to the last closed day's **actual** cash. Override only with a reason. Automated API tests advance the clock to verify this without waiting a real day.
 8. Add a manager. Initially Hishob is unavailable. Enable financial access: they can view/add but cannot close. Enable closing separately and verify they can close but cannot edit/delete/reopen. Disable access and verify the open manager app loses financial screens.
 9. Switch to another shop: its register and opening cash are independent. Workers have no financial entry point and financial API requests are denied.
 
-New implementation files: `backend/app/financial_schemas.py`, `backend/app/routers/hishob.py`, `backend/tests/test_hishob.py`, and `mobile/src/financial/{types,money,components,screens}.*`. Existing database setup, app factory, shop policy/settings, navigation, Home/Account screens and browser tests are extended. Use the same run/test commands below; no new dependencies are required.
+New implementation files: `backend/app/financial_schemas.py`, `backend/app/routers/hishob.py`, `backend/tests/test_hishob.py`, and `mobile/src/financial/{types,money,components,screens,history,calendar,search}.*`. Existing database setup, app factory, shop policy/settings, navigation, Home/Account screens and browser tests are extended. Use the same run/test commands below; no new dependencies are required.
 
 ## Concurrent logins
 

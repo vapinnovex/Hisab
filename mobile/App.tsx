@@ -34,27 +34,141 @@ import {
   HishobClose,
 } from './src/financial/screens';
 
+import { HishobSearch } from './src/financial/search';
+
 const Stack = createNativeStackNavigator<Routes>();
 const Tabs = createBottomTabNavigator<TabRoutes>();
 const tabIcons: Record<
   keyof TabRoutes,
   [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]
 > = {
+  Hishob: ['wallet', 'wallet-outline'],
   Dashboard: ['home', 'home-outline'],
   TodayAttendance: ['calendar', 'calendar-outline'],
   Workers: ['people', 'people-outline'],
   MyAttendance: ['checkmark-circle', 'checkmark-circle-outline'],
   Profile: ['person-circle', 'person-circle-outline'],
 };
+// Each tab owns a stack so detail pages keep the main navigation available.
+function SectionStack({ root }: { root: keyof TabRoutes }) {
+  const { session, selected } = useAuth();
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShadowVisible: false,
+        headerTitle: () => <BrandMark size={34} />,
+        headerBackButtonDisplayMode: 'minimal',
+        headerTintColor: colors.green,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
+      {root === 'Dashboard' && (
+        <Stack.Screen
+          name="DashboardRoot"
+          component={session!.role === 'WORKER' ? WorkerDashboard : OwnerDashboard}
+          options={{ header: () => <AppHeader /> }}
+        />
+      )}
+      {root === 'TodayAttendance' && (
+        <Stack.Screen
+          name="TodayAttendanceRoot"
+          component={TodayAttendance}
+          options={{ header: () => <AppHeader /> }}
+        />
+      )}
+      {root === 'Workers' && (
+        <Stack.Screen
+          name="WorkersRoot"
+          component={WorkersScreen}
+          options={{ header: () => <AppHeader /> }}
+        />
+      )}
+      {root === 'MyAttendance' && (
+        <Stack.Screen
+          name="MyAttendanceRoot"
+          component={MyAttendance}
+          options={{ header: () => <AppHeader /> }}
+        />
+      )}
+      {root === 'Profile' && (
+        <Stack.Screen
+          name="ProfileRoot"
+          component={Profile}
+          options={{ header: () => <AppHeader /> }}
+        />
+      )}
+      {session!.role === 'MANAGER' && selected!.permissions.view_hishob && root !== 'Hishob' && (
+        <Stack.Screen name="MyAttendance" component={MyAttendance} />
+      )}
+      {session!.role !== 'WORKER' && (
+        <>
+          {root === 'Hishob' && selected!.permissions.view_hishob && (
+            <>
+              <Stack.Screen
+                name="HishobToday"
+                component={HishobToday}
+                options={{ header: () => <AppHeader /> }}
+              />
+              <Stack.Screen name="HishobSearch" component={HishobSearch} />
+              <Stack.Screen name="HishobHistory" component={HishobHistory} />
+              <Stack.Screen name="HishobDetails" component={HishobDetails} />
+              <Stack.Screen name="HishobTransaction" component={HishobTransaction} />
+              <Stack.Screen name="HishobTransactions" component={HishobTransactions} />
+              <Stack.Screen name="HishobClose" component={HishobClose} />
+            </>
+          )}
+          <Stack.Screen
+            name="WorkerForm"
+            component={WorkerForm}
+            options={{ title: 'Team member' }}
+          />
+          <Stack.Screen
+            name="WorkerHistory"
+            component={WorkerHistory}
+            options={{ title: 'Attendance history' }}
+          />
+          {session!.role === 'OWNER' && (
+            <>
+              <Stack.Screen name="ShopSetup" component={ShopSetup} />
+              <Stack.Screen name="OwnerProfile" component={OwnerProfile} />
+              <Stack.Screen name="ChangeMobile" component={ChangeMobile} />
+              <Stack.Screen name="Managers" component={ManagersScreen} />
+              <Stack.Screen name="ShopSettings" component={ShopSettingsScreen} />
+            </>
+          )}
+        </>
+      )}
+    </Stack.Navigator>
+  );
+}
+function HomeStack() {
+  return <SectionStack root="Dashboard" />;
+}
+function RegisterStack() {
+  return <SectionStack root="TodayAttendance" />;
+}
+function TeamStack() {
+  return <SectionStack root="Workers" />;
+}
+function AttendanceStack() {
+  return <SectionStack root="MyAttendance" />;
+}
+function AccountStack() {
+  return <SectionStack root="Profile" />;
+}
+function HishobStack() {
+  return <SectionStack root="Hishob" />;
+}
 function MainTabs() {
   const insets = useSafeAreaInsets();
-  const { session } = useAuth();
+  const { session, selected } = useAuth();
+  const finance = session!.role !== 'WORKER' && selected!.permissions.view_hishob;
   const worker = session!.role === 'WORKER';
   return (
     <Tabs.Navigator
       backBehavior="history"
       screenOptions={({ route }) => ({
-        header: () => <AppHeader />,
+        headerShown: false,
         tabBarActiveTintColor: colors.green,
         tabBarInactiveTintColor: colors.muted,
         tabBarHideOnKeyboard: true,
@@ -68,7 +182,7 @@ function MainTabs() {
           paddingBottom: Math.max(8, insets.bottom),
           height: 78 + insets.bottom,
         },
-        tabBarAccessibilityLabel: `${route.name === 'Dashboard' ? 'Home' : route.name === 'TodayAttendance' ? 'Register' : route.name === 'Workers' ? 'Team' : route.name === 'MyAttendance' ? (worker ? 'Attendance' : 'My day') : 'Account'} tab`,
+        tabBarAccessibilityLabel: `${route.name === 'Hishob' ? 'Hishob' : route.name === 'Dashboard' ? 'Home' : route.name === 'TodayAttendance' ? 'Register' : route.name === 'Workers' ? 'Team' : route.name === 'MyAttendance' ? (worker ? 'Attendance' : 'My day') : 'Account'} tab`,
         tabBarIcon: ({ focused, color }) => (
           <View
             style={{
@@ -85,29 +199,26 @@ function MainTabs() {
         ),
       })}
     >
-      <Tabs.Screen
-        name="Dashboard"
-        component={worker ? WorkerDashboard : OwnerDashboard}
-        options={{ title: 'Home' }}
-      />
+      <Tabs.Screen name="Dashboard" component={HomeStack} options={{ title: 'Home' }} />
       {!worker && (
         <Tabs.Screen
           name="TodayAttendance"
-          component={TodayAttendance}
+          component={RegisterStack}
           options={{ title: 'Register' }}
         />
       )}
-      {session!.role !== 'OWNER' && (
+      {(worker || (session!.role === 'MANAGER' && !finance)) && (
         <Tabs.Screen
           name="MyAttendance"
-          component={MyAttendance}
+          component={AttendanceStack}
           options={{ title: worker ? 'Attendance' : 'My day' }}
         />
       )}
-      {!worker && (
-        <Tabs.Screen name="Workers" component={WorkersScreen} options={{ title: 'Team' }} />
+      {finance && (
+        <Tabs.Screen name="Hishob" component={HishobStack} options={{ title: 'Hishob' }} />
       )}
-      <Tabs.Screen name="Profile" component={Profile} options={{ title: 'Account' }} />
+      {!worker && <Tabs.Screen name="Workers" component={TeamStack} options={{ title: 'Team' }} />}
+      <Tabs.Screen name="Profile" component={AccountStack} options={{ title: 'Account' }} />
     </Tabs.Navigator>
   );
 }
@@ -184,39 +295,6 @@ function Navigation() {
         ) : (
           <>
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-            {session.role !== 'WORKER' && (
-              <>
-                {selected.permissions.view_hishob && (
-                  <>
-                    <Stack.Screen name="HishobToday" component={HishobToday} />
-                    <Stack.Screen name="HishobHistory" component={HishobHistory} />
-                    <Stack.Screen name="HishobDetails" component={HishobDetails} />
-                    <Stack.Screen name="HishobTransaction" component={HishobTransaction} />
-                    <Stack.Screen name="HishobTransactions" component={HishobTransactions} />
-                    <Stack.Screen name="HishobClose" component={HishobClose} />
-                  </>
-                )}
-                <Stack.Screen
-                  name="WorkerForm"
-                  component={WorkerForm}
-                  options={{ title: 'Team member' }}
-                />
-                <Stack.Screen
-                  name="WorkerHistory"
-                  component={WorkerHistory}
-                  options={{ title: 'Attendance history' }}
-                />
-                {session.role === 'OWNER' && (
-                  <>
-                    <Stack.Screen name="ShopSetup" component={ShopSetup} />
-                    <Stack.Screen name="OwnerProfile" component={OwnerProfile} />
-                    <Stack.Screen name="ChangeMobile" component={ChangeMobile} />
-                    <Stack.Screen name="Managers" component={ManagersScreen} />
-                    <Stack.Screen name="ShopSettings" component={ShopSettingsScreen} />
-                  </>
-                )}
-              </>
-            )}
           </>
         )}
       </Stack.Navigator>

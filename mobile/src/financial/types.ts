@@ -60,6 +60,7 @@ export type Day = Totals & {
     transactions: Entry[];
   })[];
 };
+export type DaySummary = Omit<Day, 'transactions' | 'audit' | 'closing_snapshots'>;
 export type TodayHishob = {
   date: string;
   timezone: string;

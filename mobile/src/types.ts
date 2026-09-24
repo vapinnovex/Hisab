@@ -1,3 +1,4 @@
+import type { NavigatorScreenParams } from '@react-navigation/native';
 export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type ShopSettings = {
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
@@ -95,21 +96,31 @@ export type Challenge = {
   resend_after: number;
   dev_otp?: string;
 };
-export type TabRoutes = {
-  Dashboard: undefined;
-  TodayAttendance: undefined;
-  Workers: undefined;
-  MyAttendance: undefined;
-  Profile: undefined;
-};
-export type Routes = {
-  MainTabs: undefined;
+export type HishobRoutes = {
   HishobToday: undefined;
   HishobHistory: undefined;
   HishobDetails: { dayId: string };
   HishobTransaction: { dayId: string; entryId?: string };
   HishobTransactions: { dayId: string };
   HishobClose: { dayId: string };
+  HishobSearch: undefined;
+};
+export type TabRoutes = {
+  Hishob: NavigatorScreenParams<HishobRoutes> | undefined;
+  Dashboard: undefined;
+  TodayAttendance: undefined;
+  Workers: undefined;
+  MyAttendance: undefined;
+  Profile: undefined;
+};
+export type Routes = HishobRoutes & {
+  Hishob: NavigatorScreenParams<HishobRoutes> | undefined;
+  DashboardRoot: undefined;
+  TodayAttendanceRoot: undefined;
+  WorkersRoot: undefined;
+  MyAttendanceRoot: undefined;
+  ProfileRoot: undefined;
+  MainTabs: undefined;
   OwnerProfile: undefined;
   ChangeMobile: undefined;
   RoleSelection: undefined;

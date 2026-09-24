@@ -18,10 +18,12 @@ export function SearchField({
   value,
   onChange,
   label,
+  placeholder = 'Search by name or mobile',
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
+  placeholder?: string;
 }) {
   return (
     <View
@@ -39,7 +41,7 @@ export function SearchField({
       <Ionicons name="search-outline" size={20} color={colors.muted} />
       <TextInput
         accessibilityLabel={label}
-        placeholder="Search by name or mobile"
+        placeholder={placeholder}
         placeholderTextColor={colors.muted}
         value={value}
         onChangeText={onChange}
