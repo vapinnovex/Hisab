@@ -8,8 +8,14 @@ from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db, new_id, now, public
 from ..schemas import AttendanceStatus, AttendanceUpdate
-from ..security import current_identity, shop_access, worker_in_shop
-from ..shop_policy import permissions_for, require_permission, settings_for
+from ..security import current_identity, shop_access, staff_in_shop
+from ..shop_policy import (
+    attendance_permissions,
+    permissions_for,
+    require_attendance_permission,
+    require_permission,
+    settings_for,
+)
 from .shops import worker_view
 
 router = APIRouter(prefix="/shops/{shop_id}", tags=["Attendance"])
@@ -74,11 +80,12 @@ def today_attendance(shop_id: str, identity=Depends(current_identity), db=Depend
     day = str(shop_today(shop))
     records = {r["worker_id"]: public(r) for r in db.attendance.find({"shop_id": shop_id, "date": day})}
     rows = []
-    for member in db.memberships.find({"shop_id": shop_id, "role": "WORKER"}):
+    for member in db.memberships.find({"shop_id": shop_id, "role": {"$in": ["WORKER", "MANAGER", "ADMIN"]}}):
         if member["active"] or member["_id"] in records:
             rows.append(
                 {
                     "worker": worker_view(db, member),
+                    **attendance_permissions(actor, shop, member),
                     "active_shift": public(
                         db.attendance.find_one(
                             {"shop_id": shop_id, "worker_id": member["_id"], "is_open": True}
@@ -104,9 +111,12 @@ def worker_history(
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
-    _, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
-    member = worker_in_shop(db, shop_id, worker_id)
-    return history(db, shop, worker_id, month, member["created_at"])
+    actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
+    member = staff_in_shop(db, shop_id, worker_id)
+    return {
+        **history(db, shop, worker_id, month, member["created_at"]),
+        **attendance_permissions(actor, shop, member),
+    }
 
 
 @router.put("/workers/{worker_id}/attendance")
@@ -118,8 +128,8 @@ def update_attendance(
     db=Depends(get_db),
 ):
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
-    require_permission(actor, shop, "manage_attendance")
-    member = worker_in_shop(db, shop_id, worker_id)
+    member = staff_in_shop(db, shop_id, worker_id)
+    require_attendance_permission(actor, shop, member, "can_edit")
     joined = member["created_at"].astimezone(ZoneInfo(shop["timezone"])).date()
     if body.date > shop_today(shop) or body.date < joined:
         raise HTTPException(422, "Attendance date must be between the worker’s join date and today")
@@ -160,7 +170,7 @@ def update_attendance(
 
 @router.get("/me/attendance/today")
 def my_today(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
-    member, shop = shop_access(shop_id, db, identity, {"WORKER"})
+    member, shop = shop_access(shop_id, db, identity, {"WORKER", "MANAGER", "ADMIN"})
     require_permission(member, shop, "view_own_attendance")
     day = str(shop_today(shop))
     record = db.attendance.find_one({"shop_id": shop_id, "worker_id": member["_id"], "date": day})
@@ -181,25 +191,30 @@ def my_history(
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
-    member, shop = shop_access(shop_id, db, identity, {"WORKER"})
+    member, shop = shop_access(shop_id, db, identity, {"WORKER", "MANAGER", "ADMIN"})
     require_permission(member, shop, "view_own_attendance")
     return history(db, shop, member["_id"], month, member["created_at"])
 
 
 @router.post("/me/attendance/check-in")
+def my_check_in(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
+    member, shop = shop_access(shop_id, db, identity, {"MANAGER", "ADMIN"})
+    require_permission(member, shop, "mark_own_attendance")
+    return check_in(shop_id, member["_id"], identity, db)
+
+
 @router.post("/me/attendance/check-out")
-def self_marking_disabled(identity=Depends(current_identity)):
-    # Keep an explicit rejection for old mobile clients, too.
-    raise HTTPException(
-        403, "Attendance is recorded by your shop owner or manager. Workers cannot mark attendance."
-    )
+def my_check_out(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
+    member, shop = shop_access(shop_id, db, identity, {"MANAGER", "ADMIN"})
+    require_permission(member, shop, "mark_own_attendance")
+    return check_out(shop_id, member["_id"], identity, db)
 
 
 @router.post("/workers/{worker_id}/attendance/check-in")
 def check_in(shop_id: str, worker_id: str, identity=Depends(current_identity), db=Depends(get_db)):
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
-    require_permission(actor, shop, "manage_attendance")
-    member = worker_in_shop(db, shop_id, worker_id, active_only=True)
+    member = staff_in_shop(db, shop_id, worker_id, active_only=True)
+    require_attendance_permission(actor, shop, member, "can_mark")
     timestamp = now()
     mode = settings_for(shop)["attendance_mode"]
     if db.attendance.find_one({"shop_id": shop_id, "worker_id": worker_id, "is_open": True}):
@@ -239,8 +254,8 @@ def check_in(shop_id: str, worker_id: str, identity=Depends(current_identity), d
 @router.post("/workers/{worker_id}/attendance/check-out")
 def check_out(shop_id: str, worker_id: str, identity=Depends(current_identity), db=Depends(get_db)):
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
-    require_permission(actor, shop, "manage_attendance")
-    worker_in_shop(db, shop_id, worker_id)
+    member = staff_in_shop(db, shop_id, worker_id)
+    require_attendance_permission(actor, shop, member, "can_mark")
     timestamp = now()
     # Existing open shifts retain their original policy when a shop switches to in-only.
     record = db.attendance.find_one_and_update(

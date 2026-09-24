@@ -19,6 +19,7 @@ import {
 import { useAction, useResource } from '../hooks';
 import { Attendance, History, Routes, Status } from '../types';
 import { AttendanceCalendar } from '../components/AttendanceCalendar';
+import { ManagerSelfAttendance } from './WorkerScreens';
 
 const statuses: Status[] = ['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE', 'NOT_MARKED'];
 function Editor({
@@ -94,7 +95,7 @@ export function WorkerHistory({ route }: NativeStackScreenProps<Routes, 'WorkerH
   );
   const record =
     resource.data?.days.find((item) => item.date === day) || resource.data?.days.slice(-1)[0];
-  const canEdit = selected!.permissions.manage_attendance;
+  const canEdit = resource.data?.can_edit === true;
   return (
     <Page refresh={resource.refresh}>
       <Heading
@@ -156,7 +157,7 @@ export function WorkerHistory({ route }: NativeStackScreenProps<Routes, 'WorkerH
 }
 
 export function MyAttendance() {
-  const { selected } = useAuth();
+  const { selected, session } = useAuth();
   const [month, setMonth] = useState(monthInZone(selected!.shop.timezone));
   const [day, setDay] = useState<string | null>(null);
   const resource = useResource<History>(
@@ -180,6 +181,7 @@ export function MyAttendance() {
         title="My attendance"
         subtitle={`${selected!.shop.name} · ${selected!.shop.timezone}`}
       />
+      {session!.role === 'MANAGER' && <ManagerSelfAttendance onChanged={resource.refresh} />}
       <MonthPicker
         month={month}
         setMonth={(value) => {

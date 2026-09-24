@@ -12,28 +12,30 @@ import {
   TextInputProps,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Attendance, Status } from '../types';
 
 export const colors = {
-  ink: '#163B32',
-  muted: '#6B7E77',
-  green: '#176C50',
-  mint: '#E0F0E7',
-  background: '#F5F7F2',
-  line: '#DCE4DB',
+  ink: '#123C31',
+  muted: '#738079',
+  green: '#145C45',
+  gold: '#E9A015',
+  paleGold: '#FFF1D6',
+  mint: '#E8F0E8',
+  background: '#FAF8F2',
+  line: '#EAECE3',
   red: '#A53535',
   white: '#FFFFFF',
 };
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
   content: {
-    padding: 22,
+    padding: 20,
     gap: 18,
     width: '100%',
     maxWidth: 680,
     alignSelf: 'center',
-    paddingBottom: 42,
+    paddingBottom: 28,
   },
   title: { fontSize: 30, fontWeight: '700', color: colors.ink, letterSpacing: -0.8 },
   subtitle: { fontSize: 15, lineHeight: 23, color: colors.muted },
@@ -41,7 +43,7 @@ export const styles = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: colors.white,
     padding: 15,
     color: colors.ink,
@@ -49,11 +51,12 @@ export const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.white,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.line,
     padding: 18,
     gap: 12,
+    boxShadow: '0px 4px 18px rgba(24, 57, 43, 0.035)',
   },
   row: {
     flexDirection: 'row',
@@ -69,19 +72,28 @@ export const styles = StyleSheet.create({
 export function Page({
   children,
   refresh,
+  topInset = false,
 }: {
   children: React.ReactNode;
   refresh?: () => Promise<void>;
+  topInset?: boolean;
 }) {
   const [refreshing, setRefreshing] = React.useState(false);
+  const insets = useSafeAreaInsets();
   return (
-    <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.page}>
+    <SafeAreaView
+      edges={topInset ? ['top', 'left', 'right'] : ['left', 'right']}
+      style={styles.page}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(28, insets.bottom + 16) },
+          ]}
           keyboardShouldPersistTaps="handled"
           refreshControl={
             refresh ? (
@@ -138,7 +150,7 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => ({
         backgroundColor: secondary ? colors.mint : danger ? colors.red : colors.green,
-        borderRadius: 12,
+        borderRadius: 14,
         paddingVertical: 15,
         paddingHorizontal: 18,
         alignItems: 'center',
@@ -295,5 +307,40 @@ export function MonthPicker({
         onPress={() => move(1)}
       />
     </View>
+  );
+}
+
+export function Avatar({ name, manager = false }: { name: string; manager?: boolean }) {
+  return (
+    <View
+      style={{
+        width: 46,
+        height: 46,
+        borderRadius: 16,
+        backgroundColor: manager ? colors.paleGold : colors.mint,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Text style={{ color: manager ? '#8B5A08' : colors.green, fontWeight: '800', fontSize: 17 }}>
+        {name
+          .trim()
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((part) => part[0])
+          .join('')
+          .toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+export function EmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <Card>
+      <View style={{ alignItems: 'center', gap: 10, paddingVertical: 22 }}>
+        <Text style={styles.heading}>{title}</Text>
+        <Text style={[styles.subtitle, { textAlign: 'center' }]}>{description}</Text>
+      </View>
+    </Card>
   );
 }

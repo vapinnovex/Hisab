@@ -93,6 +93,7 @@ class AttendanceMode(str, Enum):
 class ShopSettings(Input):
     attendance_mode: AttendanceMode = AttendanceMode.CHECK_IN_ONLY
     manager_can_manage_attendance: bool = True
+    manager_can_mark_own_attendance: bool = False
     manager_can_add_workers: bool = False
     manager_can_edit_workers: bool = False
     workers_can_view_attendance: bool = True

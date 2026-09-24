@@ -2,12 +2,14 @@ export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type ShopSettings = {
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
+  manager_can_mark_own_attendance: boolean;
   manager_can_add_workers: boolean;
   manager_can_edit_workers: boolean;
   workers_can_view_attendance: boolean;
 };
 export type Permissions = {
   manage_attendance: boolean;
+  mark_own_attendance: boolean;
   add_workers: boolean;
   edit_workers: boolean;
   manage_managers: boolean;
@@ -32,6 +34,7 @@ export type Session = {
 };
 export type Worker = {
   id: string;
+  role: 'MANAGER' | 'WORKER';
   name: string;
   mobile: string;
   active: boolean;
@@ -59,11 +62,19 @@ export type Today = {
 export type OwnerToday = {
   date: string;
   timezone: string;
-  rows: { worker: Worker; attendance: Attendance; active_shift: Attendance | null }[];
+  rows: {
+    worker: Worker;
+    attendance: Attendance;
+    active_shift: Attendance | null;
+    can_mark: boolean;
+    can_edit: boolean;
+  }[];
   settings: ShopSettings;
   permissions: Permissions;
 };
 export type History = {
+  can_edit?: boolean;
+  can_mark?: boolean;
   month: string;
   timezone: string;
   days: Attendance[];
@@ -77,7 +88,15 @@ export type Challenge = {
   resend_after: number;
   dev_otp?: string;
 };
+export type TabRoutes = {
+  Dashboard: undefined;
+  TodayAttendance: undefined;
+  Workers: undefined;
+  MyAttendance: undefined;
+  Profile: undefined;
+};
 export type Routes = {
+  MainTabs: undefined;
   RoleSelection: undefined;
   MobileLogin: { role: Role };
   OTP: { mobile: string; role: Role; challenge: Challenge };

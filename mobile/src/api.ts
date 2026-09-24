@@ -44,7 +44,7 @@ export async function request<T>(
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw new Error('Cannot reach Hisab. Check your connection and the API server address.');
+    throw new Error('Cannot reach Hishob. Check your connection and the API server address.');
   } finally {
     clearTimeout(timeout);
   }

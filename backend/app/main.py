@@ -27,7 +27,7 @@ def create_app(settings: Settings = None):
         finally:
             client.close()
 
-    app = FastAPI(title="Hisab Phase 1 API", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Hishob API", version="1.0.0", lifespan=lifespan)
     config = settings or get_settings()
     app.add_middleware(
         CORSMiddleware,

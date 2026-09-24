@@ -20,6 +20,12 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
     description: string;
   }[] = [
     {
+      key: 'manager_can_mark_own_attendance',
+      title: 'Managers can mark their own attendance',
+      description:
+        'Allow managers to record their own arrival and departure. Only the owner can correct their past attendance.',
+    },
+    {
       key: 'manager_can_manage_attendance',
       title: 'Managers can record and correct attendance',
       description: 'Check workers in/out and correct present, half-day, absent or leave entries.',

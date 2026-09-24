@@ -63,6 +63,18 @@ def list_workers(shop_id: str, identity=Depends(current_identity), db=Depends(ge
     ]
 
 
+@router.get("/{shop_id}/team")
+def list_team(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
+    # Shared directory is read-only; manager administration remains owner-only.
+    shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
+    return [
+        worker_view(db, member)
+        for member in db.memberships.find(
+            {"shop_id": shop_id, "role": {"$in": ["WORKER", "MANAGER", "ADMIN"]}}
+        ).sort("created_at", 1)
+    ]
+
+
 @router.post("/{shop_id}/workers", status_code=201)
 def add_worker(shop_id: str, body: WorkerCreate, identity=Depends(current_identity), db=Depends(get_db)):
     membership, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})

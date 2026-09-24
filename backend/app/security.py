@@ -83,3 +83,13 @@ def worker_in_shop(db, shop_id, worker_id, active_only=False):
     if not membership:
         raise HTTPException(404, "Worker not found in this shop")
     return membership
+
+
+def staff_in_shop(db, shop_id, staff_id, active_only=False):
+    query = {"_id": staff_id, "shop_id": shop_id, "role": {"$in": ["WORKER", "MANAGER", "ADMIN"]}}
+    if active_only:
+        query["active"] = True
+    member = db.memberships.find_one(query)
+    if not member:
+        raise HTTPException(404, "Team member not found in this shop")
+    return member

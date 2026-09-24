@@ -1,6 +1,6 @@
-# Hisab mobile
+# Hishob mobile
 
-React Native + Expo SDK 57 + TypeScript. This app uses React Navigation native-stack (`App.tsx`), with screens in `src/screens`; it does not use Expo Router.
+React Native + Expo SDK 57 + TypeScript. This app uses React Navigation native-stack and bottom tabs (`App.tsx`), with screens in `src/screens`; it does not use Expo Router.
 
 - Read version-matched Expo documentation before changing native module usage.
 - Install Expo/native dependencies with `npx expo install` and keep `expo-doctor` passing.

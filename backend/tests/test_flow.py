@@ -309,3 +309,143 @@ def test_reset_and_mobile_reassignment(client, setup_shop):
         client.get(base + "/me/attendance/today", headers=replacement).json()["attendance"]["status"]
         == "PRESENT"
     )
+
+
+def test_manager_is_in_register_and_owner_can_record_their_attendance(client, setup_shop):
+    owner, shop, _, _ = setup_shop
+    manager_id, manager = manager_login(client, setup_shop)
+    base = f"/api/shops/{shop}"
+    attendance = base + f"/workers/{manager_id}/attendance"
+    own = client.get(base + "/me/attendance/today", headers=manager)
+    assert own.status_code == 200
+    assert own.json()["attendance"]["worker_id"] == manager_id
+    rows = client.get(base + "/attendance/today", headers=owner).json()["rows"]
+    row = next(row for row in rows if row["worker"]["id"] == manager_id)
+    assert row["worker"]["role"] == "MANAGER"
+    assert row["can_mark"] and row["can_edit"]
+    assert client.post(base + "/me/attendance/check-in", headers=manager).status_code == 403
+    assert client.post(attendance + "/check-in", headers=manager).status_code == 403
+    record = client.post(attendance + "/check-in", headers=owner).json()
+    assert record["status"] == "PRESENT"
+    assert (
+        client.put(attendance, headers=owner, json={"date": record["date"], "status": "HALF_DAY"}).status_code
+        == 200
+    )
+    history = client.get(base + "/me/attendance?month=" + record["date"][:7], headers=manager).json()
+    assert history["summary"]["HALF_DAY"] == 1
+    assert (
+        client.get(attendance + "?month=" + record["date"][:7], headers=manager).json()["can_edit"] is False
+    )
+
+
+def test_manager_self_marking_is_independent_and_cannot_correct_own_records(client, setup_shop):
+    owner, shop, worker_id, worker = setup_shop
+    manager_id, manager = manager_login(client, setup_shop)
+    base = f"/api/shops/{shop}"
+    configure(
+        client,
+        owner,
+        base,
+        manager_can_mark_own_attendance=True,
+        manager_can_manage_attendance=False,
+        workers_can_view_attendance=False,
+        attendance_mode="CHECK_IN_OUT",
+    )
+    assert client.get(base + "/me/attendance/today", headers=manager).status_code == 200
+    assert client.get(base + "/me/attendance/today", headers=worker).status_code == 403
+    assert client.post(base + f"/workers/{worker_id}/attendance/check-in", headers=manager).status_code == 403
+    result = client.post(base + "/me/attendance/check-in", headers=manager)
+    assert result.status_code == 200
+    assert result.json()["worker_id"] == manager_id
+    assert result.json()["is_open"] is True
+    assert client.post(base + "/me/attendance/check-in", headers=manager).status_code == 409
+    day = result.json()["date"]
+    assert (
+        client.put(
+            base + f"/workers/{manager_id}/attendance",
+            headers=manager,
+            json={"date": day, "status": "NOT_MARKED"},
+        ).status_code
+        == 403
+    )
+    assert client.post(base + "/me/attendance/check-out", headers=manager).status_code == 200
+    assert client.post(base + "/me/attendance/check-out", headers=manager).status_code == 409
+    assert client.post(base + "/me/attendance/check-in", headers=worker).status_code == 403
+
+
+def test_manager_cannot_bypass_self_rule_with_another_membership_or_edit_peers(client, setup_shop):
+    owner, shop, _, _ = setup_shop
+    manager_id, manager = manager_login(client, setup_shop)
+    base = f"/api/shops/{shop}"
+    duplicate_role = client.post(
+        base + "/workers", headers=owner, json={"name": "Ravi worker role", "mobile": "+919876543212"}
+    ).json()["id"]
+    assert (
+        client.post(base + f"/workers/{duplicate_role}/attendance/check-in", headers=manager).status_code
+        == 403
+    )
+    other = client.post(
+        base + "/managers", headers=owner, json={"name": "Other manager", "mobile": "+919876543219"}
+    ).json()["id"]
+    configure(client, owner, base, manager_can_mark_own_attendance=True)
+    assert client.post(base + f"/workers/{other}/attendance/check-in", headers=manager).status_code == 403
+    own = client.post(base + "/me/attendance/check-in", headers=manager).json()
+    assert (
+        client.put(
+            base + f"/workers/{duplicate_role}/attendance",
+            headers=manager,
+            json={"date": own["date"], "status": "PRESENT"},
+        ).status_code
+        == 403
+    )
+    # A manager cannot edit their manager account through the worker-management API.
+    configure(client, owner, base, manager_can_edit_workers=True)
+    assert (
+        client.patch(
+            base + f"/workers/{manager_id}",
+            headers=manager,
+            json={"name": "Bypass", "mobile": "+919876543222", "active": True},
+        ).status_code
+        == 404
+    )
+
+
+def test_revoking_manager_self_permission_blocks_checkout_but_owner_can_close(client, setup_shop):
+    owner, shop, _, _ = setup_shop
+    manager_id, manager = manager_login(client, setup_shop)
+    base = f"/api/shops/{shop}"
+    configure(client, owner, base, manager_can_mark_own_attendance=True, attendance_mode="CHECK_IN_OUT")
+    assert client.post(base + "/me/attendance/check-in", headers=manager).status_code == 200
+    configure(client, owner, base, manager_can_mark_own_attendance=False)
+    assert client.post(base + "/me/attendance/check-out", headers=manager).status_code == 403
+    assert (
+        client.post(base + f"/workers/{manager_id}/attendance/check-out", headers=manager).status_code == 403
+    )
+    assert client.post(base + f"/workers/{manager_id}/attendance/check-out", headers=owner).status_code == 200
+    second = client.post("/api/shops", headers=owner, json={"name": "Second shop"}).json()["id"]
+    assert client.post(f"/api/shops/{second}/me/attendance/check-in", headers=manager).status_code == 403
+
+
+def test_team_directory_includes_both_roles_and_preserves_access_rules(client, setup_shop):
+    owner, shop, worker_id, worker = setup_shop
+    manager_id, manager = manager_login(client, setup_shop)
+    base = f"/api/shops/{shop}"
+    client.app.state.db.memberships.update_one({"_id": worker_id}, {"$set": {"active": False}})
+    for actor in [owner, manager]:
+        result = client.get(base + "/team", headers=actor)
+        assert result.status_code == 200
+        people = {person["id"]: person for person in result.json()}
+        assert set(people) == {worker_id, manager_id}
+        assert people[worker_id]["role"] == "WORKER"
+        assert people[worker_id]["active"] is False
+        assert people[manager_id]["role"] == "MANAGER"
+    client.app.state.db.memberships.update_one({"_id": worker_id}, {"$set": {"active": True}})
+    assert client.get(base + "/team", headers=worker).status_code == 403
+    assert client.get(base + "/managers", headers=manager).status_code == 403
+    other = client.post("/api/shops", headers=owner, json={"name": "Other shop"}).json()["id"]
+    assert client.get(f"/api/shops/{other}/team", headers=manager).status_code == 403
+    assert client.get(f"/api/shops/{other}/team", headers=owner).json() == []
+    client.app.state.db.memberships.update_one({"_id": manager_id}, {"$set": {"role": "ADMIN"}})
+    assert any(p["role"] == "MANAGER" for p in client.get(base + "/team", headers=manager).json())
+    client.app.state.db.memberships.update_one({"_id": manager_id}, {"$set": {"active": False}})
+    assert client.get(base + "/team", headers=manager).status_code == 403
