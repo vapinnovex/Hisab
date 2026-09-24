@@ -9,7 +9,7 @@ from pymongo.errors import PyMongoError
 from .config import Settings, get_settings
 from .db import create_indexes
 from .otp import get_provider
-from .routers import attendance, auth, shops
+from .routers import account, attendance, auth, shops
 
 
 def create_app(settings: Settings = None):
@@ -48,6 +48,7 @@ def create_app(settings: Settings = None):
         return {"status": "ok"}
 
     app.include_router(auth.router, prefix="/api")
+    app.include_router(account.router, prefix="/api")
     app.include_router(shops.router, prefix="/api")
     app.include_router(attendance.router, prefix="/api")
     return app

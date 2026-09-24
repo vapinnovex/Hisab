@@ -25,46 +25,109 @@ import { OwnerToday, Routes, Shop, Status, Worker } from '../types';
 import { FilterChips, matchesPerson, SearchField } from '../components/ListControls';
 
 export function ShopSetup() {
-  const { api, reload, selected, signOut } = useAuth();
+  const { api, reload, selected, signOut, session } = useAuth();
   const [name, setName] = useState('');
+  const [ownerName, setOwnerName] = useState(session!.user.name || '');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
+  const [editTimezone, setEditTimezone] = useState(false);
   const action = useAction();
+  const needsName = !session!.user.name;
   return (
     <Page>
-      <Text style={styles.eyebrow}>A PLACE FOR YOUR TEAM</Text>
-      <Heading
-        title="Let’s set up your shop"
-        subtitle="Start with a name. You can add your workers next."
-      />
-      <Field
-        label="Shop name"
-        value={name}
-        onChangeText={setName}
-        maxLength={100}
-        placeholder="e.g. Sharma General Store"
-      />
-      <Field
-        label="Shop timezone"
-        value={timezone}
-        onChangeText={setTimezone}
-        autoCapitalize="none"
-        placeholder="Asia/Kolkata"
-      />
-      <Text style={styles.small}>
-        Attendance days follow this timezone, even when a worker is travelling.
-      </Text>
+      <View style={{ backgroundColor: colors.green, borderRadius: 26, padding: 24, gap: 14 }}>
+        <View
+          style={{
+            backgroundColor: '#2A7158',
+            padding: 12,
+            borderRadius: 16,
+            alignSelf: 'flex-start',
+          }}
+        >
+          <Ionicons name="storefront-outline" size={30} color="#F4CD72" />
+        </View>
+        <Text style={{ color: '#D5E5D9', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 }}>
+          YOUR NEXT CHAPTER
+        </Text>
+        <Text style={{ fontSize: 29, fontWeight: '700', color: colors.white }}>
+          {selected ? 'Room for another shop.' : 'Make your shop feel at home.'}
+        </Text>
+        <Text style={{ color: '#D5E5D9', fontSize: 14, lineHeight: 22 }}>
+          Start with the basics. Your people and their workdays come next.
+        </Text>
+      </View>
+      {needsName && (
+        <Card>
+          <Text style={styles.eyebrow}>FIRST, A LITTLE ABOUT YOU</Text>
+          <Field
+            label="Your name"
+            value={ownerName}
+            onChangeText={setOwnerName}
+            maxLength={100}
+            autoComplete="name"
+            textContentType="name"
+            placeholder="e.g. Prajwal Patil"
+          />
+        </Card>
+      )}
+      <Card>
+        <Text style={styles.eyebrow}>YOUR SHOP DETAILS</Text>
+        <Field
+          label="Shop name"
+          value={name}
+          onChangeText={setName}
+          maxLength={100}
+          placeholder="e.g. Sharma General Store"
+        />
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+          <Ionicons name="time-outline" size={22} color={colors.green} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={styles.label}>Shop timezone</Text>
+            <Text style={styles.small}>
+              {timezone === 'Asia/Kolkata' ? 'India · Kolkata (IST)' : timezone}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change timezone"
+            onPress={() => setEditTimezone(!editTimezone)}
+            style={{ padding: 10 }}
+          >
+            <Text style={{ color: colors.green, fontWeight: '700' }}>
+              {editTimezone ? 'Hide' : 'Change'}
+            </Text>
+          </Pressable>
+        </View>
+        {editTimezone && (
+          <Field
+            label="Shop timezone"
+            value={timezone}
+            onChangeText={setTimezone}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="Asia/Kolkata"
+          />
+        )}
+        <Text style={styles.small}>Attendance dates follow your shop’s local time.</Text>
+      </Card>
       <ErrorText message={action.error} />
       <Button
         title="Create shop"
         busy={action.busy}
-        disabled={name.trim().length < 2}
+        disabled={name.trim().length < 2 || (needsName && ownerName.trim().length < 2)}
         onPress={() =>
           void action.run(async () => {
+            if (needsName) await api('/auth/profile', { name: ownerName }, 'PATCH');
             const shop = await api<Shop>('/shops', { name, timezone }, 'POST');
             await reload(shop.id);
           })
         }
       />
+      <View
+        style={{ flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' }}
+      >
+        <Ionicons name="people-outline" size={17} color={colors.green} />
+        <Text style={styles.small}>Next up: add your workers and managers.</Text>
+      </View>
       {!selected && <Button secondary title="Sign out" onPress={() => void action.run(signOut)} />}
     </Page>
   );

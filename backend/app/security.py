@@ -47,6 +47,8 @@ def current_identity(
     user = db.users.find_one({"_id": claims["sub"]})
     if not user or not session or claims["portal"] not in {"OWNER", "MANAGER", "WORKER"}:
         raise unauthorized
+    if session.get("auth_version", 0) != user.get("auth_version", 0):
+        raise unauthorized
     return Identity(user, claims["portal"], claims["jti"])
 
 

@@ -28,7 +28,7 @@ export type Membership = {
   worker_name: string | null;
 };
 export type Session = {
-  user: { id: string; mobile: string };
+  user: { id: string; mobile: string; name?: string };
   role: Role;
   memberships: Membership[];
 };
@@ -97,6 +97,8 @@ export type TabRoutes = {
 };
 export type Routes = {
   MainTabs: undefined;
+  OwnerProfile: undefined;
+  ChangeMobile: undefined;
   RoleSelection: undefined;
   MobileLogin: { role: Role };
   OTP: { mobile: string; role: Role; challenge: Challenge };

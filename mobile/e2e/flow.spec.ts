@@ -38,6 +38,7 @@ test('owner-managed attendance, manager permissions, and worker monthly calendar
   for (const page of [owner, manager, worker])
     page.on('pageerror', (error) => errors.push(error.message));
   await login(owner, 'Owner', '+9198' + suffix);
+  await owner.getByRole('textbox', { name: 'Your name', exact: true }).fill('Prajwal');
   await owner.getByRole('textbox', { name: 'Shop name', exact: true }).fill('Hishob Test Store');
   await owner.getByRole('button', { name: 'Create shop', exact: true }).click();
   await expect(owner.getByText('Hishob Test Store', { exact: true })).toBeVisible();
@@ -202,6 +203,7 @@ test('team search, attendance filters and header shop switching', async ({ page 
   test.setTimeout(120000);
   const suffix = String(Date.now()).slice(-8);
   await login(page, 'Owner', '+9193' + suffix);
+  await page.getByRole('textbox', { name: 'Your name', exact: true }).fill('Prajwal');
   await page.getByRole('textbox', { name: 'Shop name', exact: true }).fill('Market Road');
   await page.getByRole('button', { name: 'Create shop', exact: true }).click();
   await expect(page.getByRole('button', { name: /Switch shop, current shop:/ })).toHaveCount(0);
@@ -307,4 +309,102 @@ test('team search, attendance filters and header shop switching', async ({ page 
   await expect(
     page.getByRole('button', { name: 'Update / history · Asha', exact: true }),
   ).toBeVisible();
+});
+
+test('owner profile, shop setup and verified mobile change preserve the account', async ({
+  page,
+}, testInfo) => {
+  const suffix = String(Date.now()).slice(-8);
+  const original = '+9188' + suffix;
+  const replacement = '+9187' + suffix;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Continue as Owner', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Mobile number', exact: true }).fill(original);
+  await page.screenshot({ path: testInfo.outputPath('mobile-login.png') });
+  await page.getByRole('button', { name: 'Send OTP', exact: true }).click();
+  await page.getByRole('textbox', { name: 'OTP code', exact: true }).fill('123456');
+  await page.getByRole('button', { name: 'Verify & continue', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Shop name', exact: true }).fill('Patil Stores');
+  await expect(page.getByRole('button', { name: 'Create shop', exact: true })).toBeDisabled();
+  await page.getByRole('textbox', { name: 'Your name', exact: true }).fill('Prajwal');
+  await page.screenshot({ path: testInfo.outputPath('shop-setup.png') });
+  await page.getByRole('button', { name: 'Change timezone', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Shop timezone', exact: true })).toHaveValue(
+    'Asia/Kolkata',
+  );
+  await page.getByRole('button', { name: 'Create shop', exact: true }).click();
+  await expect(page.getByText('Patil Stores', { exact: true })).toBeVisible();
+  await tab(page, 'Account');
+  await expect(page.getByText('Prajwal', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit your name', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Your name', exact: true }).fill('Prajwal Patil');
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(page.getByText('Prajwal Patil', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('owner-account.png') });
+  await page.getByRole('button', { name: 'Change mobile number', exact: true }).click();
+  await page.getByRole('textbox', { name: 'New mobile number', exact: true }).fill(replacement);
+  await page.getByRole('button', { name: 'Verify current number', exact: true }).click();
+  await expect(page.getByText('Verify your current number', { exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Verification code', exact: true }).fill('000000');
+  await page.getByRole('button', { name: 'Verify & send new OTP', exact: true }).click();
+  await expect(
+    page.getByText('Invalid or expired OTP. Request a new code if needed.', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('textbox', { name: 'Verification code', exact: true }).fill('123456');
+  await page.getByRole('button', { name: 'Verify & send new OTP', exact: true }).click();
+  await expect(page.getByText('Verify your new number', { exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Verification code', exact: true }).fill('123456');
+  await page.screenshot({ path: testInfo.outputPath('change-mobile.png') });
+  await page.getByRole('button', { name: 'Confirm mobile change', exact: true }).click();
+  await expect(page.getByText('Your number is updated', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Back to account', exact: true }).click();
+  await expect(page.getByText(replacement, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await login(page, 'Owner', replacement);
+  await expect(page.getByText('Patil Stores', { exact: true })).toBeVisible();
+  await tab(page, 'Account');
+  await expect(page.getByText('Prajwal Patil', { exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 740 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+});
+
+test('country picker sends the selected calling code to OTP', async ({ page }, testInfo) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Continue as Owner', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Country code: India +91', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('textbox', { name: 'Mobile number', exact: true }).fill('7911123456');
+  await page.getByRole('button', { name: 'Country code: India +91', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Search countries', exact: true }).fill('United Kingdom');
+  await page.screenshot({
+    path: testInfo.outputPath('country-picker.png'),
+    animations: 'disabled',
+  });
+  await page.getByRole('button', { name: 'United Kingdom +44', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Mobile number', exact: true })).toHaveValue(
+    '7911123456',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Country code: United Kingdom +44', exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.screenshot({ path: testInfo.outputPath('phone-country-code.png') });
+  const sent = page.waitForRequest(
+    (req) => req.url().endsWith('/api/auth/otp/request') && req.method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Send OTP', exact: true }).click();
+  expect((await sent).postDataJSON().mobile).toBe('+447911123456');
+  await expect(page.getByRole('textbox', { name: 'OTP code', exact: true })).toBeVisible();
+  await expect(page.getByText(/Enter the 6-digit code for \+447911123456/)).toBeVisible();
+  await page.getByRole('button', { name: 'Change mobile number', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Mobile number', exact: true }).fill('+919876543210');
+  await expect(
+    page.getByRole('button', { name: 'Country code: India +91', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Mobile number', exact: true })).toHaveValue(
+    '9876543210',
+  );
 });

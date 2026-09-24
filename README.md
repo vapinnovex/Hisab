@@ -90,11 +90,28 @@ When you belong to more than one shop, the top-right header shows the current sh
 
 The supplied Hishob logo appears on the welcome screen, navigation headers, account screen, app icon, splash screen, and web favicon. Green, cream, and gold styling follows the logo. Native icons, splash screens, and the installed display name require a new native build; Expo Go does not represent the final standalone branding. Internal bundle/package IDs, token storage keys, JWT identifiers, and the database name retain their existing values to preserve compatibility. No environment-variable changes are required.
 
+The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
+
+## Owner account details
+
+New owners enter their name when setting up their first shop. Existing owners can use **Account → Add your name**; saved names can be updated through **Edit your name**. Names belong to the global User identity, while staff names remain membership/profile-specific.
+
+To change the owner's login number:
+
+1. Open **Account → Change mobile number** and enter the new international number.
+2. Verify the OTP sent to the **current** number.
+3. Verify a second OTP sent to the **new** number, then confirm.
+4. Continue in the same account. Use the new number for future logins; other sessions are revoked.
+
+Both phones must be accessible. A number already attached to any Hishob account is rejected; accounts are never automatically merged. If verification expires or delivery fails, use **Start again** to request a fresh flow (normal OTP cooldowns apply). In development both codes are `123456`, with no real SMS sent.
+
+Changing the number keeps the same User ID, shops, memberships, permissions, and attendance history across roles. Challenges are purpose-, user-, session-, current-number-, and account-version-bound. Verification codes issued before a number change cannot be reused to access the changed account. Existing sessions use version zero until the first number change; no data migration or environment changes are required. Pending login codes from an older server version may need to be requested again.
+
 ## Test the complete flow
 
 Development OTP is **123456**, shown on the OTP screen. No real SMS is sent. Enter full international mobile numbers.
 
-1. Choose **Continue as Owner**, log in with `+919876543210`, and create a shop.
+1. Choose **Continue as Owner**, log in with `+919876543210`, enter your name, and create a shop. India/Kolkata is the default timezone; tap **Change** to use another IANA timezone.
 2. **Add worker** → name `Asha`, mobile `+919876543211`.
 3. **Manage managers → Add manager** → name `Ravi`, mobile `+919876543212`.
 4. Open **Today’s attendance → Mark in · Asha**. In the default mode, no check-out is needed.
@@ -130,7 +147,7 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
-For a different test database host, set `TEST_MONGODB_URI`. Tests generate isolated `hisab_test_*` / `hisab_e2e_*` databases and never clear the development database. Browser tests exercise all three roles, both attendance modes, manager onboarding, worker creation by a permitted manager, manager self-marking and default denial, role-specific bottom tabs, responsive branding, combined team search/filtering, attendance status counts/filtering, multi-shop switching, live permission changes, half-day correction, the worker calendar, month navigation, visibility settings, logout, and unadded-staff rejection. Backend tests also cover permission escalation, cross-shop access, staff deactivation/reactivation, mobile reassignment, concurrent check-in/out, OTP expiry/replay/limits, expired JWTs, unique indexes, overnight shifts, legacy data compatibility, owner-managed manager attendance, self-marking revocation, and manager self/peer correction denial.
+For a different test database host, set `TEST_MONGODB_URI`. Tests generate isolated `hisab_test_*` / `hisab_e2e_*` databases and never clear the development database. Browser tests exercise all three roles, both attendance modes, manager onboarding, worker creation by a permitted manager, manager self-marking and default denial, role-specific bottom tabs, responsive branding, combined team search/filtering, attendance status counts/filtering, multi-shop switching, live permission changes, half-day correction, the worker calendar, month navigation, visibility settings, logout, unadded-staff rejection, owner name onboarding/editing, and verified mobile change followed by login with the new number. Backend tests also cover permission escalation, cross-shop access, staff deactivation/reactivation, mobile reassignment, concurrent check-in/out, OTP expiry/replay/limits, expired JWTs, unique indexes, overnight shifts, legacy data compatibility, owner-managed manager attendance, self-marking revocation, and manager self/peer correction denial.
 
 Native bundling and web interaction are separate checks: the browser suite does not validate the iOS Keychain / Android Keystore or physical-device behavior. Run the walkthrough on your phone before distribution.
 
@@ -170,6 +187,10 @@ All paths below are prefixed with `/api`; all except OTP endpoints require a bea
 | POST | `/auth/otp/request` | `{mobile, role}` → challenge ID, expiry, resend delay, development OTP |
 | POST | `/auth/otp/verify` | `{challenge_id, code}` → access token, expiry |
 | GET | `/auth/me` | User, login portal, active memberships, shop settings and effective permissions |
+| PATCH | `/auth/profile` | Owner updates their own `{name}` |
+| POST | `/auth/mobile-change/request` | Owner submits `{mobile}`; send OTP to current number |
+| POST | `/auth/mobile-change/verify-current` | Verify current-number `{challenge_id, code}`; send OTP to new number |
+| POST | `/auth/mobile-change/confirm` | Verify new-number `{challenge_id, code}`; update identity and return a replacement access token |
 | POST | `/auth/logout` | Revoke current session |
 | POST | `/shops` | Owner creates `{name, timezone}` |
 | GET | `/shops/{shop_id}/team` | Owner/manager reads workers and managers, including inactive staff |
@@ -220,7 +241,7 @@ To add real SMS, implement `OTPProvider.send(mobile, code)` and register it in `
 
 - `backend/app/config.py`, `db.py`, `schemas.py`: configuration, collections/indexes, validated inputs.
 - `backend/app/security.py`, `shop_policy.py`, `otp.py`: authentication, shop permissions, SMS provider boundary.
-- `backend/app/routers/{auth,shops,attendance}.py`: complete REST workflows.
+- `backend/app/routers/{auth,account,shops,attendance}.py`: complete REST workflows.
 - `backend/app/main.py`: application factory, startup, CORS, health, error handling.
 - `backend/tests/`: real-database integration tests and isolated browser-test server.
 - `mobile/src/{api,auth,storage,hooks,types}.*`: typed API client, session lifecycle, SecureStore, data refresh.
@@ -235,8 +256,8 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 20 backend integration tests passed against MongoDB 7.0.2.
-- 5 Playwright browser tests cover the full owner/manager/worker flow and staff login eligibility.
+- 25 backend integration tests passed against MongoDB 7.0.2.
+- 7 Playwright browser tests cover the full owner/manager/worker flow and staff login eligibility.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.
 - iOS, Android, and web production JavaScript bundles exported successfully.

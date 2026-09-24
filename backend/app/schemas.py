@@ -57,6 +57,10 @@ class OTPVerify(Input):
     code: str = Field(pattern=r"^\d{6}$")
 
 
+class OwnerProfileUpdate(Input):
+    name: str = Field(min_length=2, max_length=100)
+
+
 class ShopCreate(Input):
     name: str = Field(min_length=2, max_length=100)
     timezone: str = "Asia/Kolkata"

@@ -6,17 +6,14 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useAuth } from '../auth';
 import {
   AttendanceCard,
-  Avatar,
   Button,
   Card,
   colors,
   ErrorText,
-  Heading,
   Loading,
   Page,
   styles,
 } from '../components/ui';
-import { BrandMark } from '../components/Brand';
 import { useAction, useResource } from '../hooks';
 import { Routes, Today } from '../types';
 
@@ -134,92 +131,6 @@ export function WorkerDashboard() {
           </Text>
         </Card>
       )}
-    </Page>
-  );
-}
-export function Profile() {
-  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
-  const { session, selected, signOut, reload } = useAuth();
-  const action = useAction();
-  const name = selected?.worker_name || (session!.role === 'OWNER' ? 'Shop owner' : 'Team member');
-  return (
-    <Page>
-      <Heading title="Your corner." subtitle="Your account, your shop, your preferences." />
-      <Card>
-        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-          <Avatar name={name} manager={session!.role !== 'WORKER'} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.heading}>{name}</Text>
-            <Text style={styles.small}>{session!.user.mobile}</Text>
-          </View>
-          <Text style={[styles.eyebrow, { fontSize: 10, letterSpacing: 1 }]}>{session!.role}</Text>
-        </View>
-      </Card>
-      <Card>
-        <View style={styles.row}>
-          <Ionicons name="storefront-outline" size={24} color={colors.green} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.heading}>{selected?.shop.name || 'No active shop'}</Text>
-            <Text style={styles.small}>{selected?.shop.timezone}</Text>
-          </View>
-        </View>
-      </Card>
-      {session!.role === 'OWNER' && (
-        <>
-          <Text style={styles.eyebrow}>YOUR SHOP, YOUR WAY</Text>
-          <Button
-            title="Shop settings"
-            secondary
-            onPress={() => navigation.navigate('ShopSettings')}
-          />
-          <Button
-            title="Manage managers"
-            secondary
-            onPress={() => navigation.navigate('Managers')}
-          />
-          <Button
-            title="Create another shop"
-            secondary
-            onPress={() => navigation.navigate('ShopSetup')}
-          />
-        </>
-      )}
-      {session!.role === 'MANAGER' && (
-        <Card>
-          <Text style={styles.heading}>Your permissions</Text>
-          {[
-            ['Record worker attendance', selected!.permissions.manage_attendance],
-            ['Mark my own attendance', selected!.permissions.mark_own_attendance],
-            ['Add workers', selected!.permissions.add_workers],
-            ['Edit workers', selected!.permissions.edit_workers],
-          ].map(([label, allowed]) => (
-            <View style={styles.row} key={String(label)}>
-              <Text style={styles.small}>{label}</Text>
-              <Text
-                style={{
-                  color: allowed ? colors.green : colors.muted,
-                  fontSize: 12,
-                  fontWeight: '700',
-                }}
-              >
-                {allowed ? 'Enabled' : 'Owner only'}
-              </Text>
-            </View>
-          ))}
-        </Card>
-      )}
-      <ErrorText message={action.error} />
-      <Button
-        title="Refresh memberships"
-        secondary
-        busy={action.busy}
-        onPress={() => void action.run(reload)}
-      />
-      <Button title="Sign out" danger busy={action.busy} onPress={() => void action.run(signOut)} />
-      <View style={{ alignItems: 'center', paddingVertical: 12, gap: 4 }}>
-        <BrandMark size={40} />
-        <Text style={[styles.small, { fontSize: 11 }]}>Made for the people behind the shop.</Text>
-      </View>
     </Page>
   );
 }

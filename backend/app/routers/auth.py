@@ -45,17 +45,35 @@ def limit_requests(db, key, limit, seconds):
 
 @router.post("/otp/request")
 def request_otp(body: OTPRequest, request: Request, db=Depends(get_db)):
-    settings = request.app.state.settings
     # Use the actual peer address; only trust proxy headers from configured proxies.
     peer = request.client.host if request.client else "unknown"
     limit_requests(db, f"ip:{peer}", 60, 3600)
     limit_requests(db, f"mobile:{body.mobile}", 10, 3600)
     if body.role != "OWNER" and not eligible_staff(db, body.mobile, body.role):
         raise HTTPException(403, NOT_ADDED)
+    user = db.users.find_one({"mobile": body.mobile})
+    return issue_challenge(
+        request,
+        db,
+        body.mobile,
+        "LOGIN",
+        {
+            "role": body.role.value,
+            "user_id": user["_id"] if user else None,
+            "auth_version": user.get("auth_version", 0) if user else 0,
+        },
+    )
+
+
+def issue_challenge(request, db, mobile, purpose, metadata):
+    settings = request.app.state.settings
+    peer = request.client.host if request.client else "unknown"
+    limit_requests(db, f"send:{peer}", 60, 3600)
+    limit_requests(db, f"send-mobile:{mobile}", 10, 3600)
     timestamp = now()
     try:
         db.otp_limits.find_one_and_update(
-            {"_id": f"cooldown:{body.mobile}", "next_at": {"$lte": timestamp}},
+            {"_id": f"cooldown:{mobile}", "next_at": {"$lte": timestamp}},
             {
                 "$set": {
                     "next_at": timestamp + timedelta(seconds=settings.otp_resend_seconds),
@@ -74,8 +92,9 @@ def request_otp(body: OTPRequest, request: Request, db=Depends(get_db)):
     code = settings.dev_otp if settings.otp_provider == "dev" else f"{secrets.randbelow(1000000):06d}"
     challenge = {
         "_id": challenge_id,
-        "mobile": body.mobile,
-        "role": body.role.value,
+        "mobile": mobile,
+        "purpose": purpose,
+        **metadata,
         "code_hash": code_hash(settings.jwt_secret, challenge_id, code),
         "attempts": 0,
         "consumed": False,
@@ -83,7 +102,7 @@ def request_otp(body: OTPRequest, request: Request, db=Depends(get_db)):
     }
     db.otp_challenges.insert_one(challenge)
     try:
-        request.app.state.otp_provider.send(body.mobile, code)
+        request.app.state.otp_provider.send(mobile, code)
     except Exception:
         db.otp_challenges.delete_one({"_id": challenge_id})
         raise HTTPException(503, "Unable to send OTP. Please try again later.")
@@ -99,37 +118,26 @@ def request_otp(body: OTPRequest, request: Request, db=Depends(get_db)):
 
 @router.post("/otp/verify")
 def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
-    settings = request.app.state.settings
-    peer = request.client.host if request.client else "unknown"
-    limit_requests(db, f"verify:{peer}", 120, 3600)
-    challenge = db.otp_challenges.find_one_and_update(
-        {
-            "_id": body.challenge_id,
-            "consumed": False,
-            "expires_at": {"$gt": now()},
-            "attempts": {"$lt": settings.otp_max_attempts},
-        },
-        {"$inc": {"attempts": 1}},
-        return_document=ReturnDocument.AFTER,
-    )
-    if not challenge or not hmac.compare_digest(
-        challenge["code_hash"], code_hash(settings.jwt_secret, body.challenge_id, body.code)
+    challenge = consume_challenge(body, request, db, "LOGIN")
+    existing = db.users.find_one({"mobile": challenge["mobile"]})
+    if (existing["_id"] if existing else None) != challenge.get("user_id") or (
+        existing and existing.get("auth_version", 0) != challenge.get("auth_version", 0)
     ):
-        raise HTTPException(400, "Invalid or expired OTP. Request a new code if needed.")
+        raise HTTPException(400, "Your account changed. Please request a new OTP.")
     if challenge["role"] != "OWNER" and not eligible_staff(db, challenge["mobile"], challenge["role"]):
         raise HTTPException(403, NOT_ADDED)
-    claimed = db.otp_challenges.update_one(
-        {"_id": body.challenge_id, "consumed": False, "expires_at": {"$gt": now()}},
-        {"$set": {"consumed": True}},
-    )
-    if not claimed.modified_count:
-        raise HTTPException(400, "This OTP has already been used")
-    user = db.users.find_one_and_update(
-        {"mobile": challenge["mobile"]},
-        {"$setOnInsert": {"_id": new_id(), "created_at": now()}},
-        upsert=True,
-        return_document=ReturnDocument.AFTER,
-    )
+    user = existing
+    if user is None:
+        user = {"_id": new_id(), "mobile": challenge["mobile"], "created_at": now()}
+        try:
+            db.users.insert_one(user)
+        except DuplicateKeyError:
+            raise HTTPException(400, "Your account changed. Please request a new OTP.")
+    return create_session(request, db, user, challenge["role"])
+
+
+def create_session(request, db, user, role):
+    settings = request.app.state.settings
     session_id = new_id()
     timestamp = now()
     expiry = timestamp + timedelta(minutes=settings.jwt_expire_minutes)
@@ -137,7 +145,8 @@ def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
         {
             "_id": session_id,
             "user_id": user["_id"],
-            "role": challenge["role"],
+            "role": role,
+            "auth_version": user.get("auth_version", 0),
             "revoked": False,
             "expires_at": expiry,
         }
@@ -145,7 +154,7 @@ def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
     token = jwt.encode(
         {
             "sub": user["_id"],
-            "portal": challenge["role"],
+            "portal": role,
             "jti": session_id,
             "iat": timestamp,
             "exp": expiry,
@@ -156,6 +165,36 @@ def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
         algorithm="HS256",
     )
     return {"access_token": token, "token_type": "bearer", "expires_at": expiry}
+
+
+def consume_challenge(body, request, db, purpose, scope=None):
+    settings = request.app.state.settings
+    peer = request.client.host if request.client else "unknown"
+    limit_requests(db, f"verify:{peer}", 120, 3600)
+    query = {
+        "_id": body.challenge_id,
+        "purpose": purpose,
+        "consumed": False,
+        "expires_at": {"$gt": now()},
+        "attempts": {"$lt": settings.otp_max_attempts},
+        **(scope or {}),
+    }
+    challenge = db.otp_challenges.find_one_and_update(
+        query,
+        {"$inc": {"attempts": 1}},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not challenge or not hmac.compare_digest(
+        challenge["code_hash"], code_hash(settings.jwt_secret, body.challenge_id, body.code)
+    ):
+        raise HTTPException(400, "Invalid or expired OTP. Request a new code if needed.")
+    claimed = db.otp_challenges.update_one(
+        {"_id": body.challenge_id, "consumed": False, "expires_at": {"$gt": now()}},
+        {"$set": {"consumed": True}},
+    )
+    if not claimed.modified_count:
+        raise HTTPException(400, "This OTP has already been used")
+    return challenge
 
 
 @router.get("/me")

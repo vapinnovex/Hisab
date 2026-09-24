@@ -20,7 +20,8 @@ import {
   TodayAttendance,
 } from './src/screens/OwnerScreens';
 import { MyAttendance, WorkerHistory } from './src/screens/AttendanceScreens';
-import { Profile, WorkerDashboard } from './src/screens/WorkerScreens';
+import { WorkerDashboard } from './src/screens/WorkerScreens';
+import { Profile, OwnerProfile, ChangeMobile } from './src/screens/AccountScreens';
 import { Routes, TabRoutes } from './src/types';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
@@ -189,6 +190,8 @@ function Navigation() {
                 {session.role === 'OWNER' && (
                   <>
                     <Stack.Screen name="ShopSetup" component={ShopSetup} />
+                    <Stack.Screen name="OwnerProfile" component={OwnerProfile} />
+                    <Stack.Screen name="ChangeMobile" component={ChangeMobile} />
                     <Stack.Screen name="Managers" component={ManagersScreen} />
                     <Stack.Screen name="ShopSettings" component={ShopSettingsScreen} />
                   </>

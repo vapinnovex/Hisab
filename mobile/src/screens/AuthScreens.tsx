@@ -8,6 +8,7 @@ import { Button, Card, colors, ErrorText, Field, Heading, Page, styles } from '.
 import { useAction } from '../hooks';
 import { Challenge, Routes, Role } from '../types';
 import { logo } from '../components/Brand';
+import { PhoneField } from '../components/PhoneField';
 
 export function RoleSelection({ navigation }: NativeStackScreenProps<Routes, 'RoleSelection'>) {
   const roles: {
@@ -130,6 +131,18 @@ export function MobileLogin({ navigation, route }: NativeStackScreenProps<Routes
   const { role } = route.params;
   return (
     <Page>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 20,
+          backgroundColor: colors.mint,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name="phone-portrait-outline" size={30} color={colors.green} />
+      </View>
       <Text style={styles.eyebrow}>{role} LOGIN</Text>
       <Heading
         title="Your mobile number"
@@ -139,16 +152,13 @@ export function MobileLogin({ navigation, route }: NativeStackScreenProps<Routes
             : 'Use the number your shop owner added for you.'
         }
       />
-      <Field
-        label="Mobile number"
-        keyboardType="phone-pad"
-        autoComplete="tel"
-        value={mobile}
-        onChangeText={setMobile}
-        placeholder="+919876543210"
-        maxLength={20}
-      />
-      <Text style={styles.small}>Include your country code, for example +91 for India.</Text>
+      <Card>
+        <PhoneField value={mobile} onChange={setMobile} />
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Ionicons name="shield-checkmark-outline" size={18} color={colors.green} />
+          <Text style={[styles.small, { flex: 1 }]}>A one-time code. No password to remember.</Text>
+        </View>
+      </Card>
       <ErrorText message={action.error} />
       <Button
         title="Send OTP"
