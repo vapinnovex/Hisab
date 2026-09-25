@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useUnsavedChanges } from '../pwa';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
 import {
@@ -26,6 +27,7 @@ function NewDay({ initial, refresh }: { initial: TodayHishob; refresh: () => Pro
   const [opening, setOpening] = useState(initial.suggested_opening_cash || '');
   const [reason, setReason] = useState('');
   const action = useAction();
+  useUnsavedChanges(opening !== (initial.suggested_opening_cash || '') || !!reason);
   const override =
     initial.suggested_opening_cash !== null &&
     parseMoney(opening) !== signedPaise(initial.suggested_opening_cash);
@@ -161,6 +163,13 @@ function TransactionForm({
     () => `entry-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
   );
   const action = useAction();
+  useUnsavedChanges(
+    amount !== (entry?.amount || '') ||
+      description !== (entry?.description || '') ||
+      category !== (entry?.category || '') ||
+      type !== (entry?.type || 'CASH_SALE') ||
+      !!reason,
+  );
   if (initial.status !== 'OPEN' || (entryId && (!entry || entry.deleted)))
     return <ErrorText message="This entry is no longer editable. Go back and refresh the day." />;
   return (
@@ -225,7 +234,8 @@ function TransactionForm({
         }
       />
       <Text style={styles.small}>
-        If the day changes on another device, go back and refresh before saving again.
+        Keep this form open until the save is confirmed. If the day changes on another device, go
+        back and refresh before saving again.
       </Text>
     </>
   );
@@ -432,6 +442,7 @@ function CloseForm({ initial: loaded, done }: { initial: Day; done: () => void }
   const [differenceNote, setDifferenceNote] = useState('');
   const [notes, setNotes] = useState(initial.notes);
   const action = useAction();
+  useUnsavedChanges(!!actual || !!differenceNote || notes !== initial.notes);
   const value = parseMoney(actual);
   const difference =
     value === null ? null : decimal(value - signedPaise(initial.expected_closing_cash));
@@ -528,6 +539,7 @@ function ChangeOpening({ initial: loaded, done }: { initial: Day; done: () => Pr
   const { api, selected } = useAuth();
   const [opening, setOpening] = useState(initial.opening_cash);
   const [reason, setReason] = useState('');
+  useUnsavedChanges(opening !== initial.opening_cash || !!reason);
   const action = useAction();
   return (
     <Card>

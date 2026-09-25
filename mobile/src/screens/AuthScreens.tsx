@@ -220,7 +220,7 @@ export function OTPScreen({ route, navigation }: NativeStackScreenProps<Routes, 
         busy={action.busy}
         onPress={() =>
           void action.run(async () => {
-            const result = await request<{ access_token: string }>(
+            const result = await request<{ access_token?: string }>(
               '/auth/otp/verify',
               null,
               { challenge_id: challenge.challenge_id, code },

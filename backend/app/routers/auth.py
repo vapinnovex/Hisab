@@ -3,7 +3,7 @@ import secrets
 from datetime import timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
@@ -13,6 +13,7 @@ from ..schemas import OTPRequest, OTPVerify
 from ..security import current_identity
 from ..sessions import legacy_session_ids, session_group, session_limit
 from ..shop_policy import permissions_for, shop_view
+from ..web_session import browser_session, clear_browser_session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 NOT_ADDED = "You haven’t been added to any shop yet. Ask your shop owner to add you."
@@ -118,7 +119,7 @@ def issue_challenge(request, db, mobile, purpose, metadata):
 
 
 @router.post("/otp/verify")
-def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
+def verify_otp(body: OTPVerify, request: Request, response: Response, db=Depends(get_db)):
     challenge = consume_challenge(body, request, db, "LOGIN")
     existing = db.users.find_one({"mobile": challenge["mobile"]})
     if (existing["_id"] if existing else None) != challenge.get("user_id") or (
@@ -134,7 +135,7 @@ def verify_otp(body: OTPVerify, request: Request, db=Depends(get_db)):
             db.users.insert_one(user)
         except DuplicateKeyError:
             raise HTTPException(400, "Your account changed. Please request a new OTP.")
-    return create_session(request, db, user, challenge["role"])
+    return browser_session(request, response, create_session(request, db, user, challenge["role"]))
 
 
 def create_session(request, db, user, role):
@@ -283,7 +284,8 @@ def me(identity=Depends(current_identity), db=Depends(get_db)):
 
 
 @router.post("/logout", status_code=204)
-def logout(identity=Depends(current_identity), db=Depends(get_db)):
+def logout(request: Request, response: Response, identity=Depends(current_identity), db=Depends(get_db)):
+    clear_browser_session(request, response)
     db.sessions.update_one({"_id": identity.session_id}, {"$set": {"revoked": True}})
     db.users.update_one(
         {"_id": identity.user["_id"]},

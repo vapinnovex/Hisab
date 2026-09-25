@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .db import get_db, now
 from .sessions import legacy_session_ids, session_group
+from .web_session import COOKIE_NAME
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -23,11 +24,12 @@ def current_identity(
     db=Depends(get_db),
 ):
     unauthorized = HTTPException(401, "Session expired. Please log in again.")
-    if credentials is None:
+    encoded = credentials.credentials if credentials else request.cookies.get(COOKIE_NAME)
+    if not encoded:
         raise unauthorized
     try:
         claims = jwt.decode(
-            credentials.credentials,
+            encoded,
             request.app.state.settings.jwt_secret,
             algorithms=["HS256"],
             audience="hisab-mobile",

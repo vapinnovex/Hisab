@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def production_safety(self):
+        if "*" in self.cors_origins:
+            raise ValueError("CORS_ORIGINS must list exact trusted app origins")
         if self.app_env not in {"development", "test"}:
             if self.otp_provider == "dev":
                 raise ValueError("Development OTP provider cannot run in production")

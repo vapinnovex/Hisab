@@ -19,7 +19,8 @@
       "package": "com.hisab.app"
     },
     "web": {
-      "favicon": "./assets/brand/hishob-logo.png"
+      "favicon": "./assets/brand/hishob-logo.png",
+      "output": "single"
     },
     "plugins": [
       "expo-secure-store",

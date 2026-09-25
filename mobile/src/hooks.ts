@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
+import { onReconnect } from './connection';
 import { useAuth } from './auth';
 
 export function useResource<T>(path: string, poll = false) {
@@ -31,6 +32,7 @@ export function useResource<T>(path: string, poll = false) {
   useEffect(() => {
     if (!focused) return;
     void refresh();
+    const reconnect = onReconnect(() => void refresh());
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void refresh();
     });
@@ -40,6 +42,7 @@ export function useResource<T>(path: string, poll = false) {
         }, 5000)
       : undefined;
     return () => {
+      reconnect();
       subscription.remove();
       if (timer) clearInterval(timer);
       sequence.value++;

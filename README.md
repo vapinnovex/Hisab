@@ -2,6 +2,10 @@
 
 A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile OTP login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
 
+## Web / PWA pilot
+
+Hishob can be installed from a web link with persistent browser login, connection recovery and safe app updates. Access is unrestricted; the first ten owners get all existing owner features. See [PWA deployment and pilot guide](docs/PWA-PILOT.md) for Atlas, Render, Vercel, local preview and device checks. The OTP provider is unchanged.
+
 ## Run locally
 
 Prerequisites: **Node 22.13+ (22 LTS recommended)**, Python 3.9+ (3.12 recommended), and MongoDB 7+ or Docker. `.nvmrc` selects Node 22. Python dependencies and the npm lockfile are checked in.
@@ -54,7 +58,7 @@ Set `EXPO_PUBLIC_API_URL` before starting Expo:
 | Android emulator | `http://10.0.2.2:8000` |
 | Physical phone | `http://<computer-LAN-IP>:8000` |
 
-Phone and computer must share a reachable network. Restart Expo after editing `.env`. API URLs are public app configuration, never secrets. Native auth tokens are stored with Expo SecureStore. Web preview tokens stay **in memory only** and are intentionally lost on reload.
+Phone and computer must share a reachable network. Restart Expo after editing `.env`. API URLs are public app configuration, never secrets. Native auth tokens are stored with Expo SecureStore. Web sessions use a persistent HttpOnly cookie. Production web builds use a same-origin `/api` proxy; see the PWA guide.
 
 ## Roles and shop settings
 
@@ -144,7 +148,7 @@ No audit events or snapshots are truncated. A 12 MB per-day document guard rejec
 
 ### Phase 2 APIs
 
-Prefix every path below with `/api/shops/{shop_id}/hishob`. All routes require a bearer session and financial shop permission.
+Prefix every path below with `/api/shops/{shop_id}/hishob`. All routes require an authenticated native/browser session and financial shop permission.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -270,17 +274,17 @@ Workers are deactivated, never deleted. Changing a worker's mobile reassigns tha
 
 ## API surface
 
-All paths below are prefixed with `/api`; all except OTP endpoints require a bearer JWT.
+All paths below are prefixed with `/api`; all except OTP endpoints require a bearer JWT (native) or the HttpOnly session cookie (web). Browser writes also require `X-Hishob-Client: web` and an exact allowed `Origin`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | POST | `/auth/otp/request` | `{mobile, role}` → challenge ID, expiry, resend delay, development OTP |
-| POST | `/auth/otp/verify` | `{challenge_id, code}` → access token, expiry |
+| POST | `/auth/otp/verify` | `{challenge_id, code}` → native access token or web session cookie, expiry |
 | GET | `/auth/me` | User, login portal, active memberships, shop settings and effective permissions |
 | PATCH | `/auth/profile` | Owner updates their own `{name}` |
 | POST | `/auth/mobile-change/request` | Owner submits `{mobile}`; send OTP to current number |
 | POST | `/auth/mobile-change/verify-current` | Verify current-number `{challenge_id, code}`; send OTP to new number |
-| POST | `/auth/mobile-change/confirm` | Verify new-number `{challenge_id, code}`; update identity and return a replacement access token |
+| POST | `/auth/mobile-change/confirm` | Verify new-number `{challenge_id, code}`; update identity and return a replacement native token or web session cookie |
 | POST | `/auth/logout` | Revoke current session |
 | POST | `/shops` | Owner creates `{name, timezone}` |
 | GET | `/shops/{shop_id}/team` | Owner/manager reads workers and managers, including inactive staff |
@@ -320,7 +324,8 @@ The attendance routes under `/workers/{worker_id}` accept either worker or manag
 | `OTP_RESEND_SECONDS` | `30` | Per-mobile cooldown |
 | `OTP_MAX_ATTEMPTS` | `5` | Per-challenge verification limit |
 | `CORS_ORIGINS` | JSON array | Browser origins allowed by the API |
-| `EXPO_PUBLIC_API_URL` | `http://localhost:8000` | Mobile API base, without `/api` |
+| `EXPO_PUBLIC_API_URL` | `http://localhost:8000` | Native/development API base, without `/api` |
+| `EXPO_PUBLIC_WEB_API_URL` | Unset | Optional web-only override; leave unset for the deployed same-origin PWA |
 | `TEST_MONGODB_URI` | `mongodb://127.0.0.1:27018` | Test runner only |
 
 OTP requests are limited per mobile and peer IP in MongoDB, so limits work across API workers. Verification is limited per challenge and peer IP. OTP hashes use HMAC, codes are not logged, successful challenges are single-use, and manager/worker eligibility is rechecked after verification. TTL cleanup is not relied on for expiry enforcement. Configure trusted proxy IPs correctly when deploying behind a proxy.
@@ -346,8 +351,8 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 47 backend integration tests passed against MongoDB 7.0.2.
-- 8 Playwright browser tests cover Phase 1 plus the cash-register flow, financial corrections, closing snapshots, history and manager permissions.
+- 61 backend integration tests passed against real MongoDB, including browser cookies, CSRF, session limits, mobile-number changes and native bearer compatibility.
+- 12 existing Playwright checks cover attendance, account flows, the cash register, history, search and currency editing. 4 additional PWA checks cover production-export installation metadata, persistent login, offline recovery, drafts, safe updates and unconfirmed saves.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.
 - iOS, Android, and web production JavaScript bundles exported successfully.

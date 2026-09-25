@@ -1,12 +1,13 @@
 """Owner identity updates preserve user IDs, memberships and attendance."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db, now, public
 from ..schemas import MobileInput, OTPVerify, OwnerProfileUpdate
 from ..security import require_owner
+from ..web_session import browser_session
 from .auth import consume_challenge, create_session, issue_challenge, limit_requests
 
 router = APIRouter(prefix="/auth", tags=["Account"])
@@ -71,7 +72,9 @@ def verify_current(body: OTPVerify, request: Request, identity=Depends(require_o
 
 
 @router.post("/mobile-change/confirm")
-def confirm_change(body: OTPVerify, request: Request, identity=Depends(require_owner), db=Depends(get_db)):
+def confirm_change(
+    body: OTPVerify, request: Request, response: Response, identity=Depends(require_owner), db=Depends(get_db)
+):
     challenge = consume_challenge(body, request, db, "CHANGE_NEW", scope(identity))
     try:
         # One atomic identity change. Version checks invalidate concurrent/older sessions.
@@ -89,4 +92,4 @@ def confirm_change(body: OTPVerify, request: Request, identity=Depends(require_o
     if not user:
         raise HTTPException(409, "Your account changed. Please start again.")
     db.sessions.update_many({"user_id": user["_id"]}, {"$set": {"revoked": True}})
-    return create_session(request, db, user, "OWNER")
+    return browser_session(request, response, create_session(request, db, user, "OWNER"))

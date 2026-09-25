@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { WebExperience } from './src/pwa';
 import { AuthProvider, useAuth } from './src/auth';
 import { AppHeader, BrandMark } from './src/components/Brand';
 import { Button, colors, ErrorText, Heading, Loading, Page, styles } from './src/components/ui';
@@ -306,7 +307,10 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Navigation />
+        <View style={{ flex: 1 }}>
+          <WebExperience />
+          <Navigation />
+        </View>
       </AuthProvider>
     </SafeAreaProvider>
   );

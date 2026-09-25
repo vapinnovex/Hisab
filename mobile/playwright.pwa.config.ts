@@ -1,12 +1,12 @@
 import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './e2e',
-  testIgnore: '**/pwa.spec.ts',
+  testMatch: '**/pwa.spec.ts',
   timeout: 90000,
   expect: { timeout: 15000 },
   workers: 1,
   use: {
-    baseURL: 'http://localhost:8082',
+    baseURL: 'http://localhost:8083',
     viewport: { width: 390, height: 844 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
@@ -19,15 +19,11 @@ export default defineConfig({
       timeout: 30000,
     },
     {
-      command: 'npx expo start --web --port 8082',
-      url: 'http://localhost:8082',
+      command: 'npm run build:web && node scripts/serve-pwa.cjs',
+      url: 'http://localhost:8083',
       reuseExistingServer: false,
-      timeout: 120000,
-      env: {
-        EXPO_PUBLIC_API_URL: 'http://localhost:8001',
-        EXPO_PUBLIC_WEB_API_URL: 'http://localhost:8001',
-        CI: '1',
-      },
+      timeout: 180000,
+      env: { EXPO_PUBLIC_WEB_API_URL: '', CI: '1' },
     },
   ],
 });

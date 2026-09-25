@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ApiError, request } from './api';
 import { AppState } from 'react-native';
-import { tokenStorage } from './storage';
+import { onReconnect } from './connection';
+import { BROWSER_SESSION, tokenStorage } from './storage';
 import { Membership, Session } from './types';
 
 type Auth = {
@@ -11,7 +12,7 @@ type Auth = {
   bootError: string;
   select: (id: string) => void;
   restore: () => Promise<void>;
-  signIn: (token: string) => Promise<void>;
+  signIn: (token?: string) => Promise<void>;
   signOut: () => Promise<void>;
   reload: (preferredShop?: string) => Promise<void>;
   api: <T>(path: string, body?: unknown, method?: string) => Promise<T>;
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .then(async (value) => {
           token.current = value;
           if (value) await reload();
+          setBootError('');
         })
         .catch(async (error) => {
           if (error instanceof ApiError && error.status === 401) await clear();
@@ -89,6 +91,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [clear, reload],
   );
+  useEffect(
+    () =>
+      onReconnect(() => {
+        if (token.current)
+          void reload()
+            .then(() => setBootError(''))
+            .catch(() => undefined);
+      }),
+    [reload],
+  );
   const signedIn = !!session;
   useEffect(() => {
     if (!signedIn) return;
@@ -105,13 +117,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [signedIn, reload]);
   const signIn = useCallback(
-    async (value: string) => {
-      const data = await request<Session>('/auth/me', value);
+    async (value = BROWSER_SESSION) => {
+      // Keep the issued session if the first profile request loses connectivity.
+      // Reconnection can then finish login without consuming another OTP.
       await tokenStorage.set(value);
       token.current = value;
-      apply(data);
+      await reload();
     },
-    [apply],
+    [reload],
   );
   const signOut = useCallback(async () => {
     // Require server acknowledgment so logout really revokes the JWT session.

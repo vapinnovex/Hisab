@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Switch, Text, View } from 'react-native';
+import { useUnsavedChanges } from '../pwa';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
 import { ShopSettings } from '../types';
@@ -9,6 +10,7 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
   const { selected, api, reload } = useAuth();
   const [settings, setSettings] = useState(initial);
   const [saved, setSaved] = useState(false);
+  useUnsavedChanges(!saved && JSON.stringify(settings) !== JSON.stringify(initial));
   const action = useAction();
   const change = (patch: Partial<ShopSettings>) => {
     setSettings((current) => ({ ...current, ...patch }));

@@ -4,7 +4,7 @@ React Native + Expo SDK 57 + TypeScript. This app uses React Navigation native-s
 
 - Read version-matched Expo documentation before changing native module usage.
 - Install Expo/native dependencies with `npx expo install` and keep `expo-doctor` passing.
-- Auth tokens belong in `src/storage.ts` (SecureStore on native, memory only for browser preview).
+- Auth tokens belong in `src/storage.ts` (SecureStore on native; HttpOnly same-origin cookie on web, never a browser-stored JWT).
 - Do not put authorization decisions in the UI; shop access is validated by the backend.
 - Keep API transport in `src/api.ts` and session handling in `src/auth.tsx`.
 - Run `npm run typecheck`, `npm run lint`, and `npm run format:check` after changes.

@@ -10,6 +10,7 @@ from .config import Settings, get_settings
 from .db import create_indexes
 from .otp import get_provider
 from .routers import account, attendance, auth, hishob, shops
+from .web_session import COOKIE_NAME
 
 
 def create_app(settings: Settings = None):
@@ -33,8 +34,27 @@ def create_app(settings: Settings = None):
         CORSMiddleware,
         allow_origins=config.cors_origins,
         allow_methods=["GET", "POST", "PATCH", "PUT"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Hishob-Client"],
+        allow_credentials=True,
     )
+
+    @app.middleware("http")
+    async def browser_security(request: Request, call_next):
+        web = request.headers.get("x-hishob-client") == "web"
+        cookie_auth = COOKIE_NAME in request.cookies and not request.headers.get("authorization")
+        if request.url.path.startswith("/api/"):
+            # A custom header and exact trusted Origin prevent login and cookie CSRF.
+            if request.method not in {"GET", "HEAD", "OPTIONS"} and (web or cookie_auth):
+                if not web or request.headers.get("origin") not in config.cors_origins:
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "Untrusted browser origin. Open Hishob from its app address."},
+                        headers={"Cache-Control": "no-store"},
+                    )
+            response = await call_next(request)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        return await call_next(request)
 
     @app.exception_handler(PyMongoError)
     async def database_error(request: Request, exc: PyMongoError):

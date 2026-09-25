@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { InstallHelp, useUnsavedChanges } from '../pwa';
 import { useAuth } from '../auth';
 import {
   Avatar,
@@ -185,6 +186,7 @@ export function Profile() {
         </Text>
       )}
       <ErrorText message={action.error} />
+      <InstallHelp />
       <Button
         title="Sign out"
         secondary
@@ -202,6 +204,7 @@ export function Profile() {
 export function OwnerProfile({ navigation }: NativeStackScreenProps<Routes, 'OwnerProfile'>) {
   const { session, api, reload } = useAuth();
   const [name, setName] = useState(session!.user.name || '');
+  useUnsavedChanges(name !== (session!.user.name || ''));
   const action = useAction();
   return (
     <Page>
@@ -246,6 +249,7 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
   const [step, setStep] = useState<'NUMBER' | 'CURRENT' | 'NEW' | 'DONE'>('NUMBER');
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [code, setCode] = useState('');
+  useUnsavedChanges(step !== 'DONE' && (mobile !== '+91' || step !== 'NUMBER'));
   const action = useAction();
   const start = async () => {
     const next = await api<Challenge>('/auth/mobile-change/request', { mobile }, 'POST');
@@ -363,7 +367,7 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
                   setCode('');
                   setStep('NEW');
                 } else {
-                  const result = await api<{ access_token: string }>(
+                  const result = await api<{ access_token?: string }>(
                     '/auth/mobile-change/confirm',
                     body,
                     'POST',

@@ -3,6 +3,7 @@ import { Pressable, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
+import { useUnsavedChanges } from '../pwa';
 import { useAuth } from '../auth';
 import {
   Badge,
@@ -31,6 +32,9 @@ export function ShopSetup() {
   const [ownerName, setOwnerName] = useState(session!.user.name || '');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [editTimezone, setEditTimezone] = useState(false);
+  useUnsavedChanges(
+    !!name || ownerName !== (session!.user.name || '') || timezone !== 'Asia/Kolkata',
+  );
   const action = useAction();
   const needsName = !session!.user.name;
   return (
@@ -473,6 +477,11 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
   const [name, setName] = useState(worker?.name || '');
   const [mobile, setMobile] = useState(worker?.mobile || '+91');
   const [active, setActive] = useState(worker?.active ?? true);
+  useUnsavedChanges(
+    name !== (worker?.name || '') ||
+      mobile !== (worker?.mobile || '+91') ||
+      active !== (worker?.active ?? true),
+  );
   const action = useAction();
   return (
     <Page>

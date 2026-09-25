@@ -19,7 +19,7 @@ settings = Settings(
     mongodb_uri=os.getenv("TEST_MONGODB_URI", "mongodb://127.0.0.1:27018"),
     mongodb_database=f"hisab_e2e_{uuid4().hex}",
     otp_resend_seconds=0,
-    cors_origins=["http://localhost:8082"],
+    cors_origins=["http://localhost:8082", "http://localhost:8083"],
 )
 try:
     uvicorn.run(create_app(settings), host="127.0.0.1", port=8001)

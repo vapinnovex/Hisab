@@ -7,7 +7,7 @@
     "@react-navigation/bottom-tabs": "^7.19.2",
     "@react-navigation/native": "^7.4.1",
     "@react-navigation/native-stack": "^7.19.2",
-    "expo": "~57.0.24",
+    "expo": "~57.0.25",
     "expo-font": "~57.0.4",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^57.0.2",
@@ -36,7 +37,10 @@
     "lint": "eslint . --max-warnings=0",
     "test:e2e": "playwright test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build:web": "expo export --platform web && node scripts/build-pwa.cjs",
+    "test:pwa": "playwright test --config playwright.pwa.config.ts",
+    "preview:pwa": "node scripts/serve-pwa.cjs"
   },
   "private": true,
   "engines": {
