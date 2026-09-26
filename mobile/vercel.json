@@ -4,7 +4,7 @@
   "buildCommand": "npm run build:web",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "https://YOUR-HISHOB-API.onrender.com/api/:path*" },
+    { "source": "/api/:path*", "destination": "https://hishob-anuj.onrender.com/api/:path*" },
     {
       "source": "/((?!api(?:/|$)|_expo/|assets/|icons/|sw\\.js$|manifest\\.webmanifest$|favicon\\.ico$).*)",
       "destination": "/index.html"
