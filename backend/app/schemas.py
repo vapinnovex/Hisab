@@ -94,7 +94,14 @@ class AttendanceMode(str, Enum):
     CHECK_IN_OUT = "CHECK_IN_OUT"
 
 
+class HishobMode(str, Enum):
+    ENTRIES = "ENTRIES"
+    COUNTED = "COUNTED"
+    BILLING = "BILLING"
+
+
 class ShopSettings(Input):
+    hishob_mode: HishobMode = HishobMode.ENTRIES
     attendance_mode: AttendanceMode = AttendanceMode.CHECK_IN_ONLY
     manager_can_manage_attendance: bool = True
     manager_can_mark_own_attendance: bool = False

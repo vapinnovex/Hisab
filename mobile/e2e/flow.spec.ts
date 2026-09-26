@@ -457,10 +457,12 @@ test('daily Hishob closing, preserved history, corrections and manager permissio
   await cashEntry(owner, 'Cash sales', '15000', 'Daily cash sales');
   await cashEntry(owner, 'Expense', '500', 'Transport');
   await cashEntry(owner, 'Bank deposit', '2000', 'Bank cash deposit');
+  await expect(owner.getByText('CURRENT GALLA', { exact: true })).toBeVisible();
   await expect(owner.getByText('₹12,500', { exact: true }).filter({ visible: true })).toBeVisible();
   await owner.screenshot({ path: testInfo.outputPath('today-hishob.png') });
   await owner.getByRole('button', { name: 'Close day', exact: true }).click();
   await owner.getByRole('textbox', { name: 'Actual cash in galla', exact: true }).fill('12300');
+  await expect(owner.getByText('EXPECTED GALLA', { exact: true })).toBeVisible();
   await expect(owner.getByLabel('Difference -₹200', { exact: true })).toBeVisible();
   await expect(
     owner.getByRole('button', { name: 'Close today’s Hishob', exact: true }),

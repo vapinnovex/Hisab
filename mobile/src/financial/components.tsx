@@ -58,16 +58,60 @@ export function Breakdown({ day }: { day: Totals }) {
         <Text style={styles.heading}>Opening cash</Text>
         <Text style={styles.heading}>{money(day.opening_cash)}</Text>
       </View>
-      {transactionTypes.map((item) => (
-        <View style={styles.row} key={item.type}>
-          <Text style={styles.small}>
-            {item.incoming ? '+' : '−'} {item.label}
-          </Text>
-          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '600' }}>
-            {money(day[item.field])}
-          </Text>
+      {[
+        ['+ Cash sales', day.cash_sales],
+        ['+ Other cash in', day.other_cash_in],
+        ['− Cash expenses', day.cash_expenses ?? day.expenses_total],
+        ['− Cash supplier payments', day.cash_supplier_payments ?? day.supplier_payments],
+        ['− Bank deposit', day.bank_deposit],
+        ['− Take-home / withdrawal', day.withdrawals],
+      ].map(([label, value]) => (
+        <View style={styles.row} key={label}>
+          <Text style={styles.small}>{label}</Text>
+          <Text style={styles.heading}>{money(value)}</Text>
         </View>
       ))}
+      <Text style={styles.label}>Outside the galla</Text>
+      <Text style={styles.small}>
+        UPI / card sales {money(day.digital_sales === undefined ? '0' : day.digital_sales)} · Unpaid
+        credit sales {money(day.credit_sales === undefined ? '0' : day.credit_sales)}
+      </Text>
+      <Text style={styles.small}>
+        Digital expenses {money(day.digital_expenses ?? '0')} · Digital supplier payments{' '}
+        {money(day.digital_supplier_payments ?? '0')}
+      </Text>
+      <Text style={styles.small}>
+        Online payments and credit sales do not add cash to the galla. Other cash in (such as old
+        dues or owner funds) is not today’s sales.
+      </Text>
+      {day.total_sales != null && (
+        <Text style={styles.heading}>
+          Sales {money(day.total_sales)}
+          {day.mode === 'COUNTED' ? ' · includes estimated cash sales' : ''}
+        </Text>
+      )}
+      {day.mode === 'COUNTED' && (
+        <Text style={styles.small}>
+          Cash sales are estimated from counted cash and recorded movements. A cash difference
+          cannot be independently checked.
+        </Text>
+      )}
+      {day.mode === 'BILLING' && day.total_sales != null && day.cash_sales === null && (
+        <Text style={styles.small}>
+          Payment breakdown not provided. Total sales are recorded; cash sales and the cash
+          difference cannot be calculated from the total alone.
+        </Text>
+      )}
+      {!!day.closing_bank_deposit && day.closing_bank_deposit !== '0.00' && (
+        <Text style={styles.small}>
+          Bank total includes {money(day.closing_bank_deposit)} removed at closing.
+        </Text>
+      )}
+      {!!day.closing_withdrawal && day.closing_withdrawal !== '0.00' && (
+        <Text style={styles.small}>
+          Withdrawal total includes {money(day.closing_withdrawal)} taken home at closing.
+        </Text>
+      )}
     </Card>
   );
 }
@@ -75,21 +119,44 @@ export function Galla({
   expected,
   actual,
   difference,
+  current = false,
 }: {
-  expected: string;
+  expected: string | null;
   actual?: string | null;
   difference?: string | null;
+  current?: boolean;
 }) {
   return (
     <View style={{ backgroundColor: colors.green, borderRadius: 24, padding: 22, gap: 12 }}>
-      <Text style={{ color: '#D5E5D9', fontSize: 13 }}>EXPECTED GALLA</Text>
-      <Text style={{ color: colors.white, fontSize: 34, fontWeight: '700' }}>
-        {money(expected)}
+      <Text style={{ color: '#D5E5D9', fontSize: 13 }}>
+        {current
+          ? 'CURRENT GALLA'
+          : expected === null
+            ? actual != null
+              ? 'CASH KEPT IN GALLA'
+              : 'CLOSING CHECK'
+            : 'EXPECTED GALLA'}
       </Text>
-      {actual !== undefined && (
-        <Text style={{ color: '#EDF5EE', fontSize: 16 }}>Actual cash · {money(actual)}</Text>
+      <Text style={{ color: colors.white, fontSize: 34, fontWeight: '700' }}>
+        {current && expected === null
+          ? 'Available at closing'
+          : expected === null
+            ? actual != null
+              ? money(actual)
+              : 'Count at closing'
+            : money(expected)}
+      </Text>
+      {current && (
+        <Text style={{ color: '#EDF5EE', fontSize: 14 }}>
+          {expected === null
+            ? 'Sales are not recorded yet, so the current cash balance is unknown.'
+            : 'Based on recorded cash movements. Verify by counting at closing.'}
+        </Text>
       )}
-      {difference !== undefined && (
+      {!current && actual !== undefined && expected !== null && (
+        <Text style={{ color: '#EDF5EE', fontSize: 16 }}>Cash kept in galla · {money(actual)}</Text>
+      )}
+      {!current && difference !== undefined && expected !== null && (
         <View style={{ borderTopWidth: 1, borderTopColor: '#3E7963', paddingTop: 12, gap: 4 }}>
           <Text style={{ color: '#D5E5D9', fontSize: 13 }}>Difference</Text>
           <Text

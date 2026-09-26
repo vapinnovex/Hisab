@@ -18,8 +18,9 @@ import {
 import { FilterChips, SearchField } from '../components/ListControls';
 import { Routes } from '../types';
 import { Breakdown, Galla, MoneyField, timestamp, TransactionTypeFilter } from './components';
-import { decimal, money, parseMoney, signedPaise } from './money';
-import { Day, Entry, TodayHishob, TransactionType, transactionTypes } from './types';
+import { money, parseMoney, signedPaise } from './money';
+import { CloseForm } from './closing';
+import { Day, Entry, TodayHishob, TransactionType, transactionTypes, modeLabels } from './types';
 export { HishobHistory } from './history';
 
 function NewDay({ initial, refresh }: { initial: TodayHishob; refresh: () => Promise<void> }) {
@@ -33,6 +34,13 @@ function NewDay({ initial, refresh }: { initial: TodayHishob; refresh: () => Pro
     parseMoney(opening) !== signedPaise(initial.suggested_opening_cash);
   return (
     <>
+      <Card>
+        <Text style={styles.heading}>{modeLabels[selected!.shop.settings.hishob_mode]}</Text>
+        <Text style={styles.small}>
+          Choose how sales are recorded in Account → Shop settings before starting. Record expenses
+          as they happen, then count and close.
+        </Text>
+      </Card>
       <Card>
         <Text style={styles.heading}>Start with the cash in your galla</Text>
         <Text style={styles.subtitle}>
@@ -92,7 +100,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
         </View>
         <View style={{ flex: 1 }}>
           <Button
-            title="Calendar"
+            title="Calendar & sales"
             accessibilityLabel="Hishob history"
             secondary
             onPress={() => navigation.navigate('HishobHistory')}
@@ -101,13 +109,24 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
       </View>
       <ErrorText message={resource.error} />
       {resource.loading && <Loading />}
+      {!day && selected!.permissions.manage_settings && (
+        <Button
+          title="Choose Hishob method"
+          secondary
+          onPress={() => navigation.navigate('ShopSettings')}
+        />
+      )}
       {resource.data && !day && (
         <NewDay key={resource.data.date} initial={resource.data} refresh={resource.refresh} />
       )}
       {day && (
         <>
-          <Text style={styles.eyebrow}>{day.status === 'CLOSED' ? 'DAY CLOSED' : 'DAY OPEN'}</Text>
+          <Text style={styles.eyebrow}>
+            {day.status === 'CLOSED' ? 'DAY CLOSED' : 'DAY OPEN'} ·{' '}
+            {modeLabels[day.mode || 'ENTRIES']}
+          </Text>
           <Galla
+            current={day.status === 'OPEN'}
             expected={day.expected_closing_cash}
             {...(day.status === 'CLOSED'
               ? { actual: day.actual_closing_cash, difference: day.difference }
@@ -118,6 +137,14 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
               title="Add transaction"
               onPress={() => navigation.navigate('HishobTransaction', { dayId: day.id })}
             />
+          )}
+          {day.mode && day.mode !== 'ENTRIES' && day.status === 'OPEN' && (
+            <Text style={styles.subtitle}>
+              Record expenses and cash movements now.{' '}
+              {day.mode === 'COUNTED'
+                ? 'Cash sales will be estimated when you count at closing.'
+                : 'Enter your billing totals when you close the day.'}
+            </Text>
           )}
           <Breakdown day={day} />
           <Button
@@ -154,7 +181,10 @@ function TransactionForm({
   const [initial] = useState(loaded);
   const { api, selected } = useAuth();
   const entry = initial.transactions.find((item) => item.id === entryId);
-  const [type, setType] = useState<TransactionType>(entry?.type || 'CASH_SALE');
+  const [type, setType] = useState<TransactionType>(
+    entry?.type || (initial.mode && initial.mode !== 'ENTRIES' ? 'EXPENSE' : 'CASH_SALE'),
+  );
+  const [payment, setPayment] = useState<'CASH' | 'DIGITAL'>(entry?.payment_method || 'CASH');
   const [amount, setAmount] = useState(entry?.amount || '');
   const [description, setDescription] = useState(entry?.description || '');
   const [category, setCategory] = useState(entry?.category || '');
@@ -168,6 +198,7 @@ function TransactionForm({
       description !== (entry?.description || '') ||
       category !== (entry?.category || '') ||
       type !== (entry?.type || 'CASH_SALE') ||
+      payment !== (entry?.payment_method || 'CASH') ||
       !!reason,
   );
   if (initial.status !== 'OPEN' || (entryId && (!entry || entry.deleted)))
@@ -176,10 +207,37 @@ function TransactionForm({
     <>
       <FilterChips
         label="Transaction type"
-        options={transactionTypes.map((item) => ({ value: item.type, label: item.label }))}
+        options={transactionTypes
+          .filter(
+            (item) =>
+              !initial.mode ||
+              initial.mode === 'ENTRIES' ||
+              !['CASH_SALE', 'DIGITAL_SALE', 'CREDIT_SALE'].includes(item.type),
+          )
+          .map((item) => ({ value: item.type, label: item.label }))}
         value={type}
         onChange={setType}
       />
+      {(type === 'EXPENSE' || type === 'SUPPLIER_PAYMENT') && (
+        <FilterChips
+          label="Paid from"
+          value={payment}
+          onChange={setPayment}
+          options={[
+            { value: 'CASH', label: 'Cash from galla' },
+            { value: 'DIGITAL', label: 'UPI / bank / card' },
+          ]}
+        />
+      )}
+      <Text style={styles.small}>
+        {type === 'EXPENSE'
+          ? 'Describe what you paid for and add a category, such as transport or shop supplies.'
+          : type === 'OTHER_CASH_IN'
+            ? 'Owner top-ups or old customer dues collected in cash. Do not record these again as today’s sales.'
+            : type === 'BANK_DEPOSIT' || type === 'WITHDRAWAL'
+              ? 'Only record money already removed. Do not repeat this amount in the closing form.'
+              : 'Enter sales after returns, including any tax charged. Record one daily total or individual entries, never both.'}
+      </Text>
       <Card>
         <MoneyField label="Amount (₹)" value={amount} onChange={setAmount} />
         <Field
@@ -223,6 +281,8 @@ function TransactionForm({
                 revision: initial.revision,
                 type,
                 amount: amount.trim(),
+                payment_method:
+                  type === 'EXPENSE' || type === 'SUPPLIER_PAYMENT' ? payment : 'CASH',
                 description,
                 category,
                 ...(entryId ? { reason } : { request_id: requestId }),
@@ -286,6 +346,9 @@ export function EntryCard({
       </View>
       <Text style={styles.small}>
         {transactionTypes.find((type) => type.type === entry.type)?.label}
+        {entry.type === 'EXPENSE' || entry.type === 'SUPPLIER_PAYMENT'
+          ? ` · ${entry.payment_method === 'DIGITAL' ? 'Digital' : 'Cash'}`
+          : ''}
         {entry.category ? ` · ${entry.category}` : ''}
         {entry.deleted ? ' · Deleted' : ''}
       </Text>
@@ -435,85 +498,6 @@ export function HishobTransactions({
   );
 }
 
-function CloseForm({ initial: loaded, done }: { initial: Day; done: () => void }) {
-  const [initial] = useState(loaded);
-  const { api, selected } = useAuth();
-  const [actual, setActual] = useState('');
-  const [differenceNote, setDifferenceNote] = useState('');
-  const [notes, setNotes] = useState(initial.notes);
-  const action = useAction();
-  useUnsavedChanges(!!actual || !!differenceNote || notes !== initial.notes);
-  const value = parseMoney(actual);
-  const difference =
-    value === null ? null : decimal(value - signedPaise(initial.expected_closing_cash));
-  const needsNote = difference !== null && signedPaise(difference) !== BigInt(0);
-  if (initial.status !== 'OPEN')
-    return <Text style={styles.subtitle}>This day is already closed.</Text>;
-  return (
-    <>
-      <Breakdown day={initial} />
-      <Galla
-        expected={initial.expected_closing_cash}
-        actual={value === null ? null : actual.trim()}
-        difference={difference}
-      />
-      <MoneyField label="Actual cash in galla" value={actual} onChange={setActual} />
-      {needsNote && (
-        <>
-          <Text style={styles.small}>
-            A difference is okay. Record why so you can review it later.
-          </Text>
-          <FilterChips
-            label="Difference reason"
-            options={['Cash shortage', 'Extra cash found', 'Entry missing', 'Other'].map(
-              (label) => ({ value: label, label }),
-            )}
-            value={differenceNote}
-            onChange={setDifferenceNote}
-          />
-          <Field
-            label="Difference note"
-            value={differenceNote}
-            onChangeText={setDifferenceNote}
-            maxLength={500}
-          />
-        </>
-      )}
-      <Field
-        label="Day notes (optional)"
-        value={notes}
-        onChangeText={setNotes}
-        multiline
-        maxLength={1000}
-      />
-      <ErrorText message={action.error} />
-      <Button
-        title="Close today’s Hishob"
-        busy={action.busy}
-        disabled={value === null || (needsNote && differenceNote.trim().length < 2)}
-        onPress={() =>
-          void action.run(async () => {
-            await api(
-              `/shops/${selected!.shop_id}/hishob/days/${initial.id}/close`,
-              {
-                revision: initial.revision,
-                actual_closing_cash: actual.trim(),
-                difference_note: differenceNote,
-                notes,
-              },
-              'POST',
-            );
-            done();
-          })
-        }
-      />
-      <Text style={styles.small}>
-        Closing preserves this breakdown. Only the owner can reopen it, with a recorded reason. If
-        another entry arrives before you close, refresh and review the updated total.
-      </Text>
-    </>
-  );
-}
 export function HishobClose({ route, navigation }: NativeStackScreenProps<Routes, 'HishobClose'>) {
   const { selected } = useAuth();
   const resource = useResource<Day>(
@@ -585,10 +569,19 @@ function AuditValues({ value }: { value: Record<string, unknown> | null }) {
             'actual_closing_cash',
             'expected_closing_cash',
             'difference',
+            'counted_cash',
+            'closing_bank_deposit',
+            'closing_withdrawal',
+            'payment_method',
+            'reported_sales',
+            'billing_input',
             'status',
           ].includes(key),
         )
-        .map(([key, entry]) => `${key.replaceAll('_', ' ')}: ${entry ?? '—'}`)
+        .map(
+          ([key, entry]) =>
+            `${key.replaceAll('_', ' ')}: ${typeof entry === 'object' && entry !== null ? JSON.stringify(entry) : (entry ?? '—')}`,
+        )
         .join(' · ') || 'Day created'}
     </Text>
   );
@@ -620,6 +613,7 @@ export function HishobDetails({
       {day && (
         <>
           <Galla
+            current={day.status === 'OPEN'}
             expected={day.expected_closing_cash}
             actual={day.actual_closing_cash}
             difference={day.difference}
@@ -719,7 +713,12 @@ export function HishobDetails({
           {day.closing_snapshots.map((item, index) => (
             <Card key={item.snapshot_id}>
               <Text style={styles.heading}>
-                Closing {index + 1} · {money(item.difference, true)}
+                Closing {index + 1} ·{' '}
+                {item.mode === 'COUNTED'
+                  ? 'Cash-count estimate'
+                  : item.difference === null
+                    ? 'Cash difference unavailable'
+                    : money(item.difference, true)}
               </Text>
               <Text style={styles.small}>
                 {item.closed_by.name} · {timestamp(item.closed_at, day.timezone)}

@@ -4,8 +4,11 @@ import { browserOffline, setConnection, trackWrite } from './connection';
 // Exported PWAs use the same-origin /api proxy, avoiding third-party cookie restrictions.
 export const API_URL = (
   Platform.OS === 'web'
-    ? (process.env.EXPO_PUBLIC_WEB_API_URL ??
-      (__DEV__ ? process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000' : ''))
+    ? __DEV__
+      ? (process.env.EXPO_PUBLIC_WEB_API_URL ??
+        process.env.EXPO_PUBLIC_API_URL ??
+        'http://localhost:8000')
+      : ''
     : process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000'
 ).replace(/\/$/, '');
 

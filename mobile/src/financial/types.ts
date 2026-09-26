@@ -1,8 +1,22 @@
 import { Permissions } from '../types';
 export type TransactionType =
-  'CASH_SALE' | 'OTHER_CASH_IN' | 'EXPENSE' | 'SUPPLIER_PAYMENT' | 'BANK_DEPOSIT' | 'WITHDRAWAL';
+  | 'DIGITAL_SALE'
+  | 'CREDIT_SALE'
+  | 'CASH_SALE'
+  | 'OTHER_CASH_IN'
+  | 'EXPENSE'
+  | 'SUPPLIER_PAYMENT'
+  | 'BANK_DEPOSIT'
+  | 'WITHDRAWAL';
 export type Actor = { user_id: string; name: string; role: string };
+export type HishobMode = 'ENTRIES' | 'COUNTED' | 'BILLING';
+export const modeLabels: Record<HishobMode, string> = {
+  ENTRIES: 'Enter sales',
+  COUNTED: 'Count cash',
+  BILLING: 'Use billing totals',
+};
 export type Entry = {
+  payment_method?: 'CASH' | 'DIGITAL';
   id: string;
   type: TransactionType;
   amount: string;
@@ -16,14 +30,27 @@ export type Entry = {
   deleted_by?: Actor;
 };
 export type Totals = {
+  billing_input?: 'SPLIT' | 'TOTAL';
+  unallocated_sales?: string;
+  mode?: HishobMode;
+  total_sales?: string | null;
+  digital_sales?: string | null;
+  credit_sales?: string | null;
+  cash_expenses?: string;
+  digital_expenses?: string;
+  cash_supplier_payments?: string;
+  digital_supplier_payments?: string;
+  counted_cash?: string | null;
+  closing_bank_deposit?: string;
+  closing_withdrawal?: string;
   opening_cash: string;
-  cash_sales: string;
+  cash_sales: string | null;
   other_cash_in: string;
   expenses_total: string;
   supplier_payments: string;
   bank_deposit: string;
   withdrawals: string;
-  expected_closing_cash: string;
+  expected_closing_cash: string | null;
   actual_closing_cash: string | null;
   difference: string | null;
 };
@@ -76,6 +103,8 @@ export const transactionTypes: {
   incoming: boolean;
 }[] = [
   { type: 'CASH_SALE', label: 'Cash sales', field: 'cash_sales', incoming: true },
+  { type: 'DIGITAL_SALE', label: 'UPI / card sales', field: 'digital_sales', incoming: true },
+  { type: 'CREDIT_SALE', label: 'Credit sales (unpaid)', field: 'credit_sales', incoming: true },
   { type: 'OTHER_CASH_IN', label: 'Other cash in', field: 'other_cash_in', incoming: true },
   { type: 'EXPENSE', label: 'Expense', field: 'expenses_total', incoming: false },
   {
@@ -87,3 +116,24 @@ export const transactionTypes: {
   { type: 'BANK_DEPOSIT', label: 'Bank deposit', field: 'bank_deposit', incoming: false },
   { type: 'WITHDRAWAL', label: 'Withdrawal', field: 'withdrawals', incoming: false },
 ];
+
+export type MonthlySummary = {
+  unallocated_sales: string;
+  unallocated_days: number;
+  month: string;
+  total_sales: string;
+  recorded_sales: string;
+  estimated_sales: string;
+  cash_sales: string;
+  digital_sales: string;
+  credit_sales: string;
+  expenses_total: string;
+  supplier_payments: string;
+  bank_deposit: string;
+  withdrawals: string;
+  closed_days: number;
+  open_days: number;
+  not_started_days: number;
+  estimated_days: number;
+  difference_days: number;
+};

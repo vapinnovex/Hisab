@@ -1,6 +1,6 @@
 from datetime import date
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field
 
@@ -12,6 +12,8 @@ MONEY_PATTERN = r"^(0|[1-9]\d{0,8})(\.\d{1,2})?$"
 
 class TransactionType(str, Enum):
     CASH_SALE = "CASH_SALE"
+    DIGITAL_SALE = "DIGITAL_SALE"
+    CREDIT_SALE = "CREDIT_SALE"
     OTHER_CASH_IN = "OTHER_CASH_IN"
     EXPENSE = "EXPENSE"
     SUPPLIER_PAYMENT = "SUPPLIER_PAYMENT"
@@ -35,6 +37,7 @@ class OpeningUpdate(Versioned):
 
 
 class TransactionInput(Versioned):
+    payment_method: Literal["CASH", "DIGITAL"] = "CASH"
     type: TransactionType
     amount: str = Field(pattern=MONEY_PATTERN)
     category: str = Field(default="", max_length=80)
@@ -54,6 +57,13 @@ class ReasonInput(Versioned):
 
 
 class CloseInput(Versioned):
+    billing_input: Literal["SPLIT", "TOTAL"] = "SPLIT"
+    total_sales: Optional[str] = Field(default=None, pattern=MONEY_PATTERN)
+    cash_sales: Optional[str] = Field(default=None, pattern=MONEY_PATTERN)
+    digital_sales: Optional[str] = Field(default=None, pattern=MONEY_PATTERN)
+    credit_sales: Optional[str] = Field(default=None, pattern=MONEY_PATTERN)
+    closing_bank_deposit: str = Field(default="0", pattern=MONEY_PATTERN)
+    closing_withdrawal: str = Field(default="0", pattern=MONEY_PATTERN)
     actual_closing_cash: str = Field(pattern=MONEY_PATTERN)
     notes: str = Field(default="", max_length=1000)
     difference_note: str = Field(default="", max_length=500)

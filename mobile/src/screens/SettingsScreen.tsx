@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 import { useUnsavedChanges } from '../pwa';
+import { modeLabels } from '../financial/types';
+import { FilterChips } from '../components/ListControls';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
 import { ShopSettings } from '../types';
@@ -17,7 +19,7 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
     setSaved(false);
   };
   const toggles: {
-    key: Exclude<keyof ShopSettings, 'attendance_mode'>;
+    key: Exclude<keyof ShopSettings, 'attendance_mode' | 'hishob_mode'>;
     title: string;
     description: string;
   }[] = [
@@ -63,6 +65,29 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
   ];
   return (
     <>
+      <Card>
+        <Text style={styles.heading}>How does your shop track sales?</Text>
+        <FilterChips
+          label="Hishob method"
+          value={settings.hishob_mode}
+          onChange={(hishob_mode) => change({ hishob_mode })}
+          options={Object.entries(modeLabels).map(([value, label]) => ({
+            value: value as ShopSettings['hishob_mode'],
+            label,
+          }))}
+        />
+        <Text style={styles.subtitle}>
+          {settings.hishob_mode === 'COUNTED'
+            ? 'No sales register? Record expenses, then count cash. Hishob estimates cash sales. It cannot independently measure a shortage or surplus.'
+            : settings.hishob_mode === 'BILLING'
+              ? 'Record expenses here. At closing, enter your billing total or a payment breakdown. A cash difference is shown only when cash sales can be determined.'
+              : 'Record each sale or one net total per payment type. Hishob compares expected cash with your closing count.'}
+        </Text>
+        <Text style={styles.small}>
+          Applies to newly started days only. Existing days and history keep their method. Bank
+          deposits and take-home cash are transfers, not expenses.
+        </Text>
+      </Card>
       <Card>
         <Text style={styles.heading}>How do you record a workday?</Text>
         <Button

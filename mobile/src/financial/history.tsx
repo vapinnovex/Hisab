@@ -18,7 +18,7 @@ import {
   styles,
 } from '../components/ui';
 import { FilterChips } from '../components/ListControls';
-import { DaySummary } from './types';
+import { DaySummary, MonthlySummary } from './types';
 import { money } from './money';
 import { dateInZone, hasDifference, HishobCalendar, monthRange } from './calendar';
 
@@ -32,12 +32,17 @@ function DayCard({ day, open }: { day: DaySummary; open: () => void }) {
         </Text>
       </View>
       <Text style={styles.small}>
-        Expected {money(day.expected_closing_cash)} · Actual {money(day.actual_closing_cash)}
+        {day.status === 'OPEN' ? 'Current Galla' : 'Expected'} {money(day.expected_closing_cash)}
+        {day.status === 'CLOSED' ? ` · Cash kept ${money(day.actual_closing_cash)}` : ''}
       </Text>
       <Text style={[styles.heading, { color: hasDifference(day) ? colors.red : colors.green }]}>
         {day.status === 'OPEN'
           ? 'Ready for your next entry'
-          : `Difference ${money(day.difference, true)}`}
+          : day.mode === 'COUNTED'
+            ? 'Estimated sales · cash difference not measured'
+            : day.difference === null
+              ? 'Payment breakdown unknown · cash difference unavailable'
+              : `Difference ${money(day.difference, true)}`}
       </Text>
       <Button title={`Open Hishob · ${day.date}`} secondary onPress={open} />
     </Card>
@@ -57,6 +62,10 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
   const dates = view === 'CALENDAR' ? monthRange(month) : range;
   const resource = useResource<DaySummary[]>(
     `/shops/${selected!.shop_id}/hishob/days?from_date=${encodeURIComponent(dates.from)}&to_date=${encodeURIComponent(dates.to)}`,
+    true,
+  );
+  const monthly = useResource<MonthlySummary>(
+    `/shops/${selected!.shop_id}/hishob/monthly-summary?month=${month}`,
     true,
   );
   const allDays = resource.data || [];
@@ -116,6 +125,52 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
             onPress={() => setRange({ from, to })}
           />
         </Card>
+      )}
+      {view === 'CALENDAR' && (
+        <>
+          <ErrorText message={monthly.error} />
+          {monthly.data && (
+            <Card>
+              <Text style={styles.heading}>Monthly sales · {money(monthly.data.total_sales)}</Text>
+              <Text style={styles.small}>
+                {monthly.data.closed_days} closed {monthly.data.closed_days === 1 ? 'day' : 'days'}{' '}
+                included · {monthly.data.open_days} open · {monthly.data.not_started_days} not
+                started (may include shop holidays)
+              </Text>
+              <Text style={styles.subtitle}>
+                Recorded sales {money(monthly.data.recorded_sales)} · Estimated cash sales{' '}
+                {money(monthly.data.estimated_sales)}
+              </Text>
+              <Text style={styles.small}>
+                Known breakdown · Cash {money(monthly.data.cash_sales)} · UPI / card{' '}
+                {money(monthly.data.digital_sales)} · Unpaid credit{' '}
+                {money(monthly.data.credit_sales)}
+              </Text>
+              {monthly.data.unallocated_days > 0 && (
+                <Text style={styles.small}>
+                  Sales without payment breakdown · {money(monthly.data.unallocated_sales)} across{' '}
+                  {monthly.data.unallocated_days} closed day(s). Included in monthly sales above;
+                  cash differences could not be checked for these days.
+                </Text>
+              )}
+              <Text style={styles.small}>
+                Expenses {money(monthly.data.expenses_total)} · Supplier payments{' '}
+                {money(monthly.data.supplier_payments)}
+              </Text>
+              <Text style={styles.small}>
+                Bank transfers {money(monthly.data.bank_deposit)} · Take-home / withdrawals{' '}
+                {money(monthly.data.withdrawals)}
+              </Text>
+              <Text style={styles.small}>
+                Closed days only. {monthly.data.estimated_days}{' '}
+                {monthly.data.estimated_days === 1
+                  ? 'cash-count day includes estimates.'
+                  : 'cash-count days include estimates.'}
+                Sales are not profit. Opening cash and transfers are not sales.
+              </Text>
+            </Card>
+          )}
+        </>
       )}
       <FilterChips
         label="Hishob status"

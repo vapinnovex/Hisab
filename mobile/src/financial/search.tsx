@@ -193,7 +193,9 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
               </View>
             </View>
             <Text style={styles.small}>
-              Totals cover all matching active entries, across every results page.
+              Cash totals cover matching active cash entries across every results page. Digital
+              payments and credit sales do not affect the galla. Sales entered at closing and
+              closing transfers appear in day details and monthly reports.
             </Text>
           </Card>
           {result.items.length === 0 && (

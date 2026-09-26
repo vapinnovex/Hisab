@@ -2,6 +2,10 @@
 
 A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile OTP login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
 
+## Flexible daily Hishob
+
+Choose **Count cash**, **Enter sales**, or **Use billing totals** in Account → Shop settings (or Hishob → Choose Hishob method before opening a day). Expenses can be paid from cash or digitally. Closing records money removed for the bank/home and carries only cash kept in the galla into tomorrow. **Calendar & sales** shows monthly totals with recorded and estimated sales separated. See [methods, calculations, API changes and examples](docs/HISHOB-METHODS.md).
+
 ## Web / PWA pilot
 
 Hishob can be installed from a web link with persistent browser login, connection recovery and safe app updates. Access is unrestricted; the first ten owners get all existing owner features. See [PWA deployment and pilot guide](docs/PWA-PILOT.md) for Atlas, Render, Vercel, local preview and device checks. The OTP provider is unchanged.
@@ -108,23 +112,25 @@ Main app detail pages retain the bottom tabs, including Hishob, team forms, atte
 
 ### Finding transactions
 
-Open **Hishob → Search transactions**. Search descriptions, categories or the person who recorded the entry. Filter by cash sales, other cash in, expenses, supplier payments, bank deposits or withdrawals. Search defaults to all dates; choose Today, This month or a custom date range. Each result opens its original day for details and permitted corrections. Individual day transaction lists also support text and type filters.
+Open **Hishob → Search transactions**. Search descriptions, categories or the person who recorded the entry. Filter by cash, digital or credit sales, other cash in, expenses, supplier payments, bank deposits or withdrawals. Search defaults to all dates; choose Today, This month or a custom date range. Each result opens its original day for details and permitted corrections. Individual day transaction lists also support text and type filters.
 
 Results show matching counts and separate cash-in/cash-out totals across all matching active entries, with 30 results per page. **More filters** can include deleted entries or show only deleted entries; these never contribute to the totals. Search is case-insensitive literal text (up to 100 characters). The backend validates the shop membership and financial permission on every request, and uses the existing shop/date index before searching embedded transactions. No database migration or new environment variables are required.
 
 ### Daily calculation
 
+For Enter sales and Billing methods (transfers include those recorded at closing):
+
 ```
 Expected closing cash = Opening cash + Cash sales + Other cash in
-                        - Expenses - Supplier payments - Bank deposits - Withdrawals
-Difference = Actual cash in galla - Expected closing cash
+                        - Cash expenses - Cash supplier payments - Bank deposits - Withdrawals
+Difference = Cash retained in galla - Expected closing cash
 ```
 
 Enter money as decimal strings, for example `"15000.00"`. The backend validates at most two decimal places, converts to integer paise using `Decimal`, and recalculates totals from every non-deleted transaction. MongoDB stores money as integer paise; JSON responses use two-decimal strings. The client uses `BigInt` paise for difference previews and formatting. No floating-point currency calculations are used. Each entered amount is at most ₹99,99,99,999.99; transaction amounts must be positive, opening/actual cash can be zero. Expected cash and the difference may be negative.
 
 A shop has one day per business date, using its saved IANA timezone. The first day requires manual opening cash. Later days default to the **latest earlier CLOSED day's actual cash**, with source date, ID, revision and amount recorded. Overrides require a reason. Opening cash is fixed when a day is created: reopening or correcting an earlier day does not silently cascade into later days.
 
-Closing requires actual cash and a difference note when the difference is nonzero. It preserves a complete snapshot: totals, entries, cash count, notes, actor and timestamp. Closed days reject mutations. Only owners can reopen them, with a reason. Each subsequent closing creates another snapshot; older snapshots remain readable in Day details.
+For Enter sales/Billing methods, closing compares cash against recorded cash sales and requires a note when the difference is nonzero. Count cash estimates sales instead and leaves expected cash/difference unavailable. Closing separately records the physical count and money removed for the bank/home; expected and actual closing balances represent the cash retained after those transfers. It preserves a complete snapshot: totals, entries, cash count, notes, actor and timestamp. Closed days reject mutations. Only owners can reopen them, with a reason. Each subsequent closing creates another snapshot; older snapshots remain readable in Day details.
 
 ### Financial permissions
 
@@ -152,25 +158,26 @@ Prefix every path below with `/api/shops/{shop_id}/hishob`. All routes require a
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/monthly-summary?month=YYYY-MM` | Closed-day sales, recorded/estimated split, payment types, expenses, transfers and coverage counts |
 | GET | `/transactions?q=tea&type=EXPENSE` | Search entries; optional `from_date` + `to_date`, `entry_status=ACTIVE/ALL/DELETED`, `page`, `page_size` (1–100); returns items, count and active cash-in/out totals |
 | GET | `/today` | Today's record, date/timezone, suggested opening and permissions |
 | POST | `/days` | Create day; `{opening_cash?, date?, reason?}` |
 | GET | `/days?from_date=YYYY-MM-DD&to_date=YYYY-MM-DD` | Date-filtered summaries |
 | GET | `/days/{day_id}` | Full breakdown, entries, snapshots and audit |
 | PATCH | `/days/{day_id}/opening` | `{revision, opening_cash, reason}` |
-| POST | `/days/{day_id}/transactions` | `{revision, request_id, type, amount, category?, description}` |
-| PATCH | `/days/{day_id}/transactions/{transaction_id}` | `{revision, type, amount, category?, description, reason}` |
+| POST | `/days/{day_id}/transactions` | `{revision, request_id, type, amount, payment_method?, category?, description}` |
+| PATCH | `/days/{day_id}/transactions/{transaction_id}` | `{revision, type, amount, payment_method?, category?, description, reason}` |
 | POST | `/days/{day_id}/transactions/{transaction_id}/delete` | Soft-delete; `{revision, reason}` |
-| POST | `/days/{day_id}/close` | `{revision, actual_closing_cash, notes?, difference_note?}` |
+| POST | `/days/{day_id}/close` | `{revision, actual_closing_cash, cash_sales?, digital_sales?, credit_sales?, closing_bank_deposit?, closing_withdrawal?, notes?, difference_note?}` |
 | POST | `/days/{day_id}/reopen` | Owner only; `{revision, reason}` |
 
-The existing `/settings` and `/auth/me` responses include the two new shop settings and effective `view_hishob`, `add_hishob_transactions`, `edit_hishob_transactions`, `close_hishob`, `reopen_hishob` permissions. `/docs` has the full schemas.
+The existing `/settings` and `/auth/me` responses include `hishob_mode`, the financial permission settings and effective `view_hishob`, `add_hishob_transactions`, `edit_hishob_transactions`, `close_hishob`, `reopen_hishob` permissions. `/docs` has the full schemas.
 
 ### Test Phase 2 manually
 
 1. Log in as Owner (development OTP `123456`) and create a fresh shop. Open **Today's Hishob** from Home.
 2. Enter opening cash **0** and start the day.
-3. Add **Cash sales ₹15,000**, **Expense ₹500** (Transport), and **Bank deposit ₹2,000**. Expected Galla is **₹12,500**.
+3. Add **Cash sales ₹15,000**, **Expense ₹500** (Transport), and **Bank deposit ₹2,000**. Current Galla is **₹12,500**; at closing this becomes the expected cash for comparison with your count.
 4. Open **Close day**, enter **₹12,300** actual cash. Difference is **-₹200**. Choose **Cash shortage**, then close.
 5. Open **Hishob history**, tap the date in the calendar, and open the day. Try month navigation, status counts and the **Date range** list. Review its entries, creator names, audit and preserved closing.
 6. Reopen with a reason, correct an entry or soft-delete a duplicate, then close again. Both closing snapshots remain available.
@@ -325,7 +332,7 @@ The attendance routes under `/workers/{worker_id}` accept either worker or manag
 | `OTP_MAX_ATTEMPTS` | `5` | Per-challenge verification limit |
 | `CORS_ORIGINS` | JSON array | Browser origins allowed by the API |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8000` | Native/development API base, without `/api` |
-| `EXPO_PUBLIC_WEB_API_URL` | Unset | Optional web-only override; leave unset for the deployed same-origin PWA |
+| `EXPO_PUBLIC_WEB_API_URL` | Unset | Development web-only override; production web always uses same-origin /api |
 | `TEST_MONGODB_URI` | `mongodb://127.0.0.1:27018` | Test runner only |
 
 OTP requests are limited per mobile and peer IP in MongoDB, so limits work across API workers. Verification is limited per challenge and peer IP. OTP hashes use HMAC, codes are not logged, successful challenges are single-use, and manager/worker eligibility is rechecked after verification. TTL cleanup is not relied on for expiry enforcement. Configure trusted proxy IPs correctly when deploying behind a proxy.
@@ -351,8 +358,8 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 61 backend integration tests passed against real MongoDB, including browser cookies, CSRF, session limits, mobile-number changes and native bearer compatibility.
-- 12 existing Playwright checks cover attendance, account flows, the cash register, history, search and currency editing. 4 additional PWA checks cover production-export installation metadata, persistent login, offline recovery, drafts, safe updates and unconfirmed saves.
+- 85 backend integration tests passed against real MongoDB, including browser cookies, CSRF, session limits, mobile-number changes, native bearer compatibility and total-only billing.
+- 15 workflow/formatting Playwright checks cover attendance, account flows, the cash register, history, search and currency editing, cash-count/billing modes, total-only reports and monthly sales. 4 additional PWA checks cover production-export installation metadata, persistent login, offline recovery, drafts, safe updates and unconfirmed saves.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.
 - iOS, Android, and web production JavaScript bundles exported successfully.

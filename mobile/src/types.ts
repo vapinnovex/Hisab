@@ -1,6 +1,7 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type ShopSettings = {
+  hishob_mode: 'ENTRIES' | 'COUNTED' | 'BILLING';
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
   manager_can_mark_own_attendance: boolean;

@@ -42,7 +42,7 @@ Keep this origin stable so installed apps and their cookies continue working. In
 
 1. **Replace `YOUR-HISHOB-API` in `mobile/vercel.json` with the actual Render hostname.** This is a required deployment-specific value.
 2. Import the repository. Set **Root Directory `mobile`**, framework **Other**, Node **22.x**, install `npm ci`. The committed config sets build `npm run build:web` and output `dist`.
-3. Leave `EXPO_PUBLIC_WEB_API_URL` **unset** (or empty) for deployment. The exported PWA calls `/api` on its own origin; Vercel proxies these requests to Render. This is essential for reliable cookie login on Safari and browsers blocking third-party cookies. `EXPO_PUBLIC_API_URL` remains the separate native/development setting.
+3. Leave `EXPO_PUBLIC_WEB_API_URL` **unset** (or empty) for deployment. Production builds always call `/api` on their own origin, even if a local `.env` contains an override; Vercel proxies these requests to Render. This is essential for reliable cookie login on Safari and browsers blocking third-party cookies. `EXPO_PUBLIC_API_URL` remains the separate native/development setting.
 4. Deploy and add the final HTTPS domain to Render's `CORS_ORIGINS`, then restart/redeploy the API. No backend credentials belong in Vercel's public Expo variables.
 5. Check `https://YOUR-APP/api/auth/me` in a fresh browser: a **401 JSON response** is expected before login. HTML, 404, or 502 here means the rewrite/API needs fixing.
 6. Log in, create a shop, reload, and verify the same account returns. Test sign-out and another browser account. Then share the stable app link with owners.
