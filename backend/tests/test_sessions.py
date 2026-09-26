@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from conftest import login
+from conftest import PASSWORD, login
 
 
 def status(client, auth):
@@ -16,17 +16,16 @@ def test_staff_successful_login_replaces_previous_session(client, setup_shop, ro
         mobile = "+919876543212"
         client.post(f"/api/shops/{shop}/managers", headers=owner, json={"name": "Ravi", "mobile": mobile})
         worker = login(client, mobile, role)
-    challenge = client.post("/api/auth/otp/request", json={"mobile": mobile, "role": role}).json()
     assert status(client, worker) == 200
     assert (
         client.post(
-            "/api/auth/otp/verify", json={"challenge_id": challenge["challenge_id"], "code": "000000"}
+            "/api/auth/password/login", json={"mobile": mobile, "role": role, "password": "wrong"}
         ).status_code
-        == 400
+        == 401
     )
     assert status(client, worker) == 200
     result = client.post(
-        "/api/auth/otp/verify", json={"challenge_id": challenge["challenge_id"], "code": "123456"}
+        "/api/auth/password/login", json={"mobile": mobile, "role": role, "password": PASSWORD}
     ).json()
     latest = {"Authorization": "Bearer " + result["access_token"]}
     assert status(client, worker) == 401
@@ -59,20 +58,18 @@ def test_staff_limit_shared_across_worker_manager_portals_but_owner_separate(cli
 
 
 @pytest.mark.parametrize("role,limit", [("OWNER", 3), ("WORKER", 1)])
-def test_concurrent_otp_verifications_never_exceed_session_limit(client, setup_shop, role, limit):
+def test_concurrent_password_logins_never_exceed_session_limit(client, setup_shop, role, limit):
     mobile = "+919876543210" if role == "OWNER" else "+919876543211"
-    challenges = [
-        client.post("/api/auth/otp/request", json={"mobile": mobile, "role": role}).json()["challenge_id"]
-        for _ in range(5)
-    ]
 
-    def verify(challenge):
-        result = client.post("/api/auth/otp/verify", json={"challenge_id": challenge, "code": "123456"})
+    def verify(_):
+        result = client.post(
+            "/api/auth/password/login", json={"mobile": mobile, "role": role, "password": PASSWORD}
+        )
         assert result.status_code == 200, result.text
         return {"Authorization": "Bearer " + result.json()["access_token"]}
 
     with ThreadPoolExecutor(max_workers=5) as pool:
-        sessions = list(pool.map(verify, challenges))
+        sessions = list(pool.map(verify, range(5)))
     assert sum(status(client, s) == 200 for s in sessions) == limit
 
 

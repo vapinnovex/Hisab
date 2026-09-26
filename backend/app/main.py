@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo import MongoClient
@@ -8,8 +9,7 @@ from pymongo.errors import PyMongoError
 
 from .config import Settings, get_settings
 from .db import create_indexes
-from .otp import get_provider
-from .routers import account, attendance, auth, hishob, shops
+from .routers import account, attendance, auth, hishob, password_auth, shops
 from .web_session import COOKIE_NAME
 
 
@@ -20,7 +20,6 @@ def create_app(settings: Settings = None):
         client = MongoClient(config.mongodb_uri, tz_aware=True, serverSelectionTimeoutMS=5000)
         app.state.settings = config
         app.state.db = client[config.mongodb_database]
-        app.state.otp_provider = get_provider(config)
         client.admin.command("ping")
         create_indexes(app.state.db)
         try:
@@ -56,6 +55,17 @@ def create_app(settings: Settings = None):
             return response
         return await call_next(request)
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request: Request, exc: RequestValidationError):
+        # Never reflect passwords or verification tokens in validation responses.
+        return JSONResponse(
+            status_code=422,
+            content={
+                "detail": [{key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
     @app.exception_handler(PyMongoError)
     async def database_error(request: Request, exc: PyMongoError):
         return JSONResponse(
@@ -68,6 +78,7 @@ def create_app(settings: Settings = None):
         return {"status": "ok"}
 
     app.include_router(auth.router, prefix="/api")
+    app.include_router(password_auth.router, prefix="/api")
     app.include_router(account.router, prefix="/api")
     app.include_router(shops.router, prefix="/api")
     app.include_router(hishob.router, prefix="/api")

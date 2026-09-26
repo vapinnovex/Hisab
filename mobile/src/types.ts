@@ -5,6 +5,7 @@ export type ShopSettings = {
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
   manager_can_mark_own_attendance: boolean;
+  manager_can_reset_worker_passwords: boolean;
   manager_can_add_workers: boolean;
   manager_can_edit_workers: boolean;
   workers_can_view_attendance: boolean;
@@ -19,6 +20,7 @@ export type Permissions = {
   reopen_hishob: boolean;
   manage_attendance: boolean;
   mark_own_attendance: boolean;
+  reset_worker_passwords: boolean;
   add_workers: boolean;
   edit_workers: boolean;
   manage_managers: boolean;
@@ -37,13 +39,23 @@ export type Membership = {
   worker_name: string | null;
 };
 export type Session = {
-  user: { id: string; mobile: string; name?: string };
+  user: {
+    id: string;
+    mobile: string;
+    name?: string;
+    email?: string;
+    password_ready: boolean;
+    email_verified: boolean;
+  };
   role: Role;
   memberships: Membership[];
 };
 export type Worker = {
   id: string;
   role: 'MANAGER' | 'WORKER';
+  password_ready: boolean;
+  password_reset_requested: boolean;
+  password_reset_required: boolean;
   name: string;
   mobile: string;
   active: boolean;
@@ -124,9 +136,10 @@ export type Routes = HishobRoutes & {
   MainTabs: undefined;
   OwnerProfile: undefined;
   ChangeMobile: undefined;
+  PasswordSecurity: undefined;
+  StaffPasswordAccess: { worker: Worker };
   RoleSelection: undefined;
   MobileLogin: { role: Role };
-  OTP: { mobile: string; role: Role; challenge: Challenge };
   ShopSetup: undefined;
   Dashboard: undefined;
   Workers: undefined;

@@ -17,6 +17,7 @@ import {
   styles,
 } from '../components/ui';
 import { BrandMark } from '../components/Brand';
+import { PasswordField } from '../components/PasswordFields';
 import { PhoneField } from '../components/PhoneField';
 import { useAction } from '../hooks';
 import { Challenge, Routes } from '../types';
@@ -98,13 +99,21 @@ export function Profile() {
             />
             <AccountLink
               title="Change mobile number"
-              detail="Verify your current and new numbers"
+              detail="Confirm with your password and recovery email"
               icon="call-outline"
               onPress={() => navigation.navigate('ChangeMobile')}
             />
           </Card>
         </>
       )}
+      <Card>
+        <AccountLink
+          title="Password & security"
+          detail="Change your password and review recovery details"
+          icon="lock-closed-outline"
+          onPress={() => navigation.navigate('PasswordSecurity')}
+        />
+      </Card>
       <Text style={styles.eyebrow}>CURRENT SHOP</Text>
       <Card>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -246,152 +255,100 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<Routes, 'Own
 export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'ChangeMobile'>) {
   const { session, api, signIn } = useAuth();
   const [mobile, setMobile] = useState('+91');
-  const [step, setStep] = useState<'NUMBER' | 'CURRENT' | 'NEW' | 'DONE'>('NUMBER');
+  const [password, setPassword] = useState('');
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [code, setCode] = useState('');
-  useUnsavedChanges(step !== 'DONE' && (mobile !== '+91' || step !== 'NUMBER'));
+  const [done, setDone] = useState(false);
   const action = useAction();
-  const start = async () => {
-    const next = await api<Challenge>('/auth/mobile-change/request', { mobile }, 'POST');
-    setChallenge(next);
-    setCode('');
-    setStep('CURRENT');
-  };
   return (
     <Page>
-      <Text style={styles.eyebrow}>ACCOUNT SECURITY</Text>
       <Heading
-        title={
-          step === 'DONE'
-            ? 'Your number is updated'
-            : step === 'NUMBER'
-              ? 'A new number. Same shop.'
-              : step === 'CURRENT'
-                ? 'Verify your current number'
-                : 'Verify your new number'
-        }
+        title={done ? 'Your number is updated' : 'A new number. Same shop.'}
         subtitle={
-          step === 'DONE'
+          done
             ? 'Your shops, people and attendance are all right here.'
-            : step === 'NUMBER'
-              ? 'We’ll verify both numbers before updating your login.'
-              : `Enter the 6-digit code sent to ${step === 'CURRENT' ? session!.user.mobile : mobile}.`
+            : 'Confirm your password, then verify the code sent to your recovery email.'
         }
       />
-      {step === 'DONE' ? (
-        <>
-          <Card>
-            <Ionicons name="checkmark-circle" size={48} color={colors.green} />
-            <Text style={styles.heading}>{session!.user.mobile}</Text>
-            <Text style={styles.subtitle}>
-              Use this number next time you log in. Other signed-in sessions have been signed out.
+      <Card>
+        <Text style={styles.small}>Current login number</Text>
+        <Text style={styles.heading}>{session!.user.mobile}</Text>
+      </Card>
+      {!done &&
+        (!challenge ? (
+          <>
+            <PhoneField label="New mobile number" value={mobile} onChange={setMobile} />
+            <PasswordField label="Current password" value={password} onChange={setPassword} />
+            <Text style={styles.small}>
+              This changes your login number. It does not verify ownership of the new phone number.
+              Check it carefully.
             </Text>
-          </Card>
-          <Button title="Back to account" onPress={() => navigation.goBack()} />
-        </>
-      ) : (
-        <>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {['New number', 'Current OTP', 'New OTP'].map((label, i) => (
-              <View key={label} style={{ flex: 1, gap: 7 }}>
-                <View
-                  style={{
-                    height: 4,
-                    borderRadius: 4,
-                    backgroundColor:
-                      i <= ['NUMBER', 'CURRENT', 'NEW'].indexOf(step) ? colors.green : colors.line,
-                  }}
-                />
-                <Text style={[styles.small, { fontSize: 11 }]}>{label}</Text>
-              </View>
-            ))}
-          </View>
-          {step === 'NUMBER' ? (
-            <>
-              <Card>
-                <Text style={styles.small}>Current login number</Text>
-                <Text style={styles.heading}>{session!.user.mobile}</Text>
-              </Card>
-              <PhoneField label="New mobile number" value={mobile} onChange={setMobile} />
-              <Text style={styles.small}>
-                Keep access to both phones. A number already linked to another Hishob account cannot
-                be used.
-              </Text>
-            </>
-          ) : (
-            <>
-              {challenge?.dev_otp && (
-                <Card>
-                  <Text style={styles.eyebrow}>DEVELOPMENT MODE</Text>
-                  <Text style={styles.small}>Use OTP {challenge.dev_otp}. No SMS is sent.</Text>
-                </Card>
-              )}
-              <Field
-                label="Verification code"
-                value={code}
-                onChangeText={(value) => setCode(value.replace(/\D/g, ''))}
-                maxLength={6}
-                keyboardType="number-pad"
-                autoComplete="one-time-code"
-                textContentType="oneTimeCode"
-                placeholder="6-digit code"
-              />
-              <Text style={styles.small}>
-                Code expires in {Math.round((challenge?.expires_in || 300) / 60)} minutes. If it
-                expires or doesn’t arrive, start again to request fresh verification.
-              </Text>
-            </>
-          )}
-          <ErrorText message={action.error} />
-          <Button
-            title={
-              step === 'NUMBER'
-                ? 'Verify current number'
-                : step === 'CURRENT'
-                  ? 'Verify & send new OTP'
-                  : 'Confirm mobile change'
-            }
-            busy={action.busy}
-            disabled={step === 'NUMBER' ? mobile.trim().length < 8 : code.length !== 6}
-            onPress={() =>
-              void action.run(async () => {
-                if (step === 'NUMBER') return start();
-                const body = { challenge_id: challenge!.challenge_id, code };
-                if (step === 'CURRENT') {
-                  const next = await api<Challenge>(
-                    '/auth/mobile-change/verify-current',
-                    body,
-                    'POST',
+            <Button
+              title="Send confirmation email"
+              busy={action.busy}
+              disabled={mobile.length < 8 || !password}
+              onPress={() =>
+                void action.run(async () => {
+                  setChallenge(
+                    await api<Challenge>(
+                      '/auth/mobile-change/request',
+                      { mobile, password, role: 'OWNER' },
+                      'POST',
+                    ),
                   );
-                  setChallenge(next);
-                  setCode('');
-                  setStep('NEW');
-                } else {
+                  setPassword('');
+                })
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.subtitle}>Check {session!.user.email}</Text>
+            {challenge.dev_otp && (
+              <Text style={styles.small}>Development email code: {challenge.dev_otp}</Text>
+            )}
+            <Field
+              label="Email code"
+              value={code}
+              onChangeText={setCode}
+              maxLength={6}
+              keyboardType="number-pad"
+            />
+            <Button
+              title="Confirm mobile change"
+              busy={action.busy}
+              disabled={code.length !== 6}
+              onPress={() =>
+                void action.run(async () => {
                   const result = await api<{ access_token?: string }>(
                     '/auth/mobile-change/confirm',
-                    body,
+                    { challenge_id: challenge.challenge_id, code },
                     'POST',
                   );
                   await signIn(result.access_token);
-                  setStep('DONE');
-                }
-              })
-            }
-          />
-          {step !== 'NUMBER' && (
+                  setDone(true);
+                })
+              }
+            />
             <Button
               title="Start again"
               secondary
-              disabled={action.busy}
               onPress={() => {
-                setStep('NUMBER');
-                setCode('');
                 setChallenge(null);
+                setCode('');
               }}
             />
-          )}
+          </>
+        ))}
+      {done && (
+        <>
+          <Text style={styles.subtitle}>
+            Use this number next time you log in. Other signed-in sessions have been signed out.
+          </Text>
+          <Button title="Back to account" onPress={() => navigation.goBack()} />
         </>
       )}
+      <ErrorText message={action.error} />
     </Page>
   );
 }

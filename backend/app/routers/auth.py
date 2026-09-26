@@ -8,12 +8,13 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db, new_id, now, public
+from ..email_provider import send_email
 from ..otp import code_hash
-from ..schemas import OTPRequest, OTPVerify
+from ..passwords import user_view
 from ..security import current_identity
 from ..sessions import legacy_session_ids, session_group, session_limit
 from ..shop_policy import permissions_for, shop_view
-from ..web_session import browser_session, clear_browser_session
+from ..web_session import clear_browser_session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 NOT_ADDED = "You haven’t been added to any shop yet. Ask your shop owner to add you."
@@ -45,28 +46,6 @@ def limit_requests(db, key, limit, seconds):
         )
 
 
-@router.post("/otp/request")
-def request_otp(body: OTPRequest, request: Request, db=Depends(get_db)):
-    # Use the actual peer address; only trust proxy headers from configured proxies.
-    peer = request.client.host if request.client else "unknown"
-    limit_requests(db, f"ip:{peer}", 60, 3600)
-    limit_requests(db, f"mobile:{body.mobile}", 10, 3600)
-    if body.role != "OWNER" and not eligible_staff(db, body.mobile, body.role):
-        raise HTTPException(403, NOT_ADDED)
-    user = db.users.find_one({"mobile": body.mobile})
-    return issue_challenge(
-        request,
-        db,
-        body.mobile,
-        "LOGIN",
-        {
-            "role": body.role.value,
-            "user_id": user["_id"] if user else None,
-            "auth_version": user.get("auth_version", 0) if user else 0,
-        },
-    )
-
-
 def issue_challenge(request, db, mobile, purpose, metadata):
     settings = request.app.state.settings
     peer = request.client.host if request.client else "unknown"
@@ -91,7 +70,7 @@ def issue_challenge(request, db, mobile, purpose, metadata):
             headers={"Retry-After": str(settings.otp_resend_seconds)},
         )
     challenge_id = new_id()
-    code = settings.dev_otp if settings.otp_provider == "dev" else f"{secrets.randbelow(1000000):06d}"
+    code = settings.dev_otp if settings.email_provider == "dev" else f"{secrets.randbelow(1000000):06d}"
     challenge = {
         "_id": challenge_id,
         "mobile": mobile,
@@ -104,7 +83,7 @@ def issue_challenge(request, db, mobile, purpose, metadata):
     }
     db.otp_challenges.insert_one(challenge)
     try:
-        request.app.state.otp_provider.send(mobile, code)
+        send_email(settings, mobile, code)
     except Exception:
         db.otp_challenges.delete_one({"_id": challenge_id})
         raise HTTPException(503, "Unable to send OTP. Please try again later.")
@@ -113,29 +92,9 @@ def issue_challenge(request, db, mobile, purpose, metadata):
         "expires_in": settings.otp_expire_seconds,
         "resend_after": settings.otp_resend_seconds,
     }
-    if settings.otp_provider == "dev":
+    if settings.email_provider == "dev":
         response["dev_otp"] = code
     return response
-
-
-@router.post("/otp/verify")
-def verify_otp(body: OTPVerify, request: Request, response: Response, db=Depends(get_db)):
-    challenge = consume_challenge(body, request, db, "LOGIN")
-    existing = db.users.find_one({"mobile": challenge["mobile"]})
-    if (existing["_id"] if existing else None) != challenge.get("user_id") or (
-        existing and existing.get("auth_version", 0) != challenge.get("auth_version", 0)
-    ):
-        raise HTTPException(400, "Your account changed. Please request a new OTP.")
-    if challenge["role"] != "OWNER" and not eligible_staff(db, challenge["mobile"], challenge["role"]):
-        raise HTTPException(403, NOT_ADDED)
-    user = existing
-    if user is None:
-        user = {"_id": new_id(), "mobile": challenge["mobile"], "created_at": now()}
-        try:
-            db.users.insert_one(user)
-        except DuplicateKeyError:
-            raise HTTPException(400, "Your account changed. Please request a new OTP.")
-    return browser_session(request, response, create_session(request, db, user, challenge["role"]))
 
 
 def create_session(request, db, user, role):
@@ -277,7 +236,7 @@ def me(identity=Depends(current_identity), db=Depends(get_db)):
                 }
             )
     return {
-        "user": public({key: value for key, value in identity.user.items() if key != "session_slots"}),
+        "user": user_view(identity.user),
         "role": identity.role,
         "memberships": memberships,
     }

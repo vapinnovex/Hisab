@@ -1,6 +1,6 @@
 # Hishob — Phases 1 & 2
 
-A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile OTP login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
+A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile-and-password login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
 
 ## Flexible daily Hishob
 
@@ -8,7 +8,7 @@ Choose **Count cash**, **Enter sales**, or **Use billing totals** in Account →
 
 ## Web / PWA pilot
 
-Hishob can be installed from a web link with persistent browser login, connection recovery and safe app updates. Access is unrestricted; the first ten owners get all existing owner features. See [PWA deployment and pilot guide](docs/PWA-PILOT.md) for Atlas, Render, Vercel, local preview and device checks. The OTP provider is unchanged.
+Hishob can be installed from a web link with persistent browser login, connection recovery and safe app updates. Access is unrestricted; the first ten owners get all existing owner features. See [PWA deployment and pilot guide](docs/PWA-PILOT.md) for Atlas, Render, Vercel, local preview and device checks. Password login and owner recovery email setup are described in [Password accounts and recovery](docs/PASSWORD-AUTH.md).
 
 ## Run locally
 
@@ -98,7 +98,7 @@ When you belong to more than one shop, the top-right header shows the current sh
 
 The supplied Hishob logo appears on the welcome screen, navigation headers, account screen, app icon, splash screen, and web favicon. Green, cream, and gold styling follows the logo. Native icons, splash screens, and the installed display name require a new native build; Expo Go does not represent the final standalone branding. Internal bundle/package IDs, token storage keys, JWT identifiers, and the database name retain their existing values to preserve compatibility. No environment-variable changes are required.
 
-The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. OTP verification uses the combined international number. The same picker is available when changing your login number and when adding or editing workers and managers. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
+The mobile number field includes a searchable country-code picker (India +91 by default). Enter the national number beside it, or paste a full international number. Password login uses the combined international number. The same picker is available when changing your login number and when adding or editing workers and managers. Country calling-code metadata in `mobile/src/data/countries.json` comes from the backend’s installed `phonenumbers` package.
 
 ## Phase 2 — Daily Hishob
 
@@ -175,7 +175,7 @@ The existing `/settings` and `/auth/me` responses include `hishob_mode`, the fin
 
 ### Test Phase 2 manually
 
-1. Log in as Owner (development OTP `123456`) and create a fresh shop. Open **Today's Hishob** from Home.
+1. Register/sign in as Owner (development email verification code `123456`) and create a fresh shop. Open **Today's Hishob** from Home.
 2. Enter opening cash **0** and start the day.
 3. Add **Cash sales ₹15,000**, **Expense ₹500** (Transport), and **Bank deposit ₹2,000**. Current Galla is **₹12,500**; at closing this becomes the expected cash for comparison with your count.
 4. Open **Close day**, enter **₹12,300** actual cash. Difference is **-₹200**. Choose **Cash shortage**, then close.
@@ -189,35 +189,26 @@ New implementation files: `backend/app/financial_schemas.py`, `backend/app/route
 
 ## Concurrent logins
 
-Workers and managers share **one active staff session per account**, across all shops. A successful new OTP verification replaces their previous staff session. Owners may keep **three active Owner sessions**; the fourth successful login replaces the oldest. The limits are separate by login portal group, so an Owner session never grants worker/manager permissions. Requests for OTP and failed verification do not log anyone out.
+Workers and managers share **one active staff session per account**, across all shops. A successful password login replaces their previous staff session. Owners may keep **three active Owner sessions**; the fourth successful login replaces the oldest. The limits are separate by login portal group, so an Owner session never grants worker/manager permissions. Failed logins and unapproved reset requests do not log anyone out; approved resets and password changes revoke existing sessions.
 
-Session limits are enforced by an atomic, bounded allowlist on the User document, including concurrent verifications. Every protected API checks the allowlist. A displaced app returns to login on its next request, normally within five seconds while open, or when resumed. Explicit logout and expiry free their slots. Legacy sessions are checked against the same limits and carried forward when a new login initializes the allowlist. No environment changes are needed.
+Session limits are enforced by an atomic, bounded allowlist on the User document, including concurrent logins. Every protected API checks the allowlist. A displaced app returns to login on its next request, normally within five seconds while open, or when resumed. Explicit logout and expiry free their slots. Legacy sessions are checked against the same limits and carried forward when a new login initializes the allowlist. No environment changes are needed.
 
 ## Owner account details
 
-New owners enter their name when setting up their first shop. Existing owners can use **Account → Add your name**; saved names can be updated through **Edit your name**. Names belong to the global User identity, while staff names remain membership/profile-specific.
+Owners provide their name and a verified recovery email at registration. Existing names can be updated through **Account → Edit your name**. **Password & security** changes a known password. **Change mobile number** checks the current password and a code sent to the recovery email, then updates the number and revokes other sessions without changing user/shop/history IDs. No SMS verification is used.
 
-To change the owner's login number:
-
-1. Open **Account → Change mobile number** and enter the new international number.
-2. Verify the OTP sent to the **current** number.
-3. Verify a second OTP sent to the **new** number, then confirm.
-4. Continue in the same account. Use the new number for future logins; other sessions are revoked.
-
-Both phones must be accessible. A number already attached to any Hishob account is rejected; accounts are never automatically merged. If verification expires or delivery fails, use **Start again** to request a fresh flow (normal OTP cooldowns apply). In development both codes are `123456`, with no real SMS sent.
-
-Changing the number keeps the same User ID, shops, memberships, permissions, and attendance history across roles. Challenges are purpose-, user-, session-, current-number-, and account-version-bound. Verification codes issued before a number change cannot be reused to access the changed account. Existing sessions use version zero until the first number change; no data migration or environment changes are required. Pending login codes from an older server version may need to be requested again.
+See [password onboarding, recovery, existing-account migration, SMTP settings and API reference](docs/PASSWORD-AUTH.md). Existing logged-out owners without an email require operator-assisted enrollment; a phone number alone cannot claim an old account.
 
 ## Test the complete flow
 
-Development OTP is **123456**, shown on the OTP screen. No real SMS is sent. Enter full international mobile numbers.
+Development **email** code is **123456**, shown on the email verification screen. No real email is sent until SMTP is configured. Use full international mobile numbers and passwords of 12–128 characters.
 
-1. Choose **Continue as Owner**, log in with `+919876543210`, enter your name, and create a shop. India/Kolkata is the default timezone; tap **Change** to use another IANA timezone.
+1. Choose **Continue as Owner**, register with `+919876543210`, your name, a recovery email and a password, then create a shop. India/Kolkata is the default timezone; tap **Change** to use another IANA timezone.
 2. **Add worker** → name `Asha`, mobile `+919876543211`.
 3. **Manage managers → Add manager** → name `Ravi`, mobile `+919876543212`.
 4. Open **Today’s attendance → Mark in · Asha**. In the default mode, no check-out is needed.
-5. On another device/session, log in as Worker with Asha’s number. Her dashboard is read-only. **My attendance** shows a monthly calendar, totals for each status, and details when a date is tapped.
-6. In another session, log in as Manager with Ravi’s number. He can view the register and record/correct attendance, but cannot yet add workers or change settings.
+5. Owner: open **Team → Password access · Asha → Generate setup code**, then share the code directly with Asha. On another device/session, choose Worker, enter Asha’s number, and use the setup code to set/confirm her password. Her dashboard is read-only. **My attendance** shows a monthly calendar, totals for each status, and details when a date is tapped.
+6. Issue Ravi a setup code through Password access, then set his password in another Manager session. He can view the register and record/correct attendance, but cannot yet add workers or change settings.
 7. Owner: **Account → Shop settings** → enable **Managers can add workers**, **Managers can mark their own attendance**, optionally **Managers can edit and deactivate workers**, choose **Check-in and check-out**, and save.
 8. Manager: **Team → Add worker** now appears. Add another worker, then record **Mark in** and **Mark out** in Register. Open **My day**, tap **Mark my arrival**, then **Mark my departure**. The monthly calendar updates immediately. Owner: Register also shows Ravi and allows recording or correcting his attendance.
 9. Owner or authorised manager: open **Update / history · Asha**, choose a date, tap **Update YYYY-MM-DD**, select **Half day**, add a note, and save. The worker’s calendar updates within five seconds.
@@ -281,17 +272,17 @@ Workers are deactivated, never deleted. Changing a worker's mobile reassigns tha
 
 ## API surface
 
-All paths below are prefixed with `/api`; all except OTP endpoints require a bearer JWT (native) or the HttpOnly session cookie (web). Browser writes also require `X-Hishob-Client: web` and an exact allowed `Origin`.
+All paths below are prefixed with `/api`; all except the public login/onboarding/recovery endpoints require a bearer JWT (native) or the HttpOnly session cookie (web). Browser writes also require `X-Hishob-Client: web` and an exact allowed `Origin`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/auth/otp/request` | `{mobile, role}` → challenge ID, expiry, resend delay, development OTP |
-| POST | `/auth/otp/verify` | `{challenge_id, code}` → native access token or web session cookie, expiry |
+| POST | `/auth/password/options` | `{mobile, role}` → login/onboarding step |
+| POST | `/auth/password/login` | `{mobile, role, password}` → native token or HttpOnly session cookie |
+| POST | Owner/staff setup and recovery endpoints | See [password API reference](docs/PASSWORD-AUTH.md#api-changes) |
 | GET | `/auth/me` | User, login portal, active memberships, shop settings and effective permissions |
 | PATCH | `/auth/profile` | Owner updates their own `{name}` |
-| POST | `/auth/mobile-change/request` | Owner submits `{mobile}`; send OTP to current number |
-| POST | `/auth/mobile-change/verify-current` | Verify current-number `{challenge_id, code}`; send OTP to new number |
-| POST | `/auth/mobile-change/confirm` | Verify new-number `{challenge_id, code}`; update identity and return a replacement native token or web session cookie |
+| POST | `/auth/mobile-change/request` | Owner submits `{mobile, role: OWNER, password}`; send a code to the recovery email |
+| POST | `/auth/mobile-change/confirm` | Verify recovery-email `{challenge_id, code}`; update identity and return a replacement native token or web session cookie |
 | POST | `/auth/logout` | Revoke current session |
 | POST | `/shops` | Owner creates `{name, timezone}` |
 | GET | `/shops/{shop_id}/team` | Owner/manager reads workers and managers, including inactive staff |
@@ -320,30 +311,29 @@ The attendance routes under `/workers/{worker_id}` accept either worker or manag
 
 | Variable | Default/example | Purpose |
 | --- | --- | --- |
-| `APP_ENV` | `development` | `development` / `test` allow dev OTP; production rejects it |
+| `APP_ENV` | `development` | `development` / `test` allow dev email; production rejects it |
 | `MONGODB_URI` | `.env.example`: `mongodb://127.0.0.1:27018` | MongoDB connection (includes credentials in a deployed environment) |
 | `MONGODB_DATABASE` | `hisab` | App database |
 | `JWT_SECRET` | **Required**, minimum 32 characters | Use a strong random secret; example value is development only |
-| `JWT_EXPIRE_MINUTES` | `10080` | Session duration (7 days); expires into OTP re-login |
-| `OTP_PROVIDER` | `dev` | Provider registered in `app/otp.py` |
+| `JWT_EXPIRE_MINUTES` | `10080` | Session duration (7 days); expires into password re-login |
+| `EMAIL_PROVIDER` | `dev` | `dev` or `smtp`; production requires SMTP |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SSL` | See `.env.example` | Authenticated owner email delivery |
 | `DEV_OTP` | `123456` | Six-digit local test code |
 | `OTP_EXPIRE_SECONDS` | `300` | OTP lifetime |
-| `OTP_RESEND_SECONDS` | `30` | Per-mobile cooldown |
+| `OTP_RESEND_SECONDS` | `30` | Per-email cooldown |
 | `OTP_MAX_ATTEMPTS` | `5` | Per-challenge verification limit |
 | `CORS_ORIGINS` | JSON array | Browser origins allowed by the API |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8000` | Native/development API base, without `/api` |
 | `EXPO_PUBLIC_WEB_API_URL` | Unset | Development web-only override; production web always uses same-origin /api |
 | `TEST_MONGODB_URI` | `mongodb://127.0.0.1:27018` | Test runner only |
 
-OTP requests are limited per mobile and peer IP in MongoDB, so limits work across API workers. Verification is limited per challenge and peer IP. OTP hashes use HMAC, codes are not logged, successful challenges are single-use, and manager/worker eligibility is rechecked after verification. TTL cleanup is not relied on for expiry enforcement. Configure trusted proxy IPs correctly when deploying behind a proxy.
-
-To add real SMS, implement `OTPProvider.send(mobile, code)` and register it in `get_provider()` in `backend/app/otp.py`. Auth already generates random six-digit codes for non-dev providers. Production startup rejects the development provider and placeholder secret; use HTTPS, a random JWT secret, and authenticated MongoDB when deploying. Real SMS delivery is intentionally outside this development phase.
+Password attempts and email-code requests are rate-limited per account/address and peer IP in MongoDB. Codes use HMAC hashes, are single-use and expire explicitly. Passwords use Argon2id hashes; native SecureStore and browser HttpOnly session cookies remain. See [security and SMTP setup](docs/PASSWORD-AUTH.md#email-configuration). SMS login is removed.
 
 ## Files
 
 - `backend/app/config.py`, `db.py`, `schemas.py`: configuration, collections/indexes, validated inputs.
-- `backend/app/security.py`, `shop_policy.py`, `otp.py`: authentication, shop permissions, SMS provider boundary.
-- `backend/app/routers/{auth,account,shops,attendance}.py`: complete REST workflows.
+- `backend/app/security.py`, `shop_policy.py`, `passwords.py`, `email_provider.py`: authentication, shop permissions, password hashing and email delivery.
+- `backend/app/routers/{auth,password_auth,account,shops,attendance}.py`: complete REST workflows.
 - `backend/app/main.py`: application factory, startup, CORS, health, error handling.
 - `backend/tests/`: real-database integration tests and isolated browser-test server.
 - `mobile/src/{api,auth,storage,hooks,types}.*`: typed API client, session lifecycle, SecureStore, data refresh.
@@ -358,8 +348,8 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 
 ## Verified in this workspace
 
-- 85 backend integration tests passed against real MongoDB, including browser cookies, CSRF, session limits, mobile-number changes, native bearer compatibility and total-only billing.
-- 15 workflow/formatting Playwright checks cover attendance, account flows, the cash register, history, search and currency editing, cash-count/billing modes, total-only reports and monthly sales. 4 additional PWA checks cover production-export installation metadata, persistent login, offline recovery, drafts, safe updates and unconfirmed saves.
+- 99 backend integration tests passed against real MongoDB, including browser cookies, CSRF, session limits, mobile-number changes, native bearer compatibility and total-only billing.
+- 16 workflow/formatting Playwright checks cover attendance, account flows, the cash register, history, search and currency editing, cash-count/billing modes, total-only reports and monthly sales. 4 additional PWA checks cover production-export installation metadata, persistent login, offline recovery, drafts, safe updates and unconfirmed saves.
 - TypeScript, ESLint, Prettier, Ruff lint/format checks passed.
 - Expo Doctor: 21/21 checks passed.
 - iOS, Android, and web production JavaScript bundles exported successfully.

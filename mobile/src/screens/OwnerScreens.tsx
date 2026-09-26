@@ -442,6 +442,19 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
               </View>
             </View>
             <Text style={styles.subtitle}>{person.mobile}</Text>
+            {(selected!.permissions.manage_managers ||
+              (!manager &&
+                (selected!.permissions.reset_worker_passwords ||
+                  (!person.password_ready && selected!.permissions.add_workers)))) && (
+              <Button
+                secondary
+                title={`Password access · ${person.name}`}
+                onPress={() => navigation.navigate('StaffPasswordAccess', { worker: person })}
+              />
+            )}
+            {person.password_reset_requested && (
+              <Text style={styles.small}>Password reset requested</Text>
+            )}
             {canEdit && (
               <Button
                 secondary
@@ -496,7 +509,11 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
         placeholder="Full name"
         maxLength={100}
       />
-      <PhoneField value={mobile} onChange={setMobile} helperText="Used for their OTP login" />
+      <PhoneField
+        value={mobile}
+        onChange={setMobile}
+        helperText="Used for their password login. After adding them, open Password access to share their first setup code."
+      />
       {worker && (
         <Card>
           <View style={styles.row}>

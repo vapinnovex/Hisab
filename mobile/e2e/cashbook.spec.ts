@@ -1,15 +1,8 @@
+import { login } from './auth-helpers';
 import { expect, test, Page } from '@playwright/test';
 
 async function owner(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Continue as Owner', exact: true }).click();
-  await page
-    .getByRole('textbox', { name: 'Mobile number', exact: true })
-    .fill('+9188' + String(Date.now()).slice(-8));
-  await page.getByRole('button', { name: 'Send OTP', exact: true }).click();
-  await page.getByRole('textbox', { name: 'OTP code', exact: true }).fill('123456');
-  await page.getByRole('button', { name: 'Verify & continue', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Your name', exact: true }).fill('Shop owner');
+  await login(page, 'Owner', '+9188' + String(Date.now()).slice(-8));
   await page.getByRole('textbox', { name: 'Shop name', exact: true }).fill('Daily Hishob Shop');
   await page.getByRole('button', { name: 'Create shop', exact: true }).click();
   await page.getByLabel('Hishob tab', { exact: true }).click();

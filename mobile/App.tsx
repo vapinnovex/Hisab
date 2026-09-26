@@ -1,3 +1,4 @@
+import { PasswordSecurity, StaffPasswordAccess } from './src/screens/PasswordScreens';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
@@ -11,7 +12,7 @@ import { AuthProvider, useAuth } from './src/auth';
 import { AppHeader, BrandMark } from './src/components/Brand';
 import { Button, colors, ErrorText, Heading, Loading, Page, styles } from './src/components/ui';
 import { useAction } from './src/hooks';
-import { MobileLogin, OTPScreen, RoleSelection } from './src/screens/AuthScreens';
+import { MobileLogin, RoleSelection } from './src/screens/AuthScreens';
 import {
   OwnerDashboard,
   ShopSetup,
@@ -118,6 +119,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
           )}
+          <Stack.Screen name="StaffPasswordAccess" component={StaffPasswordAccess} />
           <Stack.Screen
             name="WorkerForm"
             component={WorkerForm}
@@ -139,6 +141,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
           )}
         </>
       )}
+      <Stack.Screen name="PasswordSecurity" component={PasswordSecurity} />
     </Stack.Navigator>
   );
 }
@@ -289,8 +292,9 @@ function Navigation() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="MobileLogin" component={MobileLogin} />
-            <Stack.Screen name="OTP" component={OTPScreen} />
           </>
+        ) : session.role === 'OWNER' && !session.user.password_ready ? (
+          <Stack.Screen name="PasswordSecurity" component={PasswordSecurity} />
         ) : !selected ? (
           <Stack.Screen name="ShopSetup" component={ShopSetup} />
         ) : (

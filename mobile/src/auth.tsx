@@ -22,9 +22,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [selectedId, select] = useState<string>('');
   const token = useRef<string | null>(null);
+  const generation = useRef(0);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState('');
   const clear = useCallback(async () => {
+    generation.current++;
     token.current = null;
     setSession(null);
     select('');
@@ -44,11 +46,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const reload = useCallback(
     async (preferredShop?: string) => {
       const usedToken = token.current;
+      const usedGeneration = generation.current;
       try {
         const data = await request<Session>('/auth/me', usedToken);
-        if (token.current === usedToken) apply(data, preferredShop);
+        if (token.current === usedToken && generation.current === usedGeneration)
+          apply(data, preferredShop);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401 && token.current === usedToken)
+        if (
+          error instanceof ApiError &&
+          error.status === 401 &&
+          token.current === usedToken &&
+          generation.current === usedGeneration
+        )
           await clear();
         throw error;
       }
@@ -77,12 +86,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const api = useCallback(
     async <T,>(path: string, body?: unknown, method = 'GET') => {
       const usedToken = token.current;
+      const usedGeneration = generation.current;
       try {
         return await request<T>(path, usedToken, body, method);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401 && token.current === usedToken)
+        if (
+          error instanceof ApiError &&
+          error.status === 401 &&
+          token.current === usedToken &&
+          generation.current === usedGeneration
+        )
           await clear();
-        if (error instanceof ApiError && error.status === 403 && token.current === usedToken) {
+        if (
+          error instanceof ApiError &&
+          error.status === 403 &&
+          token.current === usedToken &&
+          generation.current === usedGeneration
+        ) {
           // A deactivated or reassigned membership must disappear without a restart.
           await reload().catch(() => undefined);
         }
@@ -118,8 +138,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [signedIn, reload]);
   const signIn = useCallback(
     async (value = BROWSER_SESSION) => {
+      generation.current++;
       // Keep the issued session if the first profile request loses connectivity.
-      // Reconnection can then finish login without consuming another OTP.
+      // Reconnection can then finish login without issuing another session.
       await tokenStorage.set(value);
       token.current = value;
       await reload();

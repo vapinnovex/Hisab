@@ -1,15 +1,12 @@
-from conftest import login
+from conftest import PASSWORD, login
 
 WEB = {"Origin": "http://localhost:8081", "X-Hishob-Client": "web"}
 
 
 def web_login(client, mobile="+919811112222", role="OWNER"):
-    challenge = client.post("/api/auth/otp/request", headers=WEB, json={"mobile": mobile, "role": role})
-    assert challenge.status_code == 200, challenge.text
+    login(client, mobile, role)
     return client.post(
-        "/api/auth/otp/verify",
-        headers=WEB,
-        json={"challenge_id": challenge.json()["challenge_id"], "code": "123456"},
+        "/api/auth/password/login", headers=WEB, json={"mobile": mobile, "role": role, "password": PASSWORD}
     )
 
 
@@ -34,7 +31,7 @@ def test_cookie_session_persists_without_exposing_token_and_logout_revokes(clien
 
 def test_browser_requires_exact_origin_and_custom_header_for_writes(client):
     result = client.post(
-        "/api/auth/otp/request",
+        "/api/auth/password/options",
         headers={**WEB, "Origin": "https://evil.example"},
         json={"mobile": "+919811112222", "role": "OWNER"},
     )
@@ -84,14 +81,17 @@ def test_cookie_mobile_change_replaces_session_and_keeps_identity(client):
     assert web_login(client).status_code == 200
     old_cookie = client.cookies.get("hishob_session")
     old_id = client.get("/api/auth/me", headers=WEB).json()["user"]["id"]
-    result = client.post("/api/auth/mobile-change/request", headers=WEB, json={"mobile": "+919811113333"})
-    for endpoint in ["verify-current", "confirm"]:
-        assert result.status_code == 200, result.text
-        result = client.post(
-            f"/api/auth/mobile-change/{endpoint}",
-            headers=WEB,
-            json={"challenge_id": result.json()["challenge_id"], "code": "123456"},
-        )
+    result = client.post(
+        "/api/auth/mobile-change/request",
+        headers=WEB,
+        json={"mobile": "+919811113333", "role": "OWNER", "password": PASSWORD},
+    )
+    assert result.status_code == 200, result.text
+    result = client.post(
+        "/api/auth/mobile-change/confirm",
+        headers=WEB,
+        json={"challenge_id": result.json()["challenge_id"], "code": "123456"},
+    )
     assert result.status_code == 200 and "access_token" not in result.json()
     me = client.get("/api/auth/me", headers=WEB).json()
     assert me["user"]["id"] == old_id and me["user"]["mobile"] == "+919811113333"

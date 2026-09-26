@@ -25,6 +25,7 @@ def permissions_for(membership, shop):
         or (manager and config["manager_can_access_hishob"] and config["manager_can_close_hishob"]),
         "reopen_hishob": owner,
         "manage_attendance": owner or (manager and config["manager_can_manage_attendance"]),
+        "reset_worker_passwords": owner or (manager and config["manager_can_reset_worker_passwords"]),
         "add_workers": owner or (manager and config["manager_can_add_workers"]),
         "edit_workers": owner or (manager and config["manager_can_edit_workers"]),
         "manage_managers": owner,

@@ -20,7 +20,7 @@ export function PhoneField({
   value,
   onChange,
   label = 'Mobile number',
-  helperText = 'We’ll send your OTP to this number',
+  helperText = 'Use this number to sign in to Hishob',
 }: {
   value: string;
   onChange: (value: string) => void;

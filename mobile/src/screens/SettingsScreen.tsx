@@ -24,6 +24,12 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
     description: string;
   }[] = [
     {
+      key: 'manager_can_reset_worker_passwords',
+      title: 'Managers can approve worker password resets',
+      description:
+        'Allow managers to approve requests and share one-time setup codes for workers. Manager and owner passwords stay protected.',
+    },
+    {
       key: 'manager_can_access_hishob',
       title: 'Managers can access Hishob',
       description:

@@ -8,44 +8,24 @@ from app.config import Settings
 from app.db import now
 
 
-def test_otp_expiry_attempts_replay_and_logout(client):
-    body = {"mobile": "+919876543210", "role": "OWNER"}
-    challenge = client.post("/api/auth/otp/request", json=body).json()["challenge_id"]
-    for _ in range(5):
-        assert (
-            client.post(
-                "/api/auth/otp/verify", json={"challenge_id": challenge, "code": "000000"}
-            ).status_code
-            == 400
-        )
-    assert (
-        client.post("/api/auth/otp/verify", json={"challenge_id": challenge, "code": "123456"}).status_code
-        == 400
-    )
-    challenge = client.post("/api/auth/otp/request", json=body).json()["challenge_id"]
-    client.app.state.db.otp_challenges.update_one(
-        {"_id": challenge}, {"$set": {"expires_at": now() - timedelta(seconds=1)}}
-    )
-    assert (
-        client.post("/api/auth/otp/verify", json={"challenge_id": challenge, "code": "123456"}).status_code
-        == 400
-    )
-    challenge = client.post("/api/auth/otp/request", json=body).json()["challenge_id"]
-    verification = {"challenge_id": challenge, "code": "123456"}
-    response = client.post("/api/auth/otp/verify", json=verification)
-    assert response.status_code == 200
-    assert client.post("/api/auth/otp/verify", json=verification).status_code == 400
-    auth = {"Authorization": "Bearer " + response.json()["access_token"]}
+def test_login_logout_and_invalid_tokens(client):
+    from conftest import login
+
+    auth = login(client)
     assert client.get("/api/auth/me", headers=auth).status_code == 200
     assert client.post("/api/auth/logout", headers=auth).status_code == 204
     assert client.get("/api/auth/me", headers=auth).status_code == 401
     assert client.get("/api/auth/me").status_code == 401
     assert client.get("/api/auth/me", headers={"Authorization": "Bearer invalid"}).status_code == 401
+    assert client.post("/api/auth/otp/request", json={}).status_code == 404
+    assert client.post("/api/auth/otp/verify", json={}).status_code == 404
 
 
 def test_validation_and_duplicate_workers(client, setup_shop):
     owner, shop, worker, auth = setup_shop
-    assert client.post("/api/auth/otp/request", json={"mobile": "123", "role": "OWNER"}).status_code == 422
+    assert (
+        client.post("/api/auth/password/options", json={"mobile": "123", "role": "OWNER"}).status_code == 422
+    )
     assert (
         client.post("/api/shops", headers=owner, json={"name": "Shop", "timezone": "Nope"}).status_code == 422
     )
@@ -76,11 +56,11 @@ def test_validation_and_duplicate_workers(client, setup_shop):
 
 def test_rate_limit_and_production_guard(client):
     client.app.state.settings.otp_resend_seconds = 30
-    body = {"mobile": "+919876543210", "role": "OWNER"}
-    assert client.post("/api/auth/otp/request", json=body).status_code == 200
-    assert client.post("/api/auth/otp/request", json=body).status_code == 429
+    body = {"mobile": "+919876543210", "role": "OWNER", "email": "owner@example.com", "name": "Owner"}
+    assert client.post("/api/auth/owner/register/request", json=body).status_code == 200
+    assert client.post("/api/auth/owner/register/request", json=body).status_code == 429
     with pytest.raises(ValidationError):
-        Settings(_env_file=None, app_env="production", jwt_secret="a" * 32, otp_provider="dev")
+        Settings(_env_file=None, app_env="production", jwt_secret="a" * 32, email_provider="dev")
 
 
 def test_expired_jwt(client, setup_shop):

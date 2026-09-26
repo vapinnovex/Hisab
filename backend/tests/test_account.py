@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from conftest import login
+from conftest import PASSWORD, login
 
 from app.db import now
 
@@ -11,7 +11,13 @@ def otp_body(response):
 
 
 def start_change(client, owner, mobile="+919876543219"):
-    return otp_body(client.post("/api/auth/mobile-change/request", headers=owner, json={"mobile": mobile}))
+    return otp_body(
+        client.post(
+            "/api/auth/mobile-change/request",
+            headers=owner,
+            json={"mobile": mobile, "password": PASSWORD, "role": "OWNER"},
+        )
+    )
 
 
 def test_owner_name_validation_and_permissions(client, setup_shop):
@@ -39,14 +45,9 @@ def test_mobile_change_preserves_identity_and_revokes_old_sessions_and_codes(cli
     attendance = client.post(
         f"/api/shops/{shop}/workers/{worker_id}/attendance/check-in", headers=owner
     ).json()
-    stale_old = otp_body(
-        client.post("/api/auth/otp/request", json={"mobile": "+919876543210", "role": "OWNER"})
-    )
-    stale_new = otp_body(
-        client.post("/api/auth/otp/request", json={"mobile": "+919876543219", "role": "OWNER"})
-    )
     current = start_change(client, owner)
-    new = otp_body(client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current))
+    stale = dict(current)
+    new = current
     result = client.post("/api/auth/mobile-change/confirm", headers=owner, json=new)
     assert result.status_code == 200, result.text
     updated = {"Authorization": "Bearer " + result.json()["access_token"]}
@@ -62,8 +63,7 @@ def test_mobile_change_preserves_identity_and_revokes_old_sessions_and_codes(cli
     )
     for old in [owner, other_session]:
         assert client.get("/api/auth/me", headers=old).status_code == 401
-    for stale in [stale_old, stale_new]:
-        assert client.post("/api/auth/otp/verify", json=stale).status_code == 400
+    assert client.post("/api/auth/mobile-change/confirm", headers=updated, json=stale).status_code == 400
     relogin = login(client, "+919876543219")
     assert client.get("/api/auth/me", headers=relogin).json()["user"]["id"] == before["user"]["id"]
     old_number = login(client)
@@ -75,7 +75,9 @@ def test_change_challenges_are_purpose_session_and_user_bound(client, setup_shop
     owner, _, _, worker = setup_shop
     assert (
         client.post(
-            "/api/auth/mobile-change/request", headers=worker, json={"mobile": "+919876543219"}
+            "/api/auth/mobile-change/request",
+            headers=worker,
+            json={"mobile": "+919876543219", "password": PASSWORD, "role": "OWNER"},
         ).status_code
         == 403
     )
@@ -83,52 +85,51 @@ def test_change_challenges_are_purpose_session_and_user_bound(client, setup_shop
     other = login(client, "+919876543218")
     second_session = login(client)
     for actor in [other, second_session]:
-        assert (
-            client.post("/api/auth/mobile-change/verify-current", headers=actor, json=current).status_code
-            == 400
-        )
-    assert client.post("/api/auth/otp/verify", json=current).status_code == 400
-    assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=current).status_code == 400
-    new = otp_body(client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current))
-    assert (
-        client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current).status_code == 400
-    )
-    assert client.post("/api/auth/otp/verify", json=new).status_code == 400
+        assert client.post("/api/auth/mobile-change/confirm", headers=actor, json=current).status_code == 400
     assert (
         client.post(
-            "/api/auth/mobile-change/confirm", headers=owner, json={**new, "code": "000000"}
+            "/api/auth/owner/recovery/confirm",
+            json={**current, "password": PASSWORD, "confirm_password": PASSWORD},
         ).status_code
         == 400
     )
-    assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=new).status_code == 200
+    assert (
+        client.post(
+            "/api/auth/mobile-change/confirm", headers=owner, json={**current, "code": "000000"}
+        ).status_code
+        == 400
+    )
+    assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=current).status_code == 200
 
 
 def test_change_rejects_duplicates_expired_and_exhausted_codes(client, setup_shop):
     owner, _, _, _ = setup_shop
-    for number, code in [("+919876543210", 422), ("+919876543211", 409)]:
+    for number, code in [("+919876543210", 409), ("+919876543211", 409)]:
         assert (
-            client.post("/api/auth/mobile-change/request", headers=owner, json={"mobile": number}).status_code
+            client.post(
+                "/api/auth/mobile-change/request",
+                headers=owner,
+                json={"mobile": number, "password": PASSWORD, "role": "OWNER"},
+            ).status_code
             == code
         )
     current = start_change(client, owner)
     for _ in range(5):
         assert (
             client.post(
-                "/api/auth/mobile-change/verify-current", headers=owner, json={**current, "code": "000000"}
+                "/api/auth/mobile-change/confirm", headers=owner, json={**current, "code": "000000"}
             ).status_code
             == 400
         )
-    assert (
-        client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current).status_code == 400
-    )
+    assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=current).status_code == 400
     current = start_change(client, owner)
-    new = otp_body(client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current))
+    new = current
     client.app.state.db.otp_challenges.update_one(
         {"_id": new["challenge_id"]}, {"$set": {"expires_at": now() - timedelta(seconds=1)}}
     )
     assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=new).status_code == 400
     current = start_change(client, owner)
-    new = otp_body(client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current))
+    new = current
     # A number can be claimed between requesting and confirming; the unique index is authoritative.
     login(client, "+919876543219")
     assert client.post("/api/auth/mobile-change/confirm", headers=owner, json=new).status_code == 409
@@ -142,9 +143,7 @@ def test_concurrent_mobile_changes_only_one_can_win(client, setup_shop):
     confirmations = []
     for mobile in ["+919876543218", "+919876543219"]:
         current = start_change(client, owner, mobile)
-        confirmations.append(
-            otp_body(client.post("/api/auth/mobile-change/verify-current", headers=owner, json=current))
-        )
+        confirmations.append(current)
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(
             pool.map(
@@ -152,11 +151,10 @@ def test_concurrent_mobile_changes_only_one_can_win(client, setup_shop):
                 confirmations,
             )
         )
-    assert sorted(result.status_code for result in results) in [[200, 401], [200, 409]]
+    assert sorted(result.status_code for result in results) in [[200, 400], [200, 401], [200, 409]]
     winner = next(result for result in results if result.status_code == 200)
     new_auth = {"Authorization": "Bearer " + winner.json()["access_token"]}
     account = client.get("/api/auth/me", headers=new_auth)
     assert account.status_code == 200
-    assert account.json()["user"]["auth_version"] == 1
     assert len(account.json()["memberships"]) == 1
     assert client.get("/api/auth/me", headers=owner).status_code == 401

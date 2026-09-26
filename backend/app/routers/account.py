@@ -4,11 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from ..db import get_db, now, public
-from ..schemas import MobileInput, OTPVerify, OwnerProfileUpdate
+from ..db import get_db, now
+from ..password_schemas import MobileChange
+from ..passwords import user_view, verify_password
+from ..schemas import OTPVerify, OwnerProfileUpdate
 from ..security import require_owner
 from ..web_session import browser_session
 from .auth import consume_challenge, create_session, issue_challenge, limit_requests
+from .password_auth import version_query
 
 router = APIRouter(prefix="/auth", tags=["Account"])
 
@@ -20,53 +23,28 @@ def update_profile(body: OwnerProfileUpdate, identity=Depends(require_owner), db
         {"$set": {"name": body.name, "updated_at": now()}},
         return_document=ReturnDocument.AFTER,
     )
-    return public({key: value for key, value in user.items() if key != "session_slots"})
-
-
-def scope(identity):
-    return {
-        "user_id": identity.user["_id"],
-        "session_id": identity.session_id,
-        "old_mobile": identity.user["mobile"],
-        "auth_version": identity.user.get("auth_version", 0),
-    }
-
-
-def available(db, mobile):
-    if db.users.find_one({"mobile": mobile}):
-        raise HTTPException(409, "This number already belongs to an account. Choose another number.")
+    return user_view(user)
 
 
 @router.post("/mobile-change/request")
-def request_change(body: MobileInput, request: Request, identity=Depends(require_owner), db=Depends(get_db)):
+def request_change(body: MobileChange, request: Request, identity=Depends(require_owner), db=Depends(get_db)):
     limit_requests(db, f"change:{identity.user['_id']}", 10, 3600)
-    if body.mobile == identity.user["mobile"]:
-        raise HTTPException(422, "Enter a different mobile number.")
-    available(db, body.mobile)
+    if not verify_password(identity.user.get("password_hash"), body.password):
+        raise HTTPException(400, "Current password is incorrect.")
+    if not identity.user.get("email_verified"):
+        raise HTTPException(409, "Set up your recovery email first.")
+    if body.mobile == identity.user["mobile"] or db.users.find_one({"mobile": body.mobile}):
+        raise HTTPException(409, "Choose a different number that is not already in use.")
     return issue_challenge(
         request,
         db,
-        identity.user["mobile"],
-        "CHANGE_CURRENT",
+        identity.user["email"],
+        "CHANGE_MOBILE",
         {
-            **scope(identity),
+            "user_id": identity.user["_id"],
+            "session_id": identity.session_id,
+            "auth_version": identity.user.get("auth_version", 0),
             "new_mobile": body.mobile,
-        },
-    )
-
-
-@router.post("/mobile-change/verify-current")
-def verify_current(body: OTPVerify, request: Request, identity=Depends(require_owner), db=Depends(get_db)):
-    challenge = consume_challenge(body, request, db, "CHANGE_CURRENT", scope(identity))
-    available(db, challenge["new_mobile"])
-    return issue_challenge(
-        request,
-        db,
-        challenge["new_mobile"],
-        "CHANGE_NEW",
-        {
-            **scope(identity),
-            "new_mobile": challenge["new_mobile"],
         },
     )
 
@@ -75,21 +53,32 @@ def verify_current(body: OTPVerify, request: Request, identity=Depends(require_o
 def confirm_change(
     body: OTPVerify, request: Request, response: Response, identity=Depends(require_owner), db=Depends(get_db)
 ):
-    challenge = consume_challenge(body, request, db, "CHANGE_NEW", scope(identity))
+    challenge = consume_challenge(
+        body,
+        request,
+        db,
+        "CHANGE_MOBILE",
+        {
+            "user_id": identity.user["_id"],
+            "session_id": identity.session_id,
+            "auth_version": identity.user.get("auth_version", 0),
+        },
+    )
     try:
-        # One atomic identity change. Version checks invalidate concurrent/older sessions.
         user = db.users.find_one_and_update(
+            version_query(identity.user),
             {
-                "_id": identity.user["_id"],
-                "mobile": challenge["old_mobile"],
-                "$expr": {"$eq": [{"$ifNull": ["$auth_version", 0]}, challenge["auth_version"]]},
+                "$set": {"mobile": challenge["new_mobile"], "updated_at": now()},
+                "$inc": {"auth_version": 1},
+                "$unset": {"session_slots": ""},
             },
-            {"$set": {"mobile": challenge["new_mobile"], "updated_at": now()}, "$inc": {"auth_version": 1}},
             return_document=ReturnDocument.AFTER,
         )
     except DuplicateKeyError:
-        raise HTTPException(409, "This number already belongs to an account. Choose another number.")
+        raise HTTPException(409, "This number already belongs to an account.")
     if not user:
-        raise HTTPException(409, "Your account changed. Please start again.")
-    db.sessions.update_many({"user_id": user["_id"]}, {"$set": {"revoked": True}})
+        raise HTTPException(409, "Your account changed. Start again.")
+    db.sessions.update_many(
+        {"user_id": user["_id"], "auth_version": {"$ne": user["auth_version"]}}, {"$set": {"revoked": True}}
+    )
     return browser_session(request, response, create_session(request, db, user, "OWNER"))

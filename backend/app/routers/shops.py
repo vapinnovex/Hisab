@@ -19,6 +19,9 @@ def worker_view(db, membership):
         "role": "MANAGER" if membership["role"] == "ADMIN" else membership["role"],
         "mobile": user["mobile"],
         "active": membership["active"],
+        "password_ready": bool(user.get("password_hash")),
+        "password_reset_requested": bool(user.get("password_reset_requested_at")),
+        "password_reset_required": bool(user.get("password_reset_required")),
         "created_at": membership["created_at"],
     }
 

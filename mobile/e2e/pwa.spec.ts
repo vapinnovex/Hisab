@@ -1,18 +1,9 @@
+import { login } from './auth-helpers';
 import { expect, test, Page } from '@playwright/test';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 async function start(page: Page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Continue as Owner', exact: true }).click();
-  await page
-    .getByRole('textbox', { name: 'Mobile number', exact: true })
-    .fill('+9198' + String(Date.now()).slice(-8));
-  await page.getByRole('button', { name: 'Send OTP', exact: true }).click();
-  await page.getByRole('textbox', { name: 'OTP code', exact: true }).fill('123456');
-  const verification = page.waitForResponse('**/api/auth/otp/verify');
-  await page.getByRole('button', { name: 'Verify & continue', exact: true }).click();
-  expect(await (await verification).json()).not.toHaveProperty('access_token');
-  await page.getByRole('textbox', { name: 'Your name', exact: true }).fill('Pilot owner');
+  await login(page, 'Owner', '+9198' + String(Date.now()).slice(-8));
   await page.getByRole('textbox', { name: 'Shop name', exact: true }).fill('PWA Pilot Shop');
   await page.getByRole('button', { name: 'Create shop', exact: true }).click();
   await expect(page.getByLabel('Home tab', { exact: true })).toBeVisible();
@@ -198,11 +189,13 @@ test('a lost save response stays unconfirmed and an explicit retry creates only 
   await expect(page.getByRole('button', { name: 'Add transaction', exact: true })).toBeVisible();
 });
 
-test('login recovers if the first profile fetch fails after OTP succeeds', async ({ page }) => {
+test('login recovers if the first profile fetch fails after registration succeeds', async ({
+  page,
+}) => {
   let verified = false;
   let failed = false;
   page.on('response', (response) => {
-    if (response.url().endsWith('/auth/otp/verify') && response.ok()) verified = true;
+    if (response.url().endsWith('/auth/owner/register/confirm') && response.ok()) verified = true;
   });
   await page.route('**/api/auth/me', async (route) => {
     if (verified && !failed) {

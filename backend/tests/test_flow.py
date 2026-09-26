@@ -186,8 +186,8 @@ def test_deactivation_blocks_worker_and_manager_without_losing_history(client, s
         ("workers", worker, "+919876543211", auth),
         ("managers", manager_id, "+919876543212", manager),
     ]:
-        pending = client.post(
-            "/api/auth/otp/request",
+        client.post(
+            "/api/auth/password/options",
             json={"mobile": mobile, "role": "WORKER" if role == "workers" else "MANAGER"},
         ).json()
         update = {"name": "Edited", "mobile": mobile, "active": False}
@@ -195,13 +195,18 @@ def test_deactivation_blocks_worker_and_manager_without_losing_history(client, s
         assert client.get("/api/auth/me", headers=headers).json()["memberships"] == []
         assert (
             client.post(
-                "/api/auth/otp/verify", json={"challenge_id": pending["challenge_id"], "code": "123456"}
+                "/api/auth/password/login",
+                json={
+                    "mobile": mobile,
+                    "role": "WORKER" if role == "workers" else "MANAGER",
+                    "password": "a long test passphrase 42",
+                },
             ).status_code
             == 403
         )
         assert (
             client.post(
-                "/api/auth/otp/request",
+                "/api/auth/password/options",
                 json={"mobile": mobile, "role": "WORKER" if role == "workers" else "MANAGER"},
             ).status_code
             == 403
@@ -216,11 +221,15 @@ def test_unknown_staff_cannot_register_or_elevate(client, setup_shop):
     owner, auth, base, attendance = paths(setup_shop)
     for role in ["WORKER", "MANAGER"]:
         assert (
-            client.post("/api/auth/otp/request", json={"mobile": "+919876543299", "role": role}).status_code
+            client.post(
+                "/api/auth/password/options", json={"mobile": "+919876543299", "role": role}
+            ).status_code
             == 403
         )
     assert (
-        client.post("/api/auth/otp/request", json={"mobile": "+919876543299", "role": "ADMIN"}).status_code
+        client.post(
+            "/api/auth/password/options", json={"mobile": "+919876543299", "role": "ADMIN"}
+        ).status_code
         == 422
     )
     assert (

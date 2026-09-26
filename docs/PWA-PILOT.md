@@ -12,7 +12,7 @@ Owners get a normal HTTPS link. They can use it in their browser immediately, or
 - Offline writes fail before sending. Draft inputs stay in the open form. A timed-out/lost write response is explicitly **unconfirmed**, never automatically retried. Transaction retries from the same form retain their existing idempotency key. Other changes must be reviewed on reconnect before retrying.
 - A newly installed app version waits for an explicit **Update Hishob** action. Unsaved financial, shop, team, profile and settings forms block that action. Browser reload/close warns about these unsaved forms where supported. Drafts are not saved across a forced close, OS eviction or account/shop switch.
 
-The OTP provider is unchanged, as requested. The existing production startup guard still rejects development OTP. Complete the real provider separately before onboarding real accounts; this change does not bypass that guard.
+Login now uses passwords. Owners verify a recovery email; staff use owner-issued setup codes. Configure real SMTP delivery before onboarding owners in production; the startup guard rejects development email. See [password onboarding and migration](PASSWORD-AUTH.md).
 
 ## Hosting: Atlas + Render + Vercel
 
@@ -27,7 +27,7 @@ Create a Python web service from this repository with **Root Directory `backend`
 - Build: `pip install -r requirements.lock.txt`
 - Start: `uvicorn app.main:create_app --factory --host 0.0.0.0 --port $PORT`
 - Health path: `/health`
-- Environment: `APP_ENV`, `MONGODB_URI`, `MONGODB_DATABASE`, random `JWT_SECRET`, `JWT_EXPIRE_MINUTES`, OTP settings from `backend/.env.example`, and the exact browser origins in `CORS_ORIGINS`.
+- Environment: `APP_ENV`, `MONGODB_URI`, `MONGODB_DATABASE`, random `JWT_SECRET`, `JWT_EXPIRE_MINUTES`, SMTP/email-code settings from `backend/.env.example`, and the exact browser origins in `CORS_ORIGINS`.
 
 For example, once the frontend address is known:
 
@@ -96,7 +96,7 @@ Automated Chromium tests cannot confirm the actual Android install dialog, iOS A
 ## Implementation map
 
 - `backend/app/web_session.py`, `security.py`, `main.py`, `config.py`: browser cookie transport, shared session validation, exact-origin write checks, credentialed CORS and non-cacheable API responses.
-- `backend/app/routers/auth.py`, `account.py`: existing OTP verification, logout and mobile-change endpoints now support cookie sessions alongside native bearer responses. No new accounting API or OTP provider was introduced.
+- `backend/app/routers/auth.py`, `account.py`: password authentication, email verification, logout and mobile-change endpoints support cookie sessions alongside native bearer responses. The PWA itself does not change accounting calculations.
 - `mobile/src/storage.ts`, `auth.tsx`, `api.ts`, `connection.ts`, `hooks.ts`: persistent session restoration, public API URL selection, connection state and refresh behavior.
 - `mobile/src/pwa.tsx`, `App.tsx`, account and form screens: installation guidance, connection/update banners and unsaved-form protection.
 - `mobile/public/`, `scripts/build-pwa.cjs`, `scripts/worker.template.js`, `scripts/serve-pwa.cjs`, `app.json`, `vercel.json`: install assets, exported app shell, update worker, local proxy preview and hosting configuration.
