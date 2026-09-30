@@ -31,6 +31,8 @@ def create_indexes(db):
     db.hishob_days.create_index([("shop_id", 1), ("status", 1), ("date", -1)])
     db.users.create_index("mobile", unique=True)
     db.users.create_index("email", unique=True, partialFilterExpression={"email": {"$type": "string"}})
+    db.email_change_history.create_index("challenge_id", unique=True)
+    db.email_change_history.create_index([("user_id", ASCENDING), ("changed_at", -1)])
     db.shops.create_index("created_by")
     db.memberships.create_index(
         [("shop_id", ASCENDING), ("user_id", ASCENDING), ("role", ASCENDING)], unique=True

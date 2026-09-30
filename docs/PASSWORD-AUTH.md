@@ -10,6 +10,7 @@ Mobile numbers remain the login identifier for all roles. Staff do not need emai
 4. **Forgot password?** sends a code to the registered email. Verification sets a new password, signs out other devices and preserves the account and all shops.
 5. **Account → Password & security** changes a known password, after checking the current password.
 6. **Account → Change mobile number** checks the current password and a code sent to the recovery email. It changes the login identifier; it does not prove possession of the new phone. No SMS is sent. The number must be unused, and other sessions are revoked.
+7. **Account → Change recovery email** checks the current password and sends a code to the proposed new email. Verification makes that address the recovery email, revokes other sessions, and records the old/new address with a timestamp in the email-change history.
 
 ## Worker or manager
 
@@ -89,6 +90,9 @@ Paths are prefixed with `/api`. Public endpoints still require the web-origin/cu
 | `/shops/{shop_id}/team/{staff_id}/password-deny` | Authenticated, authorised denial of a pending reset |
 | `/auth/mobile-change/request` | `{mobile, role: OWNER, password}`; authenticated owner, recovery-email verification |
 | `/auth/mobile-change/confirm` | `{challenge_id, code}`; authenticated owner |
+| `/auth/email-change/request` | `{email, current_password}`; authenticated owner, sends a code to the proposed email |
+| `/auth/email-change/confirm` | `{challenge_id, code}`; authenticated owner |
+| `/auth/email-change/history` | Authenticated owner; returns their email-change audit records |
 
 A partial unique index on `users.email` allows existing users without emails. Password updates use atomic account-version comparisons; concurrent code consumption cannot create two password changes. An approval issued by a manager stops working if their authority is revoked before use. No membership, attendance or financial-history migration is required.
 

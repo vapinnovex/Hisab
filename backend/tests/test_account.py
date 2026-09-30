@@ -20,6 +20,16 @@ def start_change(client, owner, mobile="+919876543219"):
     )
 
 
+def start_email_change(client, owner, email="new-recovery@example.com"):
+    return otp_body(
+        client.post(
+            "/api/auth/email-change/request",
+            headers=owner,
+            json={"email": email, "current_password": PASSWORD},
+        )
+    )
+
+
 def test_owner_name_validation_and_permissions(client, setup_shop):
     owner, _, _, worker = setup_shop
     assert client.patch("/api/auth/profile", headers=worker, json={"name": "Denied"}).status_code == 403
@@ -69,6 +79,68 @@ def test_mobile_change_preserves_identity_and_revokes_old_sessions_and_codes(cli
     old_number = login(client)
     assert client.get("/api/auth/me", headers=old_number).json()["memberships"] == []
     assert client.get(f"/api/shops/{shop}/team", headers=old_number).status_code == 403
+
+
+def test_email_change_verifies_new_email_rotates_sessions_and_records_history(client, setup_shop):
+    owner, shop, _, _ = setup_shop
+    other_session = login(client)
+    before = client.get("/api/auth/me", headers=owner).json()
+    current = start_email_change(client, owner)
+    challenge = client.app.state.db.otp_challenges.find_one({"_id": current["challenge_id"]})
+    assert challenge["mobile"] == "new-recovery@example.com"
+    result = client.post("/api/auth/email-change/confirm", headers=owner, json=current)
+    assert result.status_code == 200, result.text
+    updated = {"Authorization": "Bearer " + result.json()["access_token"]}
+    after = client.get("/api/auth/me", headers=updated).json()
+    assert after["user"]["id"] == before["user"]["id"]
+    assert after["user"]["email"] == "new-recovery@example.com"
+    assert after["user"]["email_verified"] is True
+    history = client.get("/api/auth/email-change/history", headers=updated)
+    assert history.status_code == 200
+    assert history.json() == [
+        {
+            "id": history.json()[0]["id"],
+            "challenge_id": current["challenge_id"],
+            "user_id": before["user"]["id"],
+            "previous_email": before["user"]["email"],
+            "new_email": "new-recovery@example.com",
+            "changed_at": history.json()[0]["changed_at"],
+        }
+    ]
+    assert client.get(f"/api/shops/{shop}/team", headers=updated).status_code == 200
+    for old in [owner, other_session]:
+        assert client.get("/api/auth/me", headers=old).status_code == 401
+
+
+def test_email_change_rejects_wrong_password_duplicate_or_stale_challenge(client, setup_shop):
+    owner, _, _, _ = setup_shop
+    current_email = client.get("/api/auth/me", headers=owner).json()["user"]["email"]
+    for email, password, expected in [
+        (current_email, PASSWORD, 409),
+        ("other@example.com", "incorrect password", 400),
+    ]:
+        assert (
+            client.post(
+                "/api/auth/email-change/request",
+                headers=owner,
+                json={"email": email, "current_password": password},
+            ).status_code
+            == expected
+        )
+    duplicate = login(client, "+919876543219")
+    duplicate_email = client.get("/api/auth/me", headers=duplicate).json()["user"]["email"]
+    assert (
+        client.post(
+            "/api/auth/email-change/request",
+            headers=owner,
+            json={"email": duplicate_email, "current_password": PASSWORD},
+        ).status_code
+        == 409
+    )
+    current = start_email_change(client, owner)
+    other = login(client, "+919876543218")
+    assert client.post("/api/auth/email-change/confirm", headers=other, json=current).status_code == 400
+    assert client.post("/api/auth/email-change/confirm", headers=owner, json=current).status_code == 200
 
 
 def test_change_challenges_are_purpose_session_and_user_bound(client, setup_shop):

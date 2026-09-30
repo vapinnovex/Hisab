@@ -150,6 +150,7 @@ export type Routes = HishobRoutes & {
   MainTabs: undefined;
   OwnerProfile: undefined;
   ChangeMobile: undefined;
+  ChangeEmail: undefined;
   PasswordSecurity: undefined;
   StaffPasswordAccess: { worker: Worker };
   RoleSelection: undefined;

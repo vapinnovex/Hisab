@@ -37,3 +37,8 @@ class PasswordChange(NewPassword):
 
 class MobileChange(LoginInput):
     pass
+
+
+class EmailChange(EmailInput):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
+    current_password: str = Field(min_length=1, max_length=128)

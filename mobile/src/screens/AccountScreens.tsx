@@ -104,6 +104,12 @@ export function Profile() {
               icon="call-outline"
               onPress={() => navigation.navigate('ChangeMobile')}
             />
+            <AccountLink
+              title="Change recovery email"
+              detail={session!.user.email || 'Verify a new recovery email'}
+              icon="mail-outline"
+              onPress={() => navigation.navigate('ChangeEmail')}
+            />
           </Card>
         </>
       )}
@@ -353,6 +359,111 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
           <Button title="Back to account" onPress={() => navigation.goBack()} />
         </>
       )}
+      <ErrorText message={action.error} />
+    </Page>
+  );
+}
+
+export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'ChangeEmail'>) {
+  const { session, api, signIn } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [code, setCode] = useState('');
+  const [done, setDone] = useState(false);
+  const action = useAction();
+  return (
+    <Page>
+      <Heading
+        title={done ? 'Recovery email updated' : 'Use a new recovery email'}
+        subtitle={
+          done
+            ? 'Your new email is ready for password recovery and account confirmation.'
+            : 'Confirm your password, then verify a code sent to the new email address.'
+        }
+      />
+      <Card>
+        <Text style={styles.small}>Current recovery email</Text>
+        <Text style={styles.heading}>{session!.user.email || 'Not set'}</Text>
+      </Card>
+      {!done &&
+        (!challenge ? (
+          <>
+            <Field
+              required
+              label="New recovery email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              placeholder="you@example.com"
+            />
+            <PasswordField label="Current password" value={password} onChange={setPassword} />
+            <Text style={styles.small}>
+              The confirmation code is sent to this new address. It becomes your password-recovery
+              email after verification.
+            </Text>
+            <Button
+              title="Send verification email"
+              busy={action.busy}
+              disabled={!email.includes('@') || !password}
+              onPress={() =>
+                void action.run(async () => {
+                  setChallenge(
+                    await api<Challenge>(
+                      '/auth/email-change/request',
+                      { email, current_password: password },
+                      'POST',
+                    ),
+                  );
+                  setPassword('');
+                })
+              }
+            />
+          </>
+        ) : (
+          <>
+            <Text style={styles.subtitle}>Check {email.trim().toLowerCase()}</Text>
+            {challenge.dev_otp && (
+              <Text style={styles.small}>Development email code: {challenge.dev_otp}</Text>
+            )}
+            <Field
+              required
+              minLength={6}
+              label="Email code"
+              value={code}
+              onChangeText={setCode}
+              maxLength={6}
+              keyboardType="number-pad"
+            />
+            <Button
+              title="Confirm email change"
+              busy={action.busy}
+              disabled={code.length !== 6}
+              onPress={() =>
+                void action.run(async () => {
+                  const result = await api<{ access_token?: string }>(
+                    '/auth/email-change/confirm',
+                    { challenge_id: challenge.challenge_id, code },
+                    'POST',
+                  );
+                  await signIn(result.access_token);
+                  setDone(true);
+                })
+              }
+            />
+            <Button
+              title="Start again"
+              secondary
+              onPress={() => {
+                setChallenge(null);
+                setCode('');
+              }}
+            />
+          </>
+        ))}
+      {done && <Button title="Back to account" onPress={() => navigation.goBack()} />}
       <ErrorText message={action.error} />
     </Page>
   );

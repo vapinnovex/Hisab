@@ -23,7 +23,7 @@ import {
 } from './src/screens/OwnerScreens';
 import { MyAttendance, WorkerHistory } from './src/screens/AttendanceScreens';
 import { WorkerDashboard } from './src/screens/WorkerScreens';
-import { Profile, OwnerProfile, ChangeMobile } from './src/screens/AccountScreens';
+import { Profile, OwnerProfile, ChangeMobile, ChangeEmail } from './src/screens/AccountScreens';
 import { Routes, TabRoutes } from './src/types';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
@@ -139,6 +139,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="ShopSetup" component={ShopSetup} />
               <Stack.Screen name="OwnerProfile" component={OwnerProfile} />
               <Stack.Screen name="ChangeMobile" component={ChangeMobile} />
+              <Stack.Screen name="ChangeEmail" component={ChangeEmail} />
               <Stack.Screen name="Managers" component={ManagersScreen} />
               <Stack.Screen name="ShopSettings" component={ShopSettingsScreen} />
             </>
