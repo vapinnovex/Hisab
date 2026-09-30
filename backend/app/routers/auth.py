@@ -1,5 +1,4 @@
 import hmac
-import logging
 import secrets
 from datetime import timedelta
 
@@ -16,8 +15,6 @@ from ..security import current_identity
 from ..sessions import legacy_session_ids, session_group, session_limit
 from ..shop_policy import permissions_for, shop_view
 from ..web_session import clear_browser_session
-
-logger = logging.getLogger("uvicorn.error.auth")
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 NOT_ADDED = "You haven’t been added to any shop yet. Ask your shop owner to add you."
@@ -87,13 +84,7 @@ def issue_challenge(request, db, mobile, purpose, metadata):
     db.otp_challenges.insert_one(challenge)
     try:
         send_email(settings, mobile, code)
-    except Exception as exc:
-        logger.error(
-            "OTP delivery failed purpose=%s provider=%s error_type=%s",
-            purpose,
-            settings.email_provider,
-            type(exc).__name__,
-        )
+    except Exception:
         db.otp_challenges.delete_one({"_id": challenge_id})
         raise HTTPException(503, "Unable to send OTP. Please try again later.")
     response = {

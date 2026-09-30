@@ -75,23 +75,3 @@ Press `Ctrl+C` in the API window to stop FastAPI. Press `Ctrl+C` in the MongoDB 
 ```powershell
 docker compose stop mongo
 ```
-
-## Diagnose registration email failures
-
-After redeploying, retry registration and look for `SMTP delivery failed` in the
-application logs. No additional environment variables are needed. Logs include the
-SMTP host, port, TLS mode, authentication enabled flag, failed stage, exception type,
-numeric SMTP code, OS error number, and elapsed milliseconds when available.
-
-- `connect`: check DNS, outbound connectivity, port, and implicit TLS setup.
-- `starttls`: check TLS support and certificate verification.
-- `authenticate`: check credentials and provider authentication policy.
-- `send`: check sender verification, recipient restrictions, and provider rejection.
-- `quit`: the message may already have been accepted before disconnecting failed.
-
-`OTP delivery failed` identifies the operation, such as `OWNER_REGISTER`.
-`Database request failed` identifies database-related 503s. `SMTP delivery completed`
-means the SMTP conversation completed; it does not confirm inbox delivery.
-
-Logs omit credentials, recipient addresses, verification codes, message bodies, and
-raw provider error text. Avoid SMTP wire debugging, which can expose these secrets.

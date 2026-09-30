@@ -268,7 +268,7 @@ def test_password_change_and_rate_limit(client, setup_shop):
     )
 
 
-def test_smtp_email_provider_and_failed_delivery_cleanup(client, monkeypatch, caplog):
+def test_smtp_email_provider_and_failed_delivery_cleanup(client, monkeypatch):
     import re
 
     from app import email_provider
@@ -342,10 +342,6 @@ def test_smtp_email_provider_and_failed_delivery_cleanup(client, monkeypatch, ca
         },
     )
     assert result.status_code == 503
-    assert "SMTP delivery failed stage=send" in caplog.text
-    assert "OTP delivery failed purpose=OWNER_REGISTER provider=smtp" in caplog.text
-    assert "smtp-fail@example.com" not in caplog.text
-    assert "smtp-secret" not in caplog.text
     assert client.app.state.db.otp_challenges.count_documents({}) == before
 
 
