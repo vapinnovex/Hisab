@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -40,6 +41,7 @@ function ReceivePayment({
   done: () => Promise<void>;
   cancel: () => void;
 }) {
+  useLocale();
   const { api, selected } = useAuth();
   const [amount, setAmount] = useState(due.remaining_amount);
   const [payment, setPayment] = useState<'CASH' | 'DIGITAL'>('CASH');
@@ -52,45 +54,53 @@ function ReceivePayment({
   const value = parseMoney(amount);
   return (
     <Card>
-      <Text style={styles.heading}>Receive payment · {due.customer_name || due.description}</Text>
-      <Text style={styles.small}>
-        Remaining {money(due.remaining_amount)} · Receipt date {today.date}. Record only money
-        actually received. Partial payments leave the remaining balance open. Check the amount and
-        method: saved receipts cannot be edited or deleted.
+      <Text style={styles.heading}>
+        {t('Receive payment ·')} {due.customer_name || due.description}
       </Text>
-      <MoneyField label="Payment received (₹)" value={amount} onChange={setAmount} />
+      <Text style={styles.small}>
+        {' '}
+        {t('Remaining')} {money(due.remaining_amount)} {t('· Receipt date')} {today.date}
+        {t(
+          '. Record only money actually received. Partial payments leave the remaining balance open. Check the amount and method: saved receipts cannot be edited or deleted.',
+        )}{' '}
+      </Text>
+      <MoneyField label={t('Payment received (₹)')} value={amount} onChange={setAmount} />
       <FilterChips
-        label="Received by"
+        label={t('Received by')}
         value={payment}
         onChange={setPayment}
         options={[
-          { value: 'CASH', label: 'Cash' },
-          { value: 'DIGITAL', label: 'UPI / card / bank' },
+          { value: 'CASH', label: t('Cash') },
+          { value: 'DIGITAL', label: t('UPI / card / bank') },
         ]}
       />
       <Field
-        label="Payment note (optional)"
+        label={t('Payment note (optional)')}
         value={note}
         onChangeText={setNote}
         maxLength={300}
-        placeholder="e.g. UPI reference or receipt note"
+        placeholder={t('e.g. UPI reference or receipt note')}
       />
       <Text style={styles.small}>
         {payment === 'CASH'
-          ? 'Cash is added to today’s galla automatically. Do not add another cash-in entry.'
-          : 'This is recorded as a digital receipt and does not change physical cash.'}{' '}
+          ? t('Cash is added to today’s galla automatically. Do not add another cash-in entry.')
+          : t('This is recorded as a digital receipt and does not change physical cash.')}{' '}
         {due.date === today.date
-          ? 'This reduces today’s unpaid sales. Include a digital payment in today’s UPI/card sales total at closing.'
-          : 'This pays an older sale and does not increase today’s sales. Exclude it from today’s UPI/card sales total.'}
+          ? t(
+              'This reduces today’s unpaid sales. Include a digital payment in today’s UPI/card sales total at closing.',
+            )
+          : t(
+              'This pays an older sale and does not increase today’s sales. Exclude it from today’s UPI/card sales total.',
+            )}
       </Text>
       <ErrorText message={action.error} />
       <Button
         validationMessage={
           value !== null && value > (parseMoney(due.remaining_amount) ?? BigInt(0))
-            ? 'Payment cannot exceed the remaining due.'
+            ? t('Payment cannot exceed the remaining due.')
             : undefined
         }
-        title="Confirm payment received"
+        title={t('Confirm payment received')}
         busy={action.busy}
         disabled={
           !today.day ||
@@ -118,12 +128,13 @@ function ReceivePayment({
           })
         }
       />
-      <Button title="Cancel payment" secondary disabled={action.busy} onPress={cancel} />
+      <Button title={t('Cancel payment')} secondary disabled={action.busy} onPress={cancel} />
     </Card>
   );
 }
 
 export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'CustomerDues'>) {
+  useLocale();
   const { selected } = useAuth();
   const [status, setStatus] = useState<'OPEN' | 'PAID' | 'ALL'>('OPEN');
   const [query, setQuery] = useState('');
@@ -143,19 +154,18 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
   return (
     <Page refresh={refresh}>
       <Heading
-        title="Customer dues"
-        subtitle="Unpaid sales, payments received and what is still owed."
+        title={t('Customer dues')}
+        subtitle={t('Unpaid sales, payments received and what is still owed.')}
       />
-      <InfoHelp title="How customer dues work">
-        Record each unpaid sale once, including the customer or bill reference. It remains open
-        until fully paid. Receive partial or full payments by cash or UPI/card; every receipt is
-        saved. Older manually entered closing totals have no customer detail and are not included in
-        this register.
+      <InfoHelp title={t('How customer dues work')}>
+        {t(
+          'Record each unpaid sale once, including the customer or bill reference. It remains open until fully paid. Receive partial or full payments by cash or UPI/card; every receipt is saved. Older manually entered closing totals have no customer detail and are not included in this register.',
+        )}
       </InfoHelp>
       {canAdd &&
         (open ? (
           <Button
-            title="Add unpaid sale"
+            title={t('Add unpaid sale')}
             onPress={() =>
               navigation.navigate('HishobTransaction', {
                 dayId: today.data!.day!.id,
@@ -166,17 +176,19 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
         ) : (
           <Button
             secondary
-            title="Open today’s Hishob to record payments"
+            title={t('Open today’s Hishob to record payments')}
             onPress={() => navigation.navigate('HishobToday')}
           />
         ))}
       <Text style={styles.small}>
-        To mark a due as paid, choose Receive payment on the customer’s card, enter the amount,
-        choose Cash or UPI / card / bank, then confirm. Full payment moves it to Paid automatically.
+        {' '}
+        {t(
+          'To mark a due as paid, choose Receive payment on the customer’s card, enter the amount, choose Cash or UPI / card / bank, then confirm. Full payment moves it to Paid automatically.',
+        )}{' '}
       </Text>
       <SearchField
-        label="Search customer dues"
-        placeholder="Customer name or description"
+        label={t('Search customer dues')}
+        placeholder={t('Customer name or description')}
         value={query}
         onChange={(value) => {
           setQuery(value);
@@ -184,16 +196,16 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
         }}
       />
       <FilterChips
-        label="Customer dues status"
+        label={t('Customer dues status')}
         value={status}
         onChange={(value) => {
           setStatus(value);
           setPage(1);
         }}
         options={[
-          { value: 'OPEN', label: 'Unpaid / partial' },
-          { value: 'PAID', label: 'Paid' },
-          { value: 'ALL', label: 'All' },
+          { value: 'OPEN', label: t('Unpaid / partial') },
+          { value: 'PAID', label: t('Paid') },
+          { value: 'ALL', label: t('All') },
         ]}
       />
       <ErrorText message={resource.error || today.error} />
@@ -201,11 +213,12 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
       {resource.data && (
         <Card>
           <Text style={styles.heading}>
-            Remaining · {money(resource.data.summary.remaining_amount)}
+            {' '}
+            {t('Remaining ·')} {money(resource.data.summary.remaining_amount)}
           </Text>
           <Text style={styles.small}>
-            {resource.data.summary.total} matching entries · Original{' '}
-            {money(resource.data.summary.amount)} · Received{' '}
+            {resource.data.summary.total} {t('matching entries · Original')}{' '}
+            {money(resource.data.summary.amount)} {t('· Received')}{' '}
             {money(resource.data.summary.paid_amount)}
           </Text>
         </Card>
@@ -228,27 +241,34 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
         return (
           <Card key={key}>
             <View style={styles.row}>
-              <Text style={styles.heading}>{due.customer_name || 'Customer / bill'}</Text>
+              <Text style={styles.heading}>{due.customer_name || t('Customer / bill')}</Text>
               <Text style={styles.eyebrow}>
-                {paid ? 'PAID' : parseMoney(due.paid_amount) === BigInt(0) ? 'UNPAID' : 'PART PAID'}
+                {paid
+                  ? 'PAID'
+                  : parseMoney(due.paid_amount) === BigInt(0)
+                    ? 'UNPAID'
+                    : t('PART PAID')}
               </Text>
             </View>
             <Text style={styles.small}>
               {due.date} · {due.description}
             </Text>
-            <Text style={styles.heading}>Due {money(due.remaining_amount)}</Text>
+            <Text style={styles.heading}>
+              {t('Due')} {money(due.remaining_amount)}
+            </Text>
             <Text style={styles.small}>
-              Sale {money(due.amount)} · Received {money(due.paid_amount)}
+              {' '}
+              {t('Sale')} {money(due.amount)} {t('· Received')} {money(due.paid_amount)}
             </Text>
             {canAdd && !paid && open && !collecting && (
               <Button
-                title={`Receive payment · ${due.customer_name || due.description}`}
+                title={t('Receive payment · {0}', [due.customer_name || due.description])}
                 onPress={() => setCollecting(due)}
               />
             )}
             <Button
               secondary
-              title={`Payment history · ${due.customer_name || due.description}`}
+              title={t('Payment history · {0}', [due.customer_name || due.description])}
               onPress={() => setExpanded(expanded === key ? null : key)}
             />
             {expanded === key &&
@@ -259,7 +279,7 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
                     <View key={receipt.id} style={{ gap: 4 }}>
                       <Text style={styles.label}>
                         {money(receipt.amount)} ·{' '}
-                        {receipt.payment_method === 'CASH' ? 'Cash' : 'UPI / card / bank'}
+                        {receipt.payment_method === 'CASH' ? t('Cash') : t('UPI / card / bank')}
                       </Text>
                       <Text style={styles.small}>
                         {timestamp(receipt.created_at, selected!.shop.timezone)} ·{' '}
@@ -269,23 +289,25 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
                     </View>
                   ))
               ) : (
-                <Text style={styles.small}>No payments received yet.</Text>
+                <Text style={styles.small}>{t('No payments received yet.')}</Text>
               ))}
             <Button
               secondary
-              title="View original day"
+              title={t('View original day')}
               onPress={() => navigation.navigate('HishobDetails', { dayId: due.source_day_id })}
             />
           </Card>
         );
       })}
       {resource.data?.items.length === 0 && (
-        <Text style={styles.subtitle}>No customer dues match this filter.</Text>
+        <Text style={styles.subtitle}>{t('No customer dues match this filter.')}</Text>
       )}
       <View style={styles.row}>
-        {page > 1 && <Button secondary title="Previous dues" onPress={() => setPage(page - 1)} />}
+        {page > 1 && (
+          <Button secondary title={t('Previous dues')} onPress={() => setPage(page - 1)} />
+        )}
         {resource.data?.has_more && (
-          <Button secondary title="More dues" onPress={() => setPage(page + 1)} />
+          <Button secondary title={t('More dues')} onPress={() => setPage(page + 1)} />
         )}
       </View>
     </Page>

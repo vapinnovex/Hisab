@@ -1,3 +1,4 @@
+import { t, localized } from '../i18n';
 import { Permissions } from '../types';
 export type TransactionType =
   | 'DIGITAL_SALE'
@@ -11,11 +12,11 @@ export type TransactionType =
   | 'WITHDRAWAL';
 export type Actor = { user_id: string; name: string; role: string };
 export type HishobMode = 'ENTRIES' | 'COUNTED' | 'BILLING';
-export const modeLabels: Record<HishobMode, string> = {
-  ENTRIES: 'Enter sales',
-  COUNTED: 'Count cash',
-  BILLING: 'Use billing totals',
-};
+export const modeLabels: Record<HishobMode, string> = localized(() => ({
+  ENTRIES: t('Enter sales'),
+  COUNTED: t('Count cash'),
+  BILLING: t('Use billing totals'),
+}));
 export type Entry = {
   customer_name?: string;
   due_date?: string;
@@ -107,22 +108,22 @@ export const transactionTypes: {
   label: string;
   field: keyof Totals;
   incoming: boolean;
-}[] = [
-  { type: 'DUE_COLLECTION', label: 'Customer payment', field: 'other_cash_in', incoming: true },
-  { type: 'CASH_SALE', label: 'Cash sales', field: 'cash_sales', incoming: true },
-  { type: 'DIGITAL_SALE', label: 'UPI / card sales', field: 'digital_sales', incoming: true },
-  { type: 'CREDIT_SALE', label: 'Credit sales (unpaid)', field: 'credit_sales', incoming: true },
-  { type: 'OTHER_CASH_IN', label: 'Other cash in', field: 'other_cash_in', incoming: true },
-  { type: 'EXPENSE', label: 'Expense', field: 'expenses_total', incoming: false },
+}[] = localized(() => [
+  { type: 'DUE_COLLECTION', label: t('Customer payment'), field: 'other_cash_in', incoming: true },
+  { type: 'CASH_SALE', label: t('Cash sales'), field: 'cash_sales', incoming: true },
+  { type: 'DIGITAL_SALE', label: t('UPI / card sales'), field: 'digital_sales', incoming: true },
+  { type: 'CREDIT_SALE', label: t('Credit sales (unpaid)'), field: 'credit_sales', incoming: true },
+  { type: 'OTHER_CASH_IN', label: t('Other cash in'), field: 'other_cash_in', incoming: true },
+  { type: 'EXPENSE', label: t('Expense'), field: 'expenses_total', incoming: false },
   {
     type: 'SUPPLIER_PAYMENT',
-    label: 'Supplier payment',
+    label: t('Supplier payment'),
     field: 'supplier_payments',
     incoming: false,
   },
-  { type: 'BANK_DEPOSIT', label: 'Bank deposit', field: 'bank_deposit', incoming: false },
-  { type: 'WITHDRAWAL', label: 'Withdrawal', field: 'withdrawals', incoming: false },
-];
+  { type: 'BANK_DEPOSIT', label: t('Bank deposit'), field: 'bank_deposit', incoming: false },
+  { type: 'WITHDRAWAL', label: t('Withdrawal'), field: 'withdrawals', incoming: false },
+]);
 
 export type MonthlySummary = {
   unallocated_sales: string;

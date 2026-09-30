@@ -1,6 +1,6 @@
 from pydantic import ConfigDict, EmailStr, Field
 
-from .schemas import Input, OTPRequest, OTPVerify
+from .schemas import Input, Language, OTPRequest, OTPVerify
 
 
 class EmailInput(Input):
@@ -10,6 +10,7 @@ class EmailInput(Input):
 class RegisterInput(OTPRequest):
     email: EmailStr
     name: str = Field(min_length=2, max_length=100)
+    language: Language = Language.ENGLISH
 
 
 class LoginInput(OTPRequest):

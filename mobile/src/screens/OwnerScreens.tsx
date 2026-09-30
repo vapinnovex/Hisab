@@ -1,3 +1,4 @@
+import { localeTag, t, useLocale, localized } from './../i18n';
 import { phoneError } from '../phone';
 import { RegisterCalendar } from '../components/RegisterCalendar';
 import { dateInZone } from '../financial/calendar';
@@ -30,20 +31,32 @@ import { useAction, useResource } from '../hooks';
 import { AttendanceEntry, OwnerToday, Routes, Shop, Status, Worker } from '../types';
 import { matchesPerson, SearchField } from '../components/ListControls';
 import { PhoneField } from '../components/PhoneField';
+import { LanguagePicker } from '../components/LanguagePicker';
 
 export function ShopSetup() {
+  useLocale();
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { api, reload, selected, signOut, session } = useAuth();
   const [name, setName] = useState('');
   const [ownerName, setOwnerName] = useState(session!.user.name || '');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
+  const [language, setLanguage] = useState<'en' | 'hi' | 'mr'>('en');
   const [editTimezone, setEditTimezone] = useState(false);
   useUnsavedChanges(
-    !!name || ownerName !== (session!.user.name || '') || timezone !== 'Asia/Kolkata',
+    !!name ||
+      ownerName !== (session!.user.name || '') ||
+      timezone !== 'Asia/Kolkata' ||
+      language !== 'en',
   );
   const action = useAction();
   const needsName = !session!.user.name;
   return (
     <Page>
+      <Button
+        title={t('Personal language')}
+        secondary
+        onPress={() => navigation.navigate('LanguageSettings')}
+      />
       <View style={{ backgroundColor: colors.green, borderRadius: 26, padding: 24, gap: 14 }}>
         <View
           style={{
@@ -56,65 +69,67 @@ export function ShopSetup() {
           <Ionicons name="storefront-outline" size={30} color="#F4CD72" />
         </View>
         <Text style={{ color: '#D5E5D9', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 }}>
-          YOUR NEXT CHAPTER
+          {' '}
+          {t('YOUR NEXT CHAPTER')}{' '}
         </Text>
         <Text style={{ fontSize: 29, fontWeight: '700', color: colors.white }}>
-          {selected ? 'Room for another shop.' : 'Make your shop feel at home.'}
+          {selected ? t('Room for another shop.') : t('Make your shop feel at home.')}
         </Text>
         <Text style={{ color: '#D5E5D9', fontSize: 14, lineHeight: 22 }}>
-          Start with the basics. Your people and their workdays come next.
+          {' '}
+          {t('Start with the basics. Your people and their workdays come next.')}{' '}
         </Text>
       </View>
       {needsName && (
         <Card>
-          <Text style={styles.eyebrow}>FIRST, A LITTLE ABOUT YOU</Text>
+          <Text style={styles.eyebrow}>{t('FIRST, A LITTLE ABOUT YOU')}</Text>
           <Field
             required
             minLength={2}
-            label="Your name"
+            label={t('Your name')}
             value={ownerName}
             onChangeText={setOwnerName}
             maxLength={100}
             autoComplete="name"
             textContentType="name"
-            placeholder="e.g. Prajwal Patil"
+            placeholder={t('e.g. Prajwal Patil')}
           />
         </Card>
       )}
       <Card>
-        <Text style={styles.eyebrow}>YOUR SHOP DETAILS</Text>
+        <Text style={styles.eyebrow}>{t('YOUR SHOP DETAILS')}</Text>
         <Field
           required
           minLength={2}
-          label="Shop name"
+          label={t('Shop name')}
           value={name}
           onChangeText={setName}
           maxLength={100}
-          placeholder="e.g. Sharma General Store"
+          placeholder={t('e.g. Sharma General Store')}
         />
         <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
           <Ionicons name="time-outline" size={22} color={colors.green} />
           <View style={{ flex: 1, gap: 3 }}>
-            <Text style={styles.label}>Shop timezone</Text>
+            <Text style={styles.label}>{t('Shop timezone')}</Text>
             <Text style={styles.small}>
-              {timezone === 'Asia/Kolkata' ? 'India · Kolkata (IST)' : timezone}
+              {timezone === 'Asia/Kolkata' ? t('India · Kolkata (IST)') : timezone}
             </Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Change timezone"
+            accessibilityLabel={t('Change timezone')}
             onPress={() => setEditTimezone(!editTimezone)}
             style={{ padding: 10 }}
           >
             <Text style={{ color: colors.green, fontWeight: '700' }}>
-              {editTimezone ? 'Hide' : 'Change'}
+              {editTimezone ? t('Hide') : t('Change')}
             </Text>
           </Pressable>
         </View>
         {editTimezone && (
           <Field
             required
-            label="Shop timezone"
+            label={t('Shop timezone')}
             value={timezone}
             onChangeText={setTimezone}
             autoCapitalize="none"
@@ -122,17 +137,22 @@ export function ShopSetup() {
             placeholder="Asia/Kolkata"
           />
         )}
-        <Text style={styles.small}>Attendance dates follow your shop’s local time.</Text>
+        <Text style={styles.small}>{t('Attendance dates follow your shop’s local time.')}</Text>
+        <LanguagePicker
+          label={t('Shop default language')}
+          value={language}
+          onChange={(value) => value && setLanguage(value)}
+        />
       </Card>
       <ErrorText message={action.error} />
       <Button
-        title="Create shop"
+        title={t('Create shop')}
         busy={action.busy}
         disabled={name.trim().length < 2 || (needsName && ownerName.trim().length < 2)}
         onPress={() =>
           void action.run(async () => {
             if (needsName) await api('/auth/profile', { name: ownerName }, 'PATCH');
-            const shop = await api<Shop>('/shops', { name, timezone }, 'POST');
+            const shop = await api<Shop>('/shops', { name, timezone, language }, 'POST');
             await reload(shop.id);
           })
         }
@@ -141,14 +161,17 @@ export function ShopSetup() {
         style={{ flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' }}
       >
         <Ionicons name="people-outline" size={17} color={colors.green} />
-        <Text style={styles.small}>Next up: add your workers and managers.</Text>
+        <Text style={styles.small}>{t('Next up: add your workers and managers.')}</Text>
       </View>
-      {!selected && <Button secondary title="Sign out" onPress={() => void action.run(signOut)} />}
+      {!selected && (
+        <Button secondary title={t('Sign out')} onPress={() => void action.run(signOut)} />
+      )}
     </Page>
   );
 }
 
 export function OwnerDashboard() {
+  useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { selected, session } = useAuth();
   const shop = selected!.shop;
@@ -168,31 +191,34 @@ export function OwnerDashboard() {
     });
   const attendanceMessage = resource.error
     ? resource.data
-      ? 'Couldn’t refresh. Counts show the last loaded attendance.'
-      : 'Attendance is unavailable right now.'
+      ? t('Couldn’t refresh. Counts show the last loaded attendance.')
+      : t('Attendance is unavailable right now.')
     : !resource.data
       ? resource.loading
-        ? 'Loading today’s attendance…'
-        : 'Attendance is unavailable right now.'
+        ? t('Loading today’s attendance…')
+        : t('Attendance is unavailable right now.')
       : !rows.length
-        ? 'Add your team to start recording attendance.'
+        ? t('Add your team to start recording attendance.')
         : pending
-          ? `${pending} ${pending === 1 ? 'person still needs' : 'people still need'} attendance recorded.`
-          : 'Everyone’s attendance is recorded for today.';
+          ? t('{0} {1} attendance recorded.', [
+              pending,
+              pending === 1 ? t('person still needs') : t('people still need'),
+            ])
+          : t('Everyone’s attendance is recorded for today.');
   const shortcuts: {
     title: string;
     icon: keyof typeof Ionicons.glyphMap;
     onPress: () => void;
   }[] = [
     {
-      title: 'Manage workers',
+      title: t('Manage workers'),
       icon: 'people-outline',
       onPress: () => navigation.navigate('Workers'),
     },
     ...(selected!.permissions.add_workers
       ? [
           {
-            title: 'Add worker',
+            title: t('Add worker'),
             icon: 'person-add-outline' as const,
             onPress: () => navigation.navigate('WorkerForm'),
           },
@@ -201,19 +227,19 @@ export function OwnerDashboard() {
     ...(session!.role === 'OWNER'
       ? [
           {
-            title: 'Manage managers',
+            title: t('Manage managers'),
             icon: 'briefcase-outline' as const,
             onPress: () => navigation.navigate('Managers'),
           },
           {
-            title: 'Shop settings',
+            title: t('Shop settings'),
             icon: 'options-outline' as const,
             onPress: () => navigation.navigate('ShopSettings'),
           },
         ]
       : [
           {
-            title: 'My attendance',
+            title: t('My attendance'),
             icon: 'checkmark-circle-outline' as const,
             onPress: () => navigation.navigate('MyAttendance'),
           },
@@ -223,14 +249,14 @@ export function OwnerDashboard() {
     <Page refresh={resource.refresh}>
       <View style={{ gap: 6 }}>
         <Text style={styles.small}>
-          {new Intl.DateTimeFormat('en-IN', {
+          {new Intl.DateTimeFormat(localeTag(), {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             timeZone: 'UTC',
           }).format(new Date(date + 'T12:00:00Z'))}
         </Text>
-        <Text style={styles.title}>{name ? `Hello, ${name}` : 'Your shop today'}</Text>
+        <Text style={styles.title}>{name ? t('Hello, {0}', [name]) : t('Your shop today')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Ionicons name="storefront-outline" size={15} color={colors.muted} />
           <Text style={[styles.small, { flex: 1 }]}>{shop.name}</Text>
@@ -238,24 +264,24 @@ export function OwnerDashboard() {
       </View>
       <View style={homeStyles.attendanceCard}>
         <View style={styles.row}>
-          <Text style={styles.heading}>Today’s attendance</Text>
+          <Text style={styles.heading}>{t('Today’s attendance')}</Text>
           <IconButton
             compact
             name="calendar-outline"
-            label="Open attendance calendar"
+            label={t('Open attendance calendar')}
             onPress={() => openAttendance('ALL', true)}
           />
         </View>
         <View style={homeStyles.stats}>
           {[
-            { label: 'Team members', value: rows.length, filter: 'ALL' as const },
-            { label: 'Present', value: present, filter: 'PRESENT' as const },
-            { label: 'Not marked', value: pending, filter: 'NOT_MARKED' as const },
+            { label: t('Team members'), value: rows.length, filter: 'ALL' as const },
+            { label: t('Present'), value: present, filter: 'PRESENT' as const },
+            { label: t('Not marked'), value: pending, filter: 'NOT_MARKED' as const },
           ].map(({ label, value, filter }, index) => (
             <Pressable
               key={label}
               accessibilityRole="button"
-              accessibilityLabel={`View attendance: ${label}`}
+              accessibilityLabel={t('View attendance: {0}', [label])}
               onPress={() => openAttendance(filter)}
               style={({ pressed }) => [
                 homeStyles.stat,
@@ -266,7 +292,7 @@ export function OwnerDashboard() {
               <Text
                 style={[
                   homeStyles.statValue,
-                  label === 'Not marked' && pending > 0 && { color: '#8B5A08' },
+                  label === t('Not marked') && pending > 0 && { color: '#8B5A08' },
                 ]}
               >
                 {resource.data ? value : '—'}
@@ -279,11 +305,11 @@ export function OwnerDashboard() {
           {resource.data && rows.length > 0 && (
             <View
               accessibilityRole="progressbar"
-              accessibilityLabel="Attendance recorded"
+              accessibilityLabel={t('Attendance recorded')}
               aria-valuemin={0}
               aria-valuemax={rows.length}
               aria-valuenow={recorded}
-              aria-valuetext={`${recorded} of ${rows.length} recorded`}
+              aria-valuetext={t('{0} of {1} recorded', [recorded, rows.length])}
               style={homeStyles.progressTrack}
             >
               <View
@@ -295,18 +321,18 @@ export function OwnerDashboard() {
         </View>
         <ErrorText message={resource.error} />
         {!!resource.error && (
-          <Button title="Retry attendance" secondary onPress={() => void resource.refresh()} />
+          <Button title={t('Retry attendance')} secondary onPress={() => void resource.refresh()} />
         )}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open attendance"
+          accessibilityLabel={t('Open attendance')}
           onPress={() => openAttendance()}
           style={({ pressed }) => [homeStyles.primaryAction, { opacity: pressed ? 0.75 : 1 }]}
         >
           <Text style={{ color: colors.white, fontSize: 15, fontWeight: '700' }}>
             {selected!.permissions.manage_attendance && pending > 0
-              ? 'Mark attendance'
-              : 'View attendance'}
+              ? t('Mark attendance')
+              : t('View attendance')}
           </Text>
           <Ionicons name="arrow-forward" size={19} color={colors.white} />
         </Pressable>
@@ -314,7 +340,7 @@ export function OwnerDashboard() {
       {selected!.permissions.view_hishob && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open Hishob"
+          accessibilityLabel={t('Open Hishob')}
           onPress={() => navigation.navigate('Hishob', { screen: 'HishobToday' })}
           style={({ pressed }) => [homeStyles.cashbookCard, { opacity: pressed ? 0.75 : 1 }]}
         >
@@ -322,14 +348,14 @@ export function OwnerDashboard() {
             <Ionicons name="wallet-outline" size={24} color="#8B5A08" />
           </View>
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.heading}>Hishob</Text>
-            <Text style={styles.small}>Sales, expenses & daily closing</Text>
+            <Text style={styles.heading}>{t('Hishob')}</Text>
+            <Text style={styles.small}>{t('Sales, expenses & daily closing')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={colors.green} />
         </Pressable>
       )}
       <View style={{ gap: 12 }}>
-        <Text style={styles.heading}>Quick actions</Text>
+        <Text style={styles.heading}>{t('Quick actions')}</Text>
         <View style={homeStyles.shortcutGrid}>
           {shortcuts.map((item) => (
             <Pressable
@@ -411,6 +437,7 @@ const homeStyles = StyleSheet.create({
 });
 
 function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
+  useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { selected } = useAuth();
   const [query, setQuery] = useState('');
@@ -436,11 +463,14 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
     <Page refresh={resource.refresh}>
       <View style={teamStyles.header}>
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={styles.title}>{managersOnly ? 'Your managers' : 'Your team'}</Text>
+          <Text style={styles.title}>{managersOnly ? t('Your managers') : t('Your team')}</Text>
           <Text style={styles.small}>
             {resource.data
-              ? `${people.filter((person) => person.active).length} active · ${people.length} total`
-              : 'People in your shop'}
+              ? t('{0} active · {1} total', [
+                  people.filter((person) => person.active).length,
+                  people.length,
+                ])
+              : t('People in your shop')}
           </Text>
         </View>
         {(managersOnly
@@ -448,28 +478,30 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
           : selected!.permissions.add_workers) && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={managersOnly ? 'Add manager' : 'Add worker'}
+            accessibilityLabel={managersOnly ? t('Add manager') : t('Add worker')}
             onPress={() =>
               navigation.navigate('WorkerForm', { kind: managersOnly ? 'MANAGER' : 'WORKER' })
             }
             style={({ pressed }) => [teamStyles.addButton, { opacity: pressed ? 0.75 : 1 }]}
           >
             <Ionicons name="add" size={19} color={colors.white} />
-            <Text style={teamStyles.addLabel}>{managersOnly ? 'Add manager' : 'Add worker'}</Text>
+            <Text style={teamStyles.addLabel}>
+              {managersOnly ? t('Add manager') : t('Add worker')}
+            </Text>
           </Pressable>
         )}
       </View>
       <View style={{ gap: 12 }}>
-        <SearchField label="Search team" value={query} onChange={setQuery} />
+        <SearchField label={t('Search team')} value={query} onChange={setQuery} />
         {!managersOnly && (
           <View style={teamStyles.roleTabs}>
             {(['ALL', 'WORKER', 'MANAGER'] as const).map((value, index) => {
-              const label = ['Everyone', 'Workers', 'Managers'][index];
+              const label = [t('Everyone'), t('Workers'), t('Managers')][index];
               return (
                 <Pressable
                   key={value}
                   accessibilityRole="button"
-                  accessibilityLabel={`Team role: ${label}`}
+                  accessibilityLabel={t('Team role: {0}', [label])}
                   accessibilityState={{ selected: role === value }}
                   onPress={() => setRole(value)}
                   style={({ pressed }) => [
@@ -494,7 +526,8 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
         )}
         <View style={teamStyles.statusFilters}>
           {(['ACTIVE', 'INACTIVE', 'ALL'] as const).map((value) => {
-            const label = value === 'ALL' ? 'All' : value === 'ACTIVE' ? 'Active' : 'Inactive';
+            const label =
+              value === 'ALL' ? t('All') : value === 'ACTIVE' ? t('Active') : t('Inactive');
             const count = matching.filter(
               (person) => value === 'ALL' || person.active === (value === 'ACTIVE'),
             ).length;
@@ -502,7 +535,7 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
               <Pressable
                 key={value}
                 accessibilityRole="button"
-                accessibilityLabel={`Team status: ${label}, ${count}`}
+                accessibilityLabel={t('Team status: {0}, {1}', [label, count])}
                 accessibilityState={{ selected: activity === value }}
                 onPress={() => setActivity(value)}
                 style={({ pressed }) => [
@@ -531,32 +564,32 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
         <Text style={styles.small}>
           {resource.data
             ? `${visible.length} ${visible.length === 1 ? 'member' : 'members'}`
-            : 'Team members'}
+            : t('Team members')}
         </Text>
         {!managersOnly && selected!.permissions.manage_managers && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Manage managers"
+            accessibilityLabel={t('Manage managers')}
             onPress={() => navigation.navigate('Managers')}
             style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Text style={teamStyles.actionLabel}>Manage managers</Text>
+            <Text style={teamStyles.actionLabel}>{t('Manage managers')}</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.green} />
           </Pressable>
         )}
       </View>
       {resource.data && visible.length === 0 && (
         <EmptyState
-          title={people.length ? 'No matching team members' : 'Your team starts here'}
+          title={people.length ? t('No matching team members') : t('Your team starts here')}
           description={
             people.length
-              ? 'Try another name, mobile number or filter.'
-              : 'Add your people to start keeping their attendance together.'
+              ? t('Try another name, mobile number or filter.')
+              : t('Add your people to start keeping their attendance together.')
           }
         />
       )}
       {resource.data && people.length > 0 && visible.length === 0 && (
-        <Button title="Reset team filters" secondary onPress={reset} />
+        <Button title={t('Reset team filters')} secondary onPress={reset} />
       )}
       <View style={{ gap: 12 }}>
         {visible.map((person) => {
@@ -575,11 +608,11 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                   <View
                     style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}
                   >
-                    <Text style={styles.small}>{manager ? 'Manager' : 'Worker'}</Text>
+                    <Text style={styles.small}>{manager ? t('Manager') : t('Worker')}</Text>
                     <Text
                       style={{ fontSize: 12, color: person.active ? colors.green : colors.muted }}
                     >
-                      · {person.active ? 'Active' : 'Inactive'}
+                      · {person.active ? t('Active') : t('Inactive')}
                     </Text>
                   </View>
                   <Text style={styles.small}>{person.mobile}</Text>
@@ -588,7 +621,7 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                   <IconButton
                     compact
                     name="create-outline"
-                    label={`Edit ${person.name}`}
+                    label={t('Edit {0}', [person.name])}
                     onPress={() =>
                       navigation.navigate('WorkerForm', { worker: person, kind: person.role })
                     }
@@ -599,19 +632,20 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                 <View style={teamStyles.notice}>
                   <Ionicons name="key-outline" size={14} color="#8B5A08" />
                   <Text style={{ fontSize: 12, color: '#8B5A08', flex: 1 }}>
-                    Password reset requested
+                    {' '}
+                    {t('Password reset requested')}{' '}
                   </Text>
                 </View>
               )}
               <View style={teamStyles.memberActions}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Attendance · ${person.name}`}
+                  accessibilityLabel={t('Attendance · {0}', [person.name])}
                   onPress={() => navigation.navigate('WorkerHistory', { worker: person })}
                   style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
                 >
                   <Ionicons name="calendar-outline" size={17} color={colors.green} />
-                  <Text style={teamStyles.actionLabel}>Attendance</Text>
+                  <Text style={teamStyles.actionLabel}>{t('Attendance')}</Text>
                 </Pressable>
                 {(selected!.permissions.manage_managers ||
                   (!manager &&
@@ -619,12 +653,12 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                       (!person.password_ready && selected!.permissions.add_workers)))) && (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Password access · ${person.name}`}
+                    accessibilityLabel={t('Password access · {0}', [person.name])}
                     onPress={() => navigation.navigate('StaffPasswordAccess', { worker: person })}
                     style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
                   >
                     <Ionicons name="key-outline" size={16} color={colors.green} />
-                    <Text style={teamStyles.actionLabel}>Password access</Text>
+                    <Text style={teamStyles.actionLabel}>{t('Password access')}</Text>
                   </Pressable>
                 )}
               </View>
@@ -703,16 +737,19 @@ const teamStyles = StyleSheet.create({
 });
 
 export function WorkersScreen() {
+  useLocale();
   return <TeamList />;
 }
 export function ManagersScreen() {
+  useLocale();
   return <TeamList managersOnly />;
 }
 
 export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes, 'WorkerForm'>) {
+  useLocale();
   const worker = route.params?.worker;
   const manager = route.params?.kind === 'MANAGER';
-  const label = manager ? 'manager' : 'worker';
+  const label = manager ? t('manager') : t('worker');
   const { api, selected } = useAuth();
   const [name, setName] = useState(worker?.name || '');
   const [mobile, setMobile] = useState(worker?.mobile || '+91');
@@ -726,48 +763,55 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
   return (
     <Page>
       <Heading
-        title={worker ? `Edit ${label}` : `Add ${label}`}
-        subtitle={`They’ll use this mobile number to log in as a ${label}.`}
+        title={worker ? t('Edit {0}', [label]) : t('Add {0}', [label])}
+        subtitle={t('They’ll use this mobile number to log in as a {0}.', [label])}
       />
       <Field
         required
         minLength={2}
-        label={manager ? 'Manager name' : 'Worker name'}
+        label={manager ? t('Manager name') : t('Worker name')}
         value={name}
         onChangeText={setName}
-        placeholder="Full name"
+        placeholder={t('Full name')}
         maxLength={100}
       />
       <PhoneField
         value={mobile}
         onChange={setMobile}
-        helperText="Used for their password login. After adding them, open Password access to share their first setup code."
+        helperText={t(
+          'Used for their password login. After adding them, open Password access to share their first setup code.',
+        )}
       />
       {worker && (
         <Card>
           <View style={styles.row}>
-            <Text style={styles.heading}>Active {label}</Text>
+            <Text style={styles.heading}>
+              {t('Active')} {label}
+            </Text>
             <Switch
-              accessibilityLabel={`Active ${label}`}
+              accessibilityLabel={t('Active {0}', [label])}
               value={active}
               onValueChange={setActive}
               trackColor={{ true: colors.green }}
             />
           </View>
           <Text style={styles.small}>
-            Deactivation blocks shop access and keeps all past attendance.
+            {' '}
+            {t('Deactivation blocks shop access and keeps all past attendance.')}{' '}
           </Text>
           {mobile !== worker.mobile && (
             <Text style={styles.small}>
-              Changing this number transfers this worker profile and its history to the new number.
-              The old number loses access to this profile.
+              {' '}
+              {t(
+                'Changing this number transfers this worker profile and its history to the new number. The old number loses access to this profile.',
+              )}{' '}
             </Text>
           )}
         </Card>
       )}
       <ErrorText message={action.error} />
       <Button
-        title={`${worker ? 'Save' : 'Add'} ${label}`}
+        title={`${worker ? t('Save') : t('Add')} ${label}`}
         busy={action.busy}
         disabled={name.trim().length < 2 || !!phoneError(mobile)}
         onPress={() =>
@@ -794,6 +838,7 @@ function AttendanceRow({
   config: OwnerToday;
   refresh: () => Promise<void>;
 }) {
+  useLocale();
   const { api, selected } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const action = useAction();
@@ -817,8 +862,8 @@ function AttendanceRow({
         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
           <Text style={attendanceStyles.personName}>{worker.name}</Text>
           <Text style={styles.small}>
-            {worker.role === 'MANAGER' ? 'Manager' : 'Worker'}
-            {worker.active ? '' : ' · Inactive'}
+            {worker.role === 'MANAGER' ? t('Manager') : t('Worker')}
+            {worker.active ? '' : t(' · Inactive')}
           </Text>
         </View>
         <Badge status={attendance.status} />
@@ -827,8 +872,9 @@ function AttendanceRow({
         <View style={attendanceStyles.times}>
           <Ionicons name="time-outline" size={15} color={colors.muted} />
           <Text style={styles.small}>
-            In {timeLabel(attendance.check_in, config.timezone)}
-            {showOut ? ` · Out ${timeLabel(attendance.check_out, config.timezone)}` : ''}
+            {' '}
+            {t('In')} {timeLabel(attendance.check_in, config.timezone)}
+            {showOut ? t(' · Out {0}', [timeLabel(attendance.check_out, config.timezone)]) : ''}
           </Text>
         </View>
       )}
@@ -836,7 +882,9 @@ function AttendanceRow({
         <View style={attendanceStyles.notice}>
           <Ionicons name="time-outline" size={17} color="#8B5A08" />
           <Text style={{ flex: 1, color: '#8B5A08', fontSize: 13, lineHeight: 20 }}>
-            Open shift from {active.date}. Record departure before starting a new day.
+            {' '}
+            {t('Open shift from')} {active.date}
+            {t('. Record departure before starting a new day.')}{' '}
           </Text>
         </View>
       )}
@@ -844,20 +892,20 @@ function AttendanceRow({
       <View style={attendanceStyles.memberActions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${row.can_edit ? 'Update / history' : 'History'} · ${worker.name}`}
+          accessibilityLabel={`${row.can_edit ? t('Update / history') : t('History')} · ${worker.name}`}
           onPress={() => navigation.navigate('WorkerHistory', { worker, date: config.date })}
           style={({ pressed }) => [attendanceStyles.textAction, { opacity: pressed ? 0.65 : 1 }]}
         >
           <Text style={attendanceStyles.actionLabel}>
-            {row.can_edit ? 'View / edit' : 'View history'}
+            {row.can_edit ? t('View / edit') : t('View history')}
           </Text>
           <Ionicons name="chevron-forward" size={15} color={colors.green} />
         </Pressable>
         {canMark && worker.active && !active && attendance.status === 'NOT_MARKED' && (
           <View style={{ minWidth: 112 }}>
             <Button
-              title="Mark in"
-              accessibilityLabel={`Mark in · ${worker.name}`}
+              title={t('Mark in')}
+              accessibilityLabel={t('Mark in · {0}', [worker.name])}
               busy={action.busy}
               onPress={() => mark('check-in')}
             />
@@ -866,8 +914,8 @@ function AttendanceRow({
         {canMark && active && (
           <View style={{ minWidth: 112 }}>
             <Button
-              title="Mark out"
-              accessibilityLabel={`Mark out · ${worker.name}`}
+              title={t('Mark out')}
+              accessibilityLabel={t('Mark out · {0}', [worker.name])}
               busy={action.busy}
               onPress={() => mark('check-out')}
             />
@@ -878,15 +926,16 @@ function AttendanceRow({
   );
 }
 
-const registerFilters: { value: 'ALL' | Status; label: string }[] = [
-  { value: 'ALL', label: 'Everyone' },
-  { value: 'NOT_MARKED', label: 'Not marked' },
-  { value: 'PRESENT', label: 'Present' },
-  { value: 'ABSENT', label: 'Absent' },
-  { value: 'HALF_DAY', label: 'Half day' },
-  { value: 'LEAVE', label: 'Leave' },
-];
+const registerFilters: { value: 'ALL' | Status; label: string }[] = localized(() => [
+  { value: 'ALL', label: t('Everyone') },
+  { value: 'NOT_MARKED', label: t('Not marked') },
+  { value: 'PRESENT', label: t('Present') },
+  { value: 'ABSENT', label: t('Absent') },
+  { value: 'HALF_DAY', label: t('Half day') },
+  { value: 'LEAVE', label: t('Leave') },
+]);
 export function TodayAttendance({ route }: NativeStackScreenProps<Routes, 'TodayAttendanceRoot'>) {
+  useLocale();
   // Each Home shortcut starts a fresh register view; ordinary tab switches preserve it.
   return <AttendanceRegister key={route.params?.requestId ?? 'register'} {...route.params} />;
 }
@@ -895,6 +944,7 @@ function AttendanceRegister({
   status: initialStatus = 'ALL',
   openCalendar = false,
 }: AttendanceEntry) {
+  useLocale();
   const { selected } = useAuth();
   const today = dateInZone(selected!.shop.timezone);
   const [chosenDate, setChosenDate] = useState<string | null>(null);
@@ -926,7 +976,7 @@ function AttendanceRegister({
     value.setUTCDate(value.getUTCDate() + offset);
     selectDate(value.toISOString().slice(0, 10));
   };
-  const dateLabel = new Intl.DateTimeFormat('en-IN', {
+  const dateLabel = new Intl.DateTimeFormat(localeTag(), {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -940,10 +990,10 @@ function AttendanceRegister({
   return (
     <Page refresh={resource.refresh}>
       <View style={styles.row}>
-        <Text style={styles.title}>Attendance</Text>
+        <Text style={styles.title}>{t('Attendance')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="About attendance"
+          accessibilityLabel={t('About attendance')}
           aria-expanded={helpOpen}
           onPress={() => setHelpOpen(!helpOpen)}
           style={({ pressed }) => [attendanceStyles.helpButton, { opacity: pressed ? 0.6 : 1 }]}
@@ -954,10 +1004,10 @@ function AttendanceRegister({
       {helpOpen && (
         <View style={attendanceStyles.help}>
           <Text style={[styles.small, { color: colors.ink }]}>
-            Not marked means no entry yet, not absent. Counts show the whole register, including
-            inactive staff with an entry on the selected date. People who had not joined yet are
-            excluded. Open a person’s details to review history. If you have permission, you can
-            also record absence, half day or leave.
+            {' '}
+            {t(
+              'Not marked means no entry yet, not absent. Counts show the whole register, including inactive staff with an entry on the selected date. People who had not joined yet are excluded. Open a person’s details to review history. If you have permission, you can also record absence, half day or leave.',
+            )}{' '}
           </Text>
         </View>
       )}
@@ -965,7 +1015,7 @@ function AttendanceRegister({
         <View style={attendanceStyles.dateBar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Previous day"
+            accessibilityLabel={t('Previous day')}
             onPress={() => moveDay(-1)}
             style={({ pressed }) => [attendanceStyles.dayArrow, { opacity: pressed ? 0.6 : 1 }]}
           >
@@ -974,7 +1024,7 @@ function AttendanceRegister({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
-              calendarOpen ? 'Hide attendance calendar' : 'Choose attendance date'
+              calendarOpen ? t('Hide attendance calendar') : t('Choose attendance date')
             }
             aria-expanded={calendarOpen}
             onPress={() => {
@@ -984,7 +1034,7 @@ function AttendanceRegister({
             style={({ pressed }) => [attendanceStyles.dateLabel, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Text style={attendanceStyles.dateTitle}>
-              {date === today ? 'Today' : 'Past attendance'}
+              {date === today ? t('Today') : t('Past attendance')}
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.small}>{dateLabel}</Text>
@@ -997,7 +1047,7 @@ function AttendanceRegister({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Next day"
+            accessibilityLabel={t('Next day')}
             accessibilityState={{ disabled: date >= today }}
             disabled={date >= today}
             onPress={() => moveDay(1)}
@@ -1009,12 +1059,12 @@ function AttendanceRegister({
         {date !== today && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back to today"
+            accessibilityLabel={t('Back to today')}
             onPress={() => selectDate(today)}
             style={[attendanceStyles.textAction, { alignSelf: 'flex-end' }]}
           >
             <Ionicons name="today-outline" size={16} color={colors.green} />
-            <Text style={attendanceStyles.actionLabel}>Back to today</Text>
+            <Text style={attendanceStyles.actionLabel}>{t('Back to today')}</Text>
           </Pressable>
         )}
         {calendarOpen && (
@@ -1025,7 +1075,7 @@ function AttendanceRegister({
         )}
       </View>
       <View style={{ gap: 12 }}>
-        <SearchField label="Search register" value={query} onChange={setQuery} />
+        <SearchField label={t('Search register')} value={query} onChange={setQuery} />
         <View style={attendanceStyles.filters}>
           {registerFilters.map((filter) => {
             const count =
@@ -1037,7 +1087,10 @@ function AttendanceRegister({
               <Pressable
                 key={filter.value}
                 accessibilityRole="button"
-                accessibilityLabel={`Attendance filter: ${filter.label}, ${resource.data ? count : 'unavailable'}`}
+                accessibilityLabel={t('Attendance filter: {0}, {1}', [
+                  filter.label,
+                  resource.data ? count : 'unavailable',
+                ])}
                 aria-selected={active}
                 onPress={() => setStatus(filter.value)}
                 style={({ pressed }) => [
@@ -1065,35 +1118,37 @@ function AttendanceRegister({
       <ErrorText message={resource.error} />
       {!!resource.error && (
         <View style={{ gap: 8 }}>
-          {resource.data && <Text style={styles.small}>Showing the last loaded attendance.</Text>}
-          <Button title="Retry attendance" secondary onPress={() => void resource.refresh()} />
+          {resource.data && (
+            <Text style={styles.small}>{t('Showing the last loaded attendance.')}</Text>
+          )}
+          <Button title={t('Retry attendance')} secondary onPress={() => void resource.refresh()} />
         </View>
       )}
       {resource.loading && <Loading />}
       {resource.data && (
         <View style={styles.row}>
           <Text style={styles.small}>
-            {status === 'ALL' ? 'Everyone' : statusLabel(status)} · {visible.length}
+            {status === 'ALL' ? t('Everyone') : statusLabel(status)} · {visible.length}
           </Text>
           {(query.trim() || status !== 'ALL') && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Reset register filters"
+              accessibilityLabel={t('Reset register filters')}
               onPress={resetFilters}
               style={attendanceStyles.textAction}
             >
-              <Text style={attendanceStyles.actionLabel}>Clear filters</Text>
+              <Text style={attendanceStyles.actionLabel}>{t('Clear filters')}</Text>
             </Pressable>
           )}
         </View>
       )}
       {resource.data && visible.length === 0 && (
         <EmptyState
-          title={rows.length ? 'No matching attendance' : 'Your register is ready'}
+          title={rows.length ? t('No matching attendance') : t('Your register is ready')}
           description={
             rows.length
-              ? 'Try a different status, name or mobile number.'
-              : 'No eligible team members or recorded attendance for this date.'
+              ? t('Try a different status, name or mobile number.')
+              : t('No eligible team members or recorded attendance for this date.')
           }
         />
       )}

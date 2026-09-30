@@ -1,15 +1,17 @@
+import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 /** Inline help works with touch, keyboard and screen readers, without hiding the form. */
 export function InfoHelp({ title, children }: { title: string; children: string }) {
+  useLocale();
   const [expanded, setExpanded] = useState(false);
   return (
     <View style={{ flexShrink: 1 }}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`About ${title}`}
+        accessibilityLabel={t('About {0}', [title])}
         accessibilityState={{ expanded }}
         onPress={() => setExpanded(!expanded)}
         style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}

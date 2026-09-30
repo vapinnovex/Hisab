@@ -1,3 +1,4 @@
+import { weekdays, t, useLocale } from './../i18n';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Card, colors, styles } from './ui';
@@ -13,16 +14,18 @@ export function RegisterCalendar({
   selected: string;
   onSelect: (date: string) => void;
 }) {
+  useLocale();
   const [year, number] = month.split('-').map(Number);
   const offset = (new Date(Date.UTC(year, number - 1, 1)).getUTCDay() + 6) % 7;
   const count = new Date(Date.UTC(year, number, 0)).getUTCDate();
   return (
     <Card>
       <Text style={styles.small}>
-        Choose a date to see the whole team’s register. The gold outline marks today.
+        {' '}
+        {t('Choose a date to see the whole team’s register. The gold outline marks today.')}{' '}
       </Text>
       <View style={{ flexDirection: 'row' }}>
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+        {weekdays().map((label, index) => (
           <Text key={index} style={[styles.small, { width: '14.2857%', textAlign: 'center' }]}>
             {label}
           </Text>
@@ -38,7 +41,10 @@ export function RegisterCalendar({
               {number > 0 && number <= count && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Team attendance ${date}${date === today ? ', Today' : ''}`}
+                  accessibilityLabel={t('Team attendance {0}{1}', [
+                    date,
+                    date === today ? t(', Today') : '',
+                  ])}
                   accessibilityState={{ selected: selected === date, disabled: future }}
                   disabled={future}
                   onPress={() => onSelect(date)}

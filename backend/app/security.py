@@ -59,6 +59,14 @@ def current_identity(
         raise HTTPException(
             401, "You were signed out because this account was used on another device. Please log in again."
         )
+    if user.get("language") in {"en", "hi", "mr"}:
+        request.state.language = user["language"]
+    else:
+        shop_id = request.path_params.get("shop_id") or request.headers.get("x-hishob-shop")
+        if shop_id and db.memberships.find_one({"user_id": user["_id"], "shop_id": shop_id, "active": True}):
+            shop = db.shops.find_one({"_id": shop_id})
+            if shop:
+                request.state.language = shop.get("language", "en")
     return Identity(user, claims["portal"], claims["jti"])
 
 

@@ -1,3 +1,4 @@
+import { t, useLocale } from './i18n';
 import React, { useEffect, useState } from 'react';
 import { Platform, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { Button, Card, colors, styles } from './components/ui';
@@ -27,26 +28,35 @@ export function useUnsavedChanges(dirty: boolean) {
 }
 
 export function InstallHelp() {
+  useLocale();
   if (Platform.OS !== 'web') return null;
   return (
     <Card>
-      <Text style={styles.heading}>Hishob on your home screen</Text>
+      <Text style={styles.heading}>{t('Hishob on your home screen')}</Text>
       <Text style={styles.subtitle}>
-        Android: open in Chrome, then choose “Install app” or “Add to Home screen” from the menu.
+        {' '}
+        {t(
+          'Android: open in Chrome, then choose “Install app” or “Add to Home screen” from the menu.',
+        )}{' '}
       </Text>
       <Text style={styles.subtitle}>
-        iPhone: open in Safari, tap Share → Add to Home Screen → enable Open as Web App if shown →
-        Add.
+        {' '}
+        {t(
+          'iPhone: open in Safari, tap Share → Add to Home Screen → enable Open as Web App if shown → Add.',
+        )}{' '}
       </Text>
       <Text style={styles.small}>
-        Use the installed app for everyday work. Your login stays active until it expires or is
-        signed out. A browser and its installed app may require separate logins.
+        {' '}
+        {t(
+          'Use the installed app for everyday work. Your login stays active until it expires or is signed out. A browser and its installed app may require separate logins.',
+        )}{' '}
       </Text>
     </Card>
   );
 }
 
 export function WebExperience() {
+  useLocale();
   const connection = useConnection();
   const [install, setInstall] = useState<InstallEvent | null>(null);
   const [installed, setInstalled] = useState(false);
@@ -127,7 +137,7 @@ export function WebExperience() {
       })
       .catch(() =>
         setInstallError(
-          'Offline app setup could not finish. Reopen Hishob when connected to try again.',
+          t('Offline app setup could not finish. Reopen Hishob when connected to try again.'),
         ),
       );
     return () => {
@@ -148,15 +158,17 @@ export function WebExperience() {
   };
   const applyUpdate = () => {
     if (hasPendingWrites()) {
-      setUpdateError('Wait for the current request to finish before updating.');
+      setUpdateError(t('Wait for the current request to finish before updating.'));
       return;
     }
     if (drafts.size) {
-      setUpdateError('Save or leave your open forms before updating. Your entries have been kept.');
+      setUpdateError(
+        t('Save or leave your open forms before updating. Your entries have been kept.'),
+      );
       return;
     }
     if (browserOffline()) {
-      setUpdateError('Reconnect before updating Hishob.');
+      setUpdateError(t('Reconnect before updating Hishob.'));
       return;
     }
     navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), {
@@ -169,20 +181,22 @@ export function WebExperience() {
       {connection !== 'online' && (
         <View accessibilityRole="alert" style={{ backgroundColor: '#FFF0D0', padding: 12, gap: 6 }}>
           <Text style={[styles.label, { color: colors.ink }]}>
-            {connection === 'offline' ? 'You’re offline' : 'Connection interrupted'}
+            {connection === 'offline' ? t('You’re offline') : t('Connection interrupted')}
           </Text>
           <Text style={styles.small}>
-            Shown information may be out of date. Reconnect to load the latest data and save
-            changes.
+            {' '}
+            {t(
+              'Shown information may be out of date. Reconnect to load the latest data and save changes.',
+            )}{' '}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Retry connection"
+            accessibilityLabel={t('Retry connection')}
             disabled={checking}
             onPress={() => void retry()}
           >
             <Text style={{ color: colors.green, fontWeight: '700' }}>
-              {checking ? 'Checking…' : 'Retry connection'}
+              {checking ? t('Checking…') : t('Retry connection')}
             </Text>
           </Pressable>
         </View>
@@ -190,7 +204,8 @@ export function WebExperience() {
       {waiting ? (
         <View style={{ backgroundColor: colors.mint, padding: 10, gap: 6 }}>
           <Text style={styles.small}>
-            A new Hishob version is ready. Save your work before updating.
+            {' '}
+            {t('A new Hishob version is ready. Save your work before updating.')}{' '}
           </Text>
           {!!updateError && (
             <Text accessibilityRole="alert" style={styles.small}>
@@ -199,10 +214,10 @@ export function WebExperience() {
           )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Update Hishob"
+            accessibilityLabel={t('Update Hishob')}
             onPress={applyUpdate}
           >
-            <Text style={styles.label}>Update Hishob</Text>
+            <Text style={styles.label}>{t('Update Hishob')}</Text>
           </Pressable>
         </View>
       ) : !installed && !dismissed ? (
@@ -218,18 +233,18 @@ export function WebExperience() {
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Install Hishob"
+            accessibilityLabel={t('Install Hishob')}
             onPress={() => setHelp(true)}
           >
-            <Text style={styles.label}>＋ Install Hishob</Text>
+            <Text style={styles.label}>{t('＋ Install Hishob')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss install suggestion"
+            accessibilityLabel={t('Dismiss install suggestion')}
             hitSlop={10}
             onPress={() => setDismissed(true)}
           >
-            <Text style={styles.small}>Later</Text>
+            <Text style={styles.small}>{t('Later')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -257,7 +272,7 @@ export function WebExperience() {
               )}
               {install && (
                 <Button
-                  title="Add Hishob to this device"
+                  title={t('Add Hishob to this device')}
                   onPress={() => {
                     void (async () => {
                       try {
@@ -266,14 +281,14 @@ export function WebExperience() {
                         if (choice.outcome === 'accepted') setHelp(false);
                         setInstall(null);
                       } catch {
-                        setInstallError('Use your browser menu to install Hishob.');
+                        setInstallError(t('Use your browser menu to install Hishob.'));
                       }
                     })();
                   }}
                 />
               )}
             </ScrollView>
-            <Button title="Done" secondary onPress={() => setHelp(false)} />
+            <Button title={t('Done')} secondary onPress={() => setHelp(false)} />
           </View>
         </View>
       </Modal>

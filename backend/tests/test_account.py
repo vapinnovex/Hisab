@@ -137,10 +137,28 @@ def test_email_change_rejects_wrong_password_duplicate_or_stale_challenge(client
         ).status_code
         == 409
     )
+
+
+def test_email_change_challenge_is_user_bound(client, setup_shop):
+    owner, _, _, _ = setup_shop
     current = start_email_change(client, owner)
     other = login(client, "+919876543218")
     assert client.post("/api/auth/email-change/confirm", headers=other, json=current).status_code == 400
     assert client.post("/api/auth/email-change/confirm", headers=owner, json=current).status_code == 200
+
+
+def test_personal_language_overrides_can_be_set_or_cleared(client, setup_shop):
+    owner, shop, _, worker = setup_shop
+    assert client.get("/api/auth/me", headers=owner).json()["user"]["language"] is None
+    result = client.patch("/api/auth/language", headers=worker, json={"language": "mr"})
+    assert result.status_code == 200 and result.json()["language"] == "mr"
+    assert (
+        client.patch("/api/auth/language", headers=worker, json={"language": None}).json()["language"] is None
+    )
+    result = client.put(f"/api/shops/{shop}/settings", headers=owner, json={"language": "hi"})
+    assert result.status_code == 200
+    membership = client.get("/api/auth/me", headers=owner).json()["memberships"][0]
+    assert membership["shop"]["language"] == "hi"
 
 
 def test_change_challenges_are_purpose_session_and_user_bound(client, setup_shop):

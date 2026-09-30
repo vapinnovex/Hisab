@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -44,6 +45,7 @@ function validRange(from: string, to: string) {
   );
 }
 export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'HishobSearch'>) {
+  useLocale();
   const { selected } = useAuth();
   const today = dateInZone(selected!.shop.timezone);
   const [query, setQuery] = useState('');
@@ -85,12 +87,12 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
   return (
     <Page refresh={resource.refresh}>
       <Heading
-        title="Find transactions"
-        subtitle={`${selected!.shop.name} · Search your cash records`}
+        title={t('Find transactions')}
+        subtitle={t('{0} · Search your cash records', [selected!.shop.name])}
       />
       <SearchField
-        label="Search transactions"
-        placeholder="Description, category or recorded by"
+        label={t('Search transactions')}
+        placeholder={t('Description, category or recorded by')}
         value={query}
         onChange={(value) => {
           setQuery(value.slice(0, 100));
@@ -105,38 +107,40 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
         }}
       />
       <FilterChips
-        label="Search period"
+        label={t('Search period')}
         value={period}
         onChange={(value) => {
           setPeriod(value);
           setPage(1);
         }}
         options={[
-          { value: 'ALL', label: 'All dates' },
-          { value: 'TODAY', label: 'Today' },
-          { value: 'MONTH', label: 'This month' },
-          { value: 'CUSTOM', label: 'Choose dates' },
+          { value: 'ALL', label: t('All dates') },
+          { value: 'TODAY', label: t('Today') },
+          { value: 'MONTH', label: t('This month') },
+          { value: 'CUSTOM', label: t('Choose dates') },
         ]}
       />
       {period === 'CUSTOM' && (
         <Card>
           <Field
-            label="Search from date"
+            label={t('Search from date')}
             value={from}
             onChangeText={setFrom}
             placeholder="YYYY-MM-DD"
             maxLength={10}
           />
           <Field
-            label="Search to date"
+            label={t('Search to date')}
             value={to}
             onChangeText={setTo}
             placeholder="YYYY-MM-DD"
             maxLength={10}
           />
-          <Text style={styles.small}>Choose up to one year. Use All dates for older records.</Text>
+          <Text style={styles.small}>
+            {t('Choose up to one year. Use All dates for older records.')}
+          </Text>
           <Button
-            title="Apply search dates"
+            title={t('Apply search dates')}
             disabled={!validRange(from, to)}
             onPress={() => {
               setRange({ from, to });
@@ -147,32 +151,32 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
       )}
       <Button
         secondary
-        title={filters ? 'Hide entry filters' : 'More filters'}
+        title={filters ? t('Hide entry filters') : t('More filters')}
         onPress={() => setFilters(!filters)}
       />
       {filters && (
         <FilterChips
-          label="Search entries"
+          label={t('Search entries')}
           value={entryStatus}
           onChange={(value) => {
             setEntryStatus(value);
             setPage(1);
           }}
           options={[
-            { value: 'ACTIVE', label: 'Active entries' },
-            { value: 'ALL', label: 'Include deleted' },
-            { value: 'DELETED', label: 'Deleted only' },
+            { value: 'ACTIVE', label: t('Active entries') },
+            { value: 'ALL', label: t('Include deleted') },
+            { value: 'DELETED', label: t('Deleted only') },
           ]}
         />
       )}
       <Text style={styles.small}>
-        {period === 'ALL' ? 'All dates' : `${dates.from} to ${dates.to}`} ·{' '}
+        {period === 'ALL' ? t('All dates') : t('{0} to {1}', [dates.from, dates.to])} ·{' '}
         {entryStatus === 'ACTIVE'
-          ? 'Active entries'
+          ? t('Active entries')
           : entryStatus === 'ALL'
-            ? 'Including deleted entries'
-            : 'Deleted entries only'}{' '}
-        · Newest first
+            ? t('Including deleted entries')
+            : t('Deleted entries only')}{' '}
+        {t('· Newest first')}{' '}
       </Text>
       <ErrorText message={resource.error} />
       {pending && <Loading />}
@@ -180,34 +184,37 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
         <>
           <Card>
             <Text style={styles.heading}>
-              {result.total} matching {result.total === 1 ? 'transaction' : 'transactions'}
+              {result.total === 1
+                ? t('{0} matching transaction', [result.total])
+                : t('{0} matching transactions', [result.total])}
             </Text>
             <View style={styles.row}>
               <View>
-                <Text style={styles.small}>Cash in</Text>
+                <Text style={styles.small}>{t('Cash in')}</Text>
                 <Text style={styles.heading}>{money(result.cash_in)}</Text>
               </View>
               <View>
-                <Text style={styles.small}>Cash out</Text>
+                <Text style={styles.small}>{t('Cash out')}</Text>
                 <Text style={styles.heading}>{money(result.cash_out)}</Text>
               </View>
             </View>
             <Text style={styles.small}>
-              Cash totals cover matching active cash entries across every results page. Digital
-              payments and credit sales do not affect the galla. Sales entered at closing and
-              closing transfers appear in day details and monthly reports.
+              {' '}
+              {t(
+                'Cash totals cover matching active cash entries across every results page. Digital payments and credit sales do not affect the galla. Sales entered at closing and closing transfers appear in day details and monthly reports.',
+              )}{' '}
             </Text>
           </Card>
           {result.items.length === 0 && (
             <EmptyState
-              title="No matching transactions"
-              description="Try another description, category, type or date range."
+              title={t('No matching transactions')}
+              description={t('Try another description, category, type or date range.')}
             />
           )}
           {result.items.map(({ entry, day_id, date, day_status }) => (
             <View key={`${day_id}:${entry.id}`} style={{ gap: 8 }}>
               <Text style={styles.eyebrow}>
-                {date} · {day_status === 'OPEN' ? 'Day open' : 'Day closed'}
+                {date} · {day_status === 'OPEN' ? t('Day open') : t('Day closed')}
               </Text>
               <EntryCard
                 entry={entry}
@@ -215,7 +222,7 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
                 footer={
                   <Button
                     secondary
-                    title={`View day · ${entry.description}`}
+                    title={t('View day · {0}', [entry.description])}
                     onPress={() => navigation.navigate('HishobDetails', { dayId: day_id })}
                   />
                 }
@@ -224,21 +231,25 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
           ))}
           {result.total > 0 && (
             <Text style={styles.small}>
-              Showing {Math.min((page - 1) * result.page_size + 1, result.total)}–
-              {Math.min(page * result.page_size, result.total)} of {result.total}
+              {' '}
+              {t('Showing {0}–{1} of {2}', [
+                Math.min((page - 1) * result.page_size + 1, result.total),
+                Math.min(page * result.page_size, result.total),
+                result.total,
+              ])}
             </Text>
           )}
           {(page > 1 || result.has_more) && (
             <View style={styles.row}>
               <Button
                 secondary
-                title="Previous results"
+                title={t('Previous results')}
                 disabled={page === 1}
                 onPress={() => setPage(page - 1)}
               />
               <Button
                 secondary
-                title="Next results"
+                title={t('Next results')}
                 disabled={!result.has_more}
                 onPress={() => setPage(page + 1)}
               />
@@ -247,7 +258,7 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
         </>
       )}
       {(query || type !== 'ALL' || period !== 'ALL' || entryStatus !== 'ACTIVE' || page > 1) && (
-        <Button secondary title="Reset transaction search" onPress={reset} />
+        <Button secondary title={t('Reset transaction search')} onPress={reset} />
       )}
     </Page>
   );

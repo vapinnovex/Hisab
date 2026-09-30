@@ -1,3 +1,4 @@
+import { t, useLocale, countryName } from './../i18n';
 import { phoneError, phoneRule } from '../phone';
 import React, { useRef, useState } from 'react';
 import { FlatList, Keyboard, Modal, Pressable, Text, TextInput, View } from 'react-native';
@@ -20,14 +21,15 @@ function countryFor(number: string, preferred: typeof india) {
 export function PhoneField({
   value,
   onChange,
-  label = 'Mobile number',
-  helperText = 'Use this number to sign in to Hishob',
+  label = t('Mobile number'),
+  helperText = t('Use this number to sign in to Hishob'),
 }: {
   value: string;
   onChange: (value: string) => void;
   label?: string;
   helperText?: string;
 }) {
+  useLocale();
   const input = useRef<TextInput>(null);
   const edited = useRef(false);
   const [touched, setTouched] = useState(false);
@@ -55,7 +57,12 @@ export function PhoneField({
         next = selected.code + withoutPrefix;
     }
     if (next.slice(selected.code.length).length > max) {
-      setLimitError(`Use no more than ${max} digits for ${selected.name}.`);
+      setLimitError(
+        t('Use no more than {0} digits for {1}.', [
+          max,
+          countryName(selected.region, selected.name),
+        ]),
+      );
       return;
     }
     setLimitError('');
@@ -64,11 +71,15 @@ export function PhoneField({
   };
   const term = query.trim().toLowerCase();
   const matches = countries.filter((item) =>
-    `${item.name} ${item.region} ${item.code}`.toLowerCase().includes(term),
+    `${countryName(item.region, item.name)} ${item.name} ${item.region} ${item.code}`
+      .toLowerCase()
+      .includes(term),
   );
   return (
     <View style={{ gap: 9 }}>
-      <Text style={styles.label}>{label} · Required</Text>
+      <Text style={styles.label}>
+        {label} {t('· Required')}
+      </Text>
       <View
         style={{
           flexDirection: 'row',
@@ -83,7 +94,10 @@ export function PhoneField({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Country code: ${country.name} ${country.code}`}
+          accessibilityLabel={t('Country code: {0} {1}', [
+            countryName(country.region, country.name),
+            country.code,
+          ])}
           accessibilityState={{ expanded: open }}
           onPress={() => {
             Keyboard.dismiss();
@@ -126,7 +140,7 @@ export function PhoneField({
           textContentType="telephoneNumber"
           autoCorrect={false}
           autoCapitalize="none"
-          placeholder={country.region === 'IN' ? '98765 43210' : 'Mobile number'}
+          placeholder={country.region === 'IN' ? '98765 43210' : t('Mobile number')}
           placeholderTextColor={colors.muted}
           maxLength={25}
           returnKeyType="done"
@@ -142,7 +156,7 @@ export function PhoneField({
         />
       </View>
       <Text style={styles.small}>
-        {country.name} · {helperText}
+        {countryName(country.region, country.name)} · {helperText}
       </Text>
       <ErrorText message={limitError || (touched ? validation : '')} />
       {open && (
@@ -152,7 +166,7 @@ export function PhoneField({
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Dismiss country picker"
+              accessibilityLabel={t('Dismiss country picker')}
               onPress={() => setOpen(false)}
               style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}
             />
@@ -172,30 +186,31 @@ export function PhoneField({
               }}
             >
               <View style={styles.row}>
-                <Text style={styles.heading}>Country code</Text>
+                <Text style={styles.heading}>{t('Country code')}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Close country picker"
+                  accessibilityLabel={t('Close country picker')}
                   onPress={() => setOpen(false)}
                   style={{ padding: 12 }}
                 >
                   <Ionicons name="close" size={22} color={colors.green} />
                 </Pressable>
               </View>
-              <SearchField label="Search countries" value={query} onChange={setQuery} />
+              <SearchField label={t('Search countries')} value={query} onChange={setQuery} />
               <FlatList
                 data={matches}
                 keyExtractor={(item) => item.region}
                 keyboardShouldPersistTaps="handled"
                 ListEmptyComponent={
                   <Text style={styles.small}>
-                    No countries found. Try a country name or calling code.
+                    {' '}
+                    {t('No countries found. Try a country name or calling code.')}{' '}
                   </Text>
                 }
                 renderItem={({ item }) => (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${item.name} ${item.code}`}
+                    accessibilityLabel={`${countryName(item.region, item.name)} ${item.code}`}
                     accessibilityState={{ selected: item.region === country.region }}
                     onPress={() => {
                       setLimitError('');
@@ -213,7 +228,9 @@ export function PhoneField({
                       backgroundColor: item.region === country.region ? colors.mint : colors.white,
                     }}
                   >
-                    <Text style={{ flex: 1, color: colors.ink, fontSize: 15 }}>{item.name}</Text>
+                    <Text style={{ flex: 1, color: colors.ink, fontSize: 15 }}>
+                      {countryName(item.region, item.name)}
+                    </Text>
                     <Text style={{ fontWeight: '700', color: colors.green }}>{item.code}</Text>
                     {item.region === country.region && (
                       <Ionicons name="checkmark" size={18} color={colors.green} />

@@ -1,3 +1,4 @@
+import { t, useLocale, translate } from './src/i18n';
 import { PasswordSecurity, StaffPasswordAccess } from './src/screens/PasswordScreens';
 import React from 'react';
 import { Text, View } from 'react-native';
@@ -13,6 +14,7 @@ import { AccountButton, AppHeader, BrandMark } from './src/components/Brand';
 import { Button, colors, ErrorText, Heading, Loading, Page, styles } from './src/components/ui';
 import { useAction } from './src/hooks';
 import { MobileLogin, RoleSelection } from './src/screens/AuthScreens';
+import { LanguagePicker } from './src/components/LanguagePicker';
 import {
   OwnerDashboard,
   ShopSetup,
@@ -23,7 +25,13 @@ import {
 } from './src/screens/OwnerScreens';
 import { MyAttendance, WorkerHistory } from './src/screens/AttendanceScreens';
 import { WorkerDashboard } from './src/screens/WorkerScreens';
-import { Profile, OwnerProfile, ChangeMobile, ChangeEmail } from './src/screens/AccountScreens';
+import {
+  Profile,
+  OwnerProfile,
+  ChangeMobile,
+  ChangeEmail,
+  LanguageSettings,
+} from './src/screens/AccountScreens';
 import { Routes, TabRoutes } from './src/types';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
@@ -54,6 +62,7 @@ const tabIcons: Record<
 };
 // Each tab owns a stack so detail pages keep the main navigation available.
 function SectionStack({ root }: { root: keyof TabRoutes }) {
+  useLocale();
   const { session, selected } = useAuth();
   return (
     <Stack.Navigator
@@ -127,12 +136,12 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
           <Stack.Screen
             name="WorkerForm"
             component={WorkerForm}
-            options={{ title: 'Team member' }}
+            options={{ title: t('Team member') }}
           />
           <Stack.Screen
             name="WorkerHistory"
             component={WorkerHistory}
-            options={{ title: 'Attendance history' }}
+            options={{ title: t('Attendance history') }}
           />
           {session!.role === 'OWNER' && (
             <>
@@ -147,32 +156,41 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
         </>
       )}
       <Stack.Screen name="PasswordSecurity" component={PasswordSecurity} />
+      <Stack.Screen name="LanguageSettings" component={LanguageSettings} />
     </Stack.Navigator>
   );
 }
 function HomeStack() {
+  useLocale();
   return <SectionStack root="Dashboard" />;
 }
 function RegisterStack() {
+  useLocale();
   return <SectionStack root="TodayAttendance" />;
 }
 function TeamStack() {
+  useLocale();
   return <SectionStack root="Workers" />;
 }
 function AttendanceStack() {
+  useLocale();
   return <SectionStack root="MyAttendance" />;
 }
 function AccountStack() {
+  useLocale();
   return <SectionStack root="Profile" />;
 }
 function HishobStack() {
+  useLocale();
   return <SectionStack root="Hishob" />;
 }
 function MainTabs() {
+  useLocale();
   const insets = useSafeAreaInsets();
   const { session, selected } = useAuth();
   const finance = session!.role !== 'WORKER' && selected!.permissions.view_hishob;
   const worker = session!.role === 'WORKER';
+  const language = session!.user.language || selected?.shop.language || 'en';
   return (
     <Tabs.Navigator
       backBehavior="history"
@@ -191,7 +209,19 @@ function MainTabs() {
           paddingBottom: Math.max(8, insets.bottom),
           height: 78 + insets.bottom,
         },
-        tabBarAccessibilityLabel: `${route.name === 'Hishob' ? 'Hishob' : route.name === 'Dashboard' ? 'Home' : route.name === 'TodayAttendance' ? 'Attendance' : route.name === 'Workers' ? 'Team' : route.name === 'MyAttendance' ? (worker ? 'Attendance' : 'My day') : 'Account'} tab`,
+        tabBarAccessibilityLabel: t('{0} tab', [
+          route.name === 'Hishob'
+            ? t('Hishob')
+            : route.name === 'Dashboard'
+              ? translate(language, 'home')
+              : route.name === 'TodayAttendance'
+                ? translate(language, 'attendance')
+                : route.name === 'Workers'
+                  ? translate(language, 'team')
+                  : route.name === 'MyAttendance'
+                    ? translate(language, worker ? 'attendance' : 'myAttendance')
+                    : translate(language, 'account'),
+        ]),
         tabBarIcon: ({ focused, color }) => (
           <View
             style={{
@@ -208,12 +238,16 @@ function MainTabs() {
         ),
       })}
     >
-      <Tabs.Screen name="Dashboard" component={HomeStack} options={{ title: 'Home' }} />
+      <Tabs.Screen
+        name="Dashboard"
+        component={HomeStack}
+        options={{ title: translate(language, 'home') }}
+      />
       {!worker && (
         <Tabs.Screen
           name="TodayAttendance"
           component={RegisterStack}
-          options={{ title: 'Attendance' }}
+          options={{ title: translate(language, 'attendance') }}
         />
       )}
       {(worker || (session!.role === 'MANAGER' && !finance)) && (
@@ -221,7 +255,7 @@ function MainTabs() {
           name="MyAttendance"
           component={AttendanceStack}
           options={{
-            title: worker ? 'Attendance' : 'My attendance',
+            title: translate(language, worker ? 'attendance' : 'myAttendance'),
             ...(!worker
               ? { tabBarButton: () => null, tabBarItemStyle: { display: 'none' as const } }
               : {}),
@@ -229,15 +263,21 @@ function MainTabs() {
         />
       )}
       {finance && (
-        <Tabs.Screen name="Hishob" component={HishobStack} options={{ title: 'Hishob' }} />
+        <Tabs.Screen name="Hishob" component={HishobStack} options={{ title: t('Hishob') }} />
       )}
-      {!worker && <Tabs.Screen name="Workers" component={TeamStack} options={{ title: 'Team' }} />}
+      {!worker && (
+        <Tabs.Screen
+          name="Workers"
+          component={TeamStack}
+          options={{ title: translate(language, 'team') }}
+        />
+      )}
       {/* Account keeps its own history and drafts, but is opened from the header. */}
       <Tabs.Screen
         name="Profile"
         component={AccountStack}
         options={{
-          title: 'Account',
+          title: translate(language, 'account'),
           tabBarButton: () => null,
           tabBarItemStyle: { display: 'none' },
         }}
@@ -246,13 +286,14 @@ function MainTabs() {
   );
 }
 function Navigation() {
-  const { session, selected, booting, bootError, restore, signOut, reload } = useAuth();
+  useLocale();
+  const { session, selected, booting, bootError, restore, signOut, reload, api } = useAuth();
   const action = useAction();
   if (booting)
     return (
       <Page>
         <View style={{ alignItems: 'center', paddingTop: 100 }}>
-          <BrandMark size={90} subtitle="YOUR SHOP. YOUR PEOPLE." />
+          <BrandMark size={90} subtitle={t('YOUR SHOP. YOUR PEOPLE.')} />
           <Loading />
         </View>
       </Page>
@@ -261,26 +302,42 @@ function Navigation() {
     return (
       <Page>
         <BrandMark />
-        <Heading title="Let’s reconnect" />
+        <Heading title={t('Let’s reconnect')} />
         <ErrorText message={bootError} />
-        <Button title="Try again" onPress={() => void restore()} />
+        <Button title={t('Try again')} onPress={() => void restore()} />
       </Page>
     );
   if (session && session.role !== 'OWNER' && !selected)
     return (
       <Page>
         <BrandMark />
-        <Heading title="No active shop" />
+        <Heading title={t('No active shop')} />
+        <LanguagePicker
+          value={session.user.language || null}
+          allowDefault
+          onChange={(language) =>
+            void action.run(async () => {
+              await api('/auth/language', { language }, 'PATCH');
+              await reload();
+            })
+          }
+        />
         <Text style={styles.subtitle}>
-          You haven’t been added to any shop yet. Ask your shop owner to add you.
+          {' '}
+          {t('You haven’t been added to any shop yet. Ask your shop owner to add you.')}{' '}
         </Text>
         <ErrorText message={action.error} />
-        <Button title="Refresh access" busy={action.busy} onPress={() => void action.run(reload)} />
-        <Button title="Sign out" secondary onPress={() => void action.run(signOut)} />
+        <Button
+          title={t('Refresh access')}
+          busy={action.busy}
+          onPress={() => void action.run(reload)}
+        />
+        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
       </Page>
     );
   return (
     <NavigationContainer
+      documentTitle={{ formatter: () => t('Hishob') }}
       key={`${session?.user.id || 'guest'}-${session?.role || 'guest'}-${selected?.id || 'setup'}`}
       theme={{
         ...DefaultTheme,
@@ -321,11 +378,15 @@ function Navigation() {
             <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
           </>
         )}
+        {session && (!selected || (session.role === 'OWNER' && !session.user.password_ready)) && (
+          <Stack.Screen name="LanguageSettings" component={LanguageSettings} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 export default function App() {
+  useLocale();
   return (
     <SafeAreaProvider>
       <AuthProvider>

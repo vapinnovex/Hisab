@@ -1,13 +1,14 @@
+import { weekdays, t, useLocale } from './../i18n';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Attendance, History, Status } from '../types';
 import { Card, colors, statusLabel, styles } from './ui';
 
 const palette: Record<Status, { background: string; ink: string; symbol: string }> = {
-  PRESENT: { background: '#DCF0E2', ink: '#185D39', symbol: 'P' },
+  PRESENT: { background: '#DCF0E2', ink: '#185D39', symbol: '✓' },
   HALF_DAY: { background: '#FFF0C8', ink: '#77520C', symbol: '½' },
-  ABSENT: { background: '#FCE2DE', ink: '#9A2929', symbol: 'A' },
-  LEAVE: { background: '#E6E7FF', ink: '#4C4595', symbol: 'L' },
+  ABSENT: { background: '#FCE2DE', ink: '#9A2929', symbol: '×' },
+  LEAVE: { background: '#E6E7FF', ink: '#4C4595', symbol: '○' },
   NOT_MARKED: { background: '#EDF0ED', ink: '#68756C', symbol: '–' },
 };
 export function AttendanceCalendar({
@@ -19,6 +20,7 @@ export function AttendanceCalendar({
   selected: string | null;
   onSelect: (day: Attendance) => void;
 }) {
+  useLocale();
   const [year, month] = history.month.split('-').map(Number);
   const start = new Date(Date.UTC(year, month - 1, 1));
   const offset = (start.getUTCDay() + 6) % 7;
@@ -52,10 +54,13 @@ export function AttendanceCalendar({
       </View>
       <Card>
         <Text style={styles.small}>
-          Tap a day for its details. Greyed-out dates are outside your attendance period.
+          {' '}
+          {t(
+            'Tap a day for its details. Greyed-out dates are outside your attendance period.',
+          )}{' '}
         </Text>
         <View style={{ flexDirection: 'row' }}>
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+          {weekdays().map((day, i) => (
             <Text
               key={i}
               style={[styles.small, { width: '14.2857%', textAlign: 'center', fontWeight: '700' }]}
@@ -74,7 +79,7 @@ export function AttendanceCalendar({
                 {day > 0 && day <= count && (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${date}, ${record ? statusLabel(record.status) : 'Unavailable'}`}
+                    accessibilityLabel={`${date}, ${record ? statusLabel(record.status) : t('Unavailable')}`}
                     accessibilityState={{ selected: selected === date, disabled: !record }}
                     disabled={!record}
                     onPress={() => record && onSelect(record)}

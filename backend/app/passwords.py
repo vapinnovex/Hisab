@@ -63,4 +63,5 @@ def user_view(user):
         "email": user.get("email"),
         "password_ready": bool(user.get("password_hash")),
         "email_verified": bool(user.get("email_verified")),
+        "language": user.get("language"),
     }

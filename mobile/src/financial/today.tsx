@@ -1,3 +1,4 @@
+import { localeTag, t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -36,6 +37,7 @@ export function NewDay({
   refresh: () => Promise<void>;
   changeMethod?: () => void;
 }) {
+  useLocale();
   const { api, selected } = useAuth();
   // Follow refreshed carry-forward cash until the owner explicitly edits it.
   const [openingDraft, setOpening] = useState<string | null>(null);
@@ -54,57 +56,61 @@ export function NewDay({
         </View>
         <View style={{ flex: 1, gap: 5 }}>
           <Text style={hishobStyles.startTitle}>
-            {missed ? 'Start missed day' : 'Start your day'}
+            {missed ? t('Start missed day') : t('Start your day')}
           </Text>
           {missed && <Text style={hishobStyles.balanceNote}>{initial.date}</Text>}
           <Text style={hishobStyles.balanceNote}>
             {missed
-              ? 'Open this date so you or your manager can fill the missed entries.'
-              : 'A fresh Hishob for today.'}
+              ? t('Open this date so you or your manager can fill the missed entries.')
+              : t('A fresh Hishob for today.')}
           </Text>
         </View>
       </View>
       <View style={hishobStyles.startForm}>
-        <MoneyField label="Opening cash" value={opening} onChange={setOpening} />
+        <MoneyField label={t('Opening cash')} value={opening} onChange={setOpening} />
         {initial.suggested_opening_cash !== null && initial.previous_closed_date ? (
           <View style={hishobStyles.carryNote}>
             <Ionicons name="return-down-forward-outline" size={18} color={colors.green} />
             <Text style={[styles.small, { flex: 1, color: colors.green }]}>
-              {money(initial.suggested_opening_cash)} carried from{' '}
-              {new Intl.DateTimeFormat('en-IN', {
+              {money(initial.suggested_opening_cash)} {t('carried from')}{' '}
+              {new Intl.DateTimeFormat(localeTag(), {
                 day: 'numeric',
                 month: 'short',
                 timeZone: 'UTC',
-              }).format(new Date(`${initial.previous_closed_date}T12:00:00Z`))}
-              . Check this against the cash in your galla.
+              }).format(new Date(`${initial.previous_closed_date}T12:00:00Z`))}{' '}
+              {t('. Check this against the cash in your galla.')}{' '}
             </Text>
           </View>
         ) : (
           <Text style={styles.small}>
-            Enter the cash in your galla (₹). Starting with no cash? Enter 0.
+            {' '}
+            {t('Enter the cash in your galla (₹). Starting with no cash? Enter 0.')}{' '}
           </Text>
         )}
         {(override || missed) && (
           <Field
             required
             minLength={2}
-            label={missed ? 'Reason for opening missed day' : 'Opening change reason'}
+            label={missed ? t('Reason for opening missed day') : t('Opening change reason')}
             value={reason}
             onChangeText={setReason}
             maxLength={500}
-            placeholder={missed ? 'Why was this day missed?' : 'Why is the opening different?'}
+            placeholder={
+              missed ? t('Why was this day missed?') : t('Why is the opening different?')
+            }
           />
         )}
         {missed && (
           <Text style={styles.small}>
-            Use the opening cash for this date. Entries keep their actual recording time. Existing
-            later days will keep their saved opening balances; review those balances after closing
-            this day.
+            {' '}
+            {t(
+              'Use the opening cash for this date. Entries keep their actual recording time. Existing later days will keep their saved opening balances; review those balances after closing this day.',
+            )}{' '}
           </Text>
         )}
         <ErrorText message={action.error} />
         <PlainButton
-          title={missed ? `Start Hishob · ${initial.date}` : 'Start today’s Hishob'}
+          title={missed ? t('Start Hishob · {0}', [initial.date]) : t('Start today’s Hishob')}
           busy={action.busy}
           disabled={
             parseMoney(opening) === null || ((override || missed) && reason.trim().length < 2)
@@ -124,7 +130,7 @@ export function NewDay({
       </View>
       <View style={hishobStyles.methodRow}>
         <View style={{ flex: 1, gap: 3 }}>
-          <Text style={styles.small}>Sales method</Text>
+          <Text style={styles.small}>{t('Sales method')}</Text>
           <Text style={hishobStyles.linkText}>
             {modeLabels[selected!.shop.settings.hishob_mode]}
           </Text>
@@ -132,11 +138,11 @@ export function NewDay({
         {changeMethod && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Choose Hishob method"
+            accessibilityLabel={t('Choose Hishob method')}
             onPress={changeMethod}
             style={({ pressed }) => [hishobStyles.textAction, { opacity: pressed ? 0.65 : 1 }]}
           >
-            <Text style={hishobStyles.linkText}>Change</Text>
+            <Text style={hishobStyles.linkText}>{t('Change')}</Text>
             <Ionicons name="chevron-forward" size={15} color={colors.green} />
           </Pressable>
         )}
@@ -146,16 +152,17 @@ export function NewDay({
 }
 
 function DailyBalance({ day }: { day: Day }) {
+  useLocale();
   const open = day.status === 'OPEN';
   const unknown = open && day.expected_closing_cash === null;
   const balance = unknown
-    ? 'Available at closing'
+    ? t('Available at closing')
     : money(open ? day.expected_closing_cash : day.actual_closing_cash);
   return (
     <View style={hishobStyles.balanceCard}>
       <View style={styles.row}>
         <Text style={hishobStyles.balanceLabel}>
-          {open ? 'CURRENT GALLA' : 'CASH KEPT IN GALLA'}
+          {open ? t('CURRENT GALLA') : t('CASH KEPT IN GALLA')}
         </Text>
         <View style={hishobStyles.dayBadge}>
           <Ionicons
@@ -164,13 +171,13 @@ function DailyBalance({ day }: { day: Day }) {
             color="#D9EDDE"
           />
           <Text style={{ color: '#EDF5EE', fontSize: 12, fontWeight: '600' }}>
-            {open ? 'Day open' : 'Day closed'}
+            {open ? t('Day open') : t('Day closed')}
           </Text>
         </View>
       </View>
       <Text
         selectable
-        accessibilityLabel={`${open ? 'Current galla' : 'Cash kept in galla'}: ${balance}`}
+        accessibilityLabel={`${open ? t('Current galla') : t('Cash kept in galla')}: ${balance}`}
         style={[
           hishobStyles.balanceAmount,
           { fontSize: unknown ? 24 : balance.length > 12 ? 26 : 36 },
@@ -182,24 +189,25 @@ function DailyBalance({ day }: { day: Day }) {
         {open
           ? unknown
             ? day.mode === 'COUNTED'
-              ? 'Record expenses now. Count cash at closing to estimate sales.'
-              : 'Record expenses now. Enter billing totals at closing.'
-            : 'Based on recorded cash movements. Count your cash before closing.'
-          : 'Closing saved. This is the cash retained for the next day.'}
+              ? t('Record expenses now. Count cash at closing to estimate sales.')
+              : t('Record expenses now. Enter billing totals at closing.')
+            : t('Based on recorded cash movements. Count your cash before closing.')
+          : t('Closing saved. This is the cash retained for the next day.')}
       </Text>
       {!open && (
         <View style={hishobStyles.closedCheck}>
           {day.expected_closing_cash !== null && (
             <Text style={hishobStyles.balanceNote}>
-              Expected cash · {money(day.expected_closing_cash)}
+              {' '}
+              {t('Expected cash ·')} {money(day.expected_closing_cash)}
             </Text>
           )}
           <Text style={{ color: '#F4CD72', fontSize: 14, lineHeight: 21, fontWeight: '600' }}>
             {day.difference === null
               ? day.mode === 'COUNTED'
-                ? 'Cash sales are estimated; a cash difference cannot be independently checked.'
-                : 'Cash difference unavailable without a payment breakdown.'
-              : `Difference ${money(day.difference, true)}`}
+                ? t('Cash sales are estimated; a cash difference cannot be independently checked.')
+                : t('Cash difference unavailable without a payment breakdown.')
+              : t('Difference {0}', [money(day.difference, true)])}
           </Text>
         </View>
       )}
@@ -208,6 +216,7 @@ function DailyBalance({ day }: { day: Day }) {
 }
 
 export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'HishobToday'>) {
+  useLocale();
   const { selected } = useAuth();
   const resource = useResource<TodayHishob>(`/shops/${selected!.shop_id}/hishob/today`, true);
   const [breakdownOpen, setBreakdownOpen] = useState(false);
@@ -225,20 +234,20 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
     onPress: () => void;
   }[] = [
     {
-      label: 'History',
-      accessibilityLabel: 'Hishob history',
+      label: t('History'),
+      accessibilityLabel: t('Hishob history'),
       icon: 'calendar-outline',
       onPress: () => navigation.navigate('HishobHistory'),
     },
     {
-      label: 'Search',
-      accessibilityLabel: 'Search transactions',
+      label: t('Search'),
+      accessibilityLabel: t('Search transactions'),
       icon: 'search-outline',
       onPress: () => navigation.navigate('HishobSearch'),
     },
     {
-      label: 'Customer dues',
-      accessibilityLabel: 'Customer dues',
+      label: t('Customer dues'),
+      accessibilityLabel: t('Customer dues'),
       icon: 'people-outline',
       onPress: () => navigation.navigate('CustomerDues'),
     },
@@ -254,9 +263,9 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
         }}
       >
         <View style={{ flex: 1, gap: 5 }}>
-          <Text style={styles.title}>Hishob</Text>
+          <Text style={styles.title}>{t('Hishob')}</Text>
           <Text style={styles.small}>
-            {new Intl.DateTimeFormat('en-IN', {
+            {new Intl.DateTimeFormat(localeTag(), {
               weekday: 'short',
               day: 'numeric',
               month: 'short',
@@ -270,8 +279,12 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
       <ErrorText message={resource.error} />
       {!!resource.error && (
         <View style={{ gap: 8 }}>
-          {day && <Text style={styles.small}>Showing the last loaded totals.</Text>}
-          <PlainButton title="Retry Hishob" secondary onPress={() => void resource.refresh()} />
+          {day && <Text style={styles.small}>{t('Showing the last loaded totals.')}</Text>}
+          <PlainButton
+            title={t('Retry Hishob')}
+            secondary
+            onPress={() => void resource.refresh()}
+          />
         </View>
       )}
       {resource.loading && <Loading />}
@@ -290,8 +303,10 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
           />
         ) : (
           <EmptyState
-            title="Today’s Hishob hasn’t started"
-            description="An authorised team member can start the day by recording opening cash."
+            title={t('Today’s Hishob hasn’t started')}
+            description={t(
+              'An authorised team member can start the day by recording opening cash.',
+            )}
           />
         ))}
       {day && (
@@ -302,7 +317,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
               {selected!.permissions.add_hishob_transactions && (
                 <View style={{ flex: 1, minWidth: 148 }}>
                   <PlainButton
-                    title="Add transaction"
+                    title={t('Add transaction')}
                     onPress={() => navigation.navigate('HishobTransaction', { dayId: day.id })}
                   />
                 </View>
@@ -315,7 +330,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
                   }}
                 >
                   <PlainButton
-                    title="Close day"
+                    title={t('Close day')}
                     secondary
                     onPress={() => navigation.navigate('HishobClose', { dayId: day.id })}
                   />
@@ -324,7 +339,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
             </View>
           ) : (
             <PlainButton
-              title="Day details & audit"
+              title={t('Day details & audit')}
               onPress={() => navigation.navigate('HishobDetails', { dayId: day.id })}
             />
           )}
@@ -349,18 +364,18 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
           <View style={hishobStyles.summary}>
             <View style={{ flexDirection: largeTotals ? 'column' : 'row', gap: 16 }}>
               <View style={hishobStyles.metric}>
-                <Text style={styles.small}>Today’s sales</Text>
+                <Text style={styles.small}>{t('Today’s sales')}</Text>
                 <Text style={hishobStyles.metricValue}>
-                  {day.total_sales == null ? 'At closing' : money(day.total_sales)}
+                  {day.total_sales == null ? t('At closing') : money(day.total_sales)}
                 </Text>
                 <Text style={hishobStyles.metricNote}>
                   {day.mode === 'COUNTED'
                     ? day.total_sales == null
-                      ? 'Estimated at closing'
-                      : 'Includes estimated cash sales'
+                      ? t('Estimated at closing')
+                      : t('Includes estimated cash sales')
                     : day.total_sales == null
-                      ? 'From your billing totals'
-                      : 'Cash, digital & unpaid sales'}
+                      ? t('From your billing totals')
+                      : t('Cash, digital & unpaid sales')}
                 </Text>
               </View>
               <View
@@ -371,14 +386,14 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
                     : { borderLeftWidth: 1, borderLeftColor: colors.line, paddingLeft: 16 },
                 ]}
               >
-                <Text style={styles.small}>Expenses</Text>
+                <Text style={styles.small}>{t('Expenses')}</Text>
                 <Text style={hishobStyles.metricValue}>{money(day.expenses_total)}</Text>
-                <Text style={hishobStyles.metricNote}>Cash & digital expenses</Text>
+                <Text style={hishobStyles.metricNote}>{t('Cash & digital expenses')}</Text>
               </View>
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Cash breakdown"
+              accessibilityLabel={t('Cash breakdown')}
               aria-expanded={breakdownOpen}
               onPress={() => setBreakdownOpen(!breakdownOpen)}
               style={({ pressed }) => [
@@ -386,7 +401,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
                 { opacity: pressed ? 0.65 : 1 },
               ]}
             >
-              <Text style={hishobStyles.linkText}>Cash breakdown</Text>
+              <Text style={hishobStyles.linkText}>{t('Cash breakdown')}</Text>
               <Ionicons
                 name={breakdownOpen ? 'chevron-up' : 'chevron-down'}
                 size={17}
@@ -397,14 +412,17 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
           {breakdownOpen && <Breakdown day={day} />}
           <View style={{ gap: 8 }}>
             <View style={styles.row}>
-              <Text style={styles.heading}>Recent entries</Text>
+              <Text style={styles.heading}>{t('Recent entries')}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`View transactions (${entries.length})`}
+                accessibilityLabel={t('View transactions ({0})', [entries.length])}
                 onPress={() => navigation.navigate('HishobTransactions', { dayId: day.id })}
                 style={({ pressed }) => [hishobStyles.textAction, { opacity: pressed ? 0.65 : 1 }]}
               >
-                <Text style={hishobStyles.linkText}>View all ({entries.length})</Text>
+                <Text style={hishobStyles.linkText}>
+                  {t('View all (')}
+                  {entries.length})
+                </Text>
                 <Ionicons name="chevron-forward" size={15} color={colors.green} />
               </Pressable>
             </View>
@@ -446,7 +464,7 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
                     <Text style={styles.small}>
                       {transactionTypes.find((type) => type.type === entry.type)?.label}
                       {['EXPENSE', 'SUPPLIER_PAYMENT', 'DUE_COLLECTION'].includes(entry.type)
-                        ? ` · ${entry.payment_method === 'DIGITAL' ? 'Digital' : 'Cash'}`
+                        ? ` · ${entry.payment_method === 'DIGITAL' ? t('Digital') : t('Cash')}`
                         : ''}
                     </Text>
                   </View>
@@ -455,21 +473,23 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
             ) : (
               <View style={hishobStyles.emptyEntries}>
                 <Ionicons name="receipt-outline" size={24} color={colors.muted} />
-                <Text style={styles.small}>No transactions recorded yet.</Text>
+                <Text style={styles.small}>{t('No transactions recorded yet.')}</Text>
               </View>
             )}
           </View>
           <View style={{ gap: 6 }}>
-            <Text style={styles.small}>Sales method · {modeLabels[day.mode || 'ENTRIES']}</Text>
+            <Text style={styles.small}>
+              {t('Sales method ·')} {modeLabels[day.mode || 'ENTRIES']}
+            </Text>
             {day.status === 'OPEN' && (
               <>
                 <PlainButton
-                  title="Day details & audit"
+                  title={t('Day details & audit')}
                   secondary
                   onPress={() => navigation.navigate('HishobDetails', { dayId: day.id })}
                 />
-                <FinancialHelp topic="Add transaction" />
-                {selected!.permissions.close_hishob && <FinancialHelp topic="Close day" />}
+                <FinancialHelp topic={t('Add transaction')} />
+                {selected!.permissions.close_hishob && <FinancialHelp topic={t('Close day')} />}
               </>
             )}
           </View>

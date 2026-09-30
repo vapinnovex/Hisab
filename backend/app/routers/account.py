@@ -7,8 +7,8 @@ from pymongo.errors import DuplicateKeyError
 from ..db import get_db, new_id, now, public
 from ..password_schemas import EmailChange, MobileChange
 from ..passwords import user_view, verify_password
-from ..schemas import OTPVerify, OwnerProfileUpdate
-from ..security import require_owner
+from ..schemas import LanguageUpdate, OTPVerify, OwnerProfileUpdate
+from ..security import current_identity, require_owner
 from ..web_session import browser_session
 from .auth import consume_challenge, create_session, issue_challenge, limit_requests
 from .password_auth import version_query
@@ -21,6 +21,16 @@ def update_profile(body: OwnerProfileUpdate, identity=Depends(require_owner), db
     user = db.users.find_one_and_update(
         {"_id": identity.user["_id"]},
         {"$set": {"name": body.name, "updated_at": now()}},
+        return_document=ReturnDocument.AFTER,
+    )
+    return user_view(user)
+
+
+@router.patch("/language")
+def update_language(body: LanguageUpdate, identity=Depends(current_identity), db=Depends(get_db)):
+    user = db.users.find_one_and_update(
+        {"_id": identity.user["_id"]},
+        {"$set": {"language": body.language.value if body.language else None, "updated_at": now()}},
         return_document=ReturnDocument.AFTER,
     )
     return user_view(user)

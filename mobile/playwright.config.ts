@@ -13,7 +13,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: '../backend/.venv/bin/python ../backend/tests/serve_e2e.py',
+      command: `"${process.platform === 'win32' ? '..\\backend\\.venv\\Scripts\\python.exe' : '../backend/.venv/bin/python'}" ../backend/tests/serve_e2e.py`,
       url: 'http://localhost:8001/health',
       reuseExistingServer: false,
       timeout: 30000,
@@ -27,6 +27,8 @@ export default defineConfig({
         EXPO_PUBLIC_API_URL: 'http://localhost:8001',
         EXPO_PUBLIC_WEB_API_URL: 'http://localhost:8001',
         CI: '1',
+        BROWSER: 'none',
+        EXPO_OFFLINE: '1',
       },
     },
   ],

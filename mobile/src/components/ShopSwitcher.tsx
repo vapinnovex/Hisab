@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { useAuth } from '../auth';
 import { colors, styles } from './ui';
 
 export function ShopSwitcher() {
+  useLocale();
   const { session, selected, select } = useAuth();
   const [open, setOpen] = useState(false);
   const insets = useSafeAreaInsets();
@@ -14,7 +16,7 @@ export function ShopSwitcher() {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Switch shop, current shop: ${selected?.shop.name}`}
+        accessibilityLabel={t('Switch shop, current shop: {0}', [selected?.shop.name])}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen(true)}
         style={{
@@ -32,8 +34,12 @@ export function ShopSwitcher() {
       >
         <View style={{ flexShrink: 1 }}>
           <Text style={{ fontSize: 10, color: colors.muted }}>
-            {session.role === 'OWNER' ? 'Owner' : session.role === 'MANAGER' ? 'Manager' : 'Worker'}{' '}
-            · Shop
+            {session.role === 'OWNER'
+              ? t('Owner')
+              : session.role === 'MANAGER'
+                ? t('Manager')
+                : t('Worker')}{' '}
+            {t('· Shop')}{' '}
           </Text>
           <Text numberOfLines={1} style={{ color: colors.green, fontWeight: '700', fontSize: 13 }}>
             {selected?.shop.name}
@@ -48,7 +54,7 @@ export function ShopSwitcher() {
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Dismiss shop switcher"
+              accessibilityLabel={t('Dismiss shop switcher')}
               onPress={() => setOpen(false)}
               style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}
             />
@@ -68,17 +74,17 @@ export function ShopSwitcher() {
               }}
             >
               <View style={styles.row}>
-                <Text style={styles.heading}>Switch shop</Text>
+                <Text style={styles.heading}>{t('Switch shop')}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Close shop switcher"
+                  accessibilityLabel={t('Close shop switcher')}
                   onPress={() => setOpen(false)}
                   style={{ padding: 12, borderRadius: 14, backgroundColor: colors.mint }}
                 >
                   <Ionicons name="close" size={20} color={colors.green} />
                 </Pressable>
               </View>
-              <Text style={styles.small}>Choose the shop you want to work with.</Text>
+              <Text style={styles.small}>{t('Choose the shop you want to work with.')}</Text>
               <ScrollView contentContainerStyle={{ gap: 10 }}>
                 {session.memberships.map((member) => {
                   const active = selected?.id === member.id;
@@ -86,7 +92,7 @@ export function ShopSwitcher() {
                     <Pressable
                       key={member.id}
                       accessibilityRole="button"
-                      accessibilityLabel={`Switch to ${member.shop.name}`}
+                      accessibilityLabel={t('Switch to {0}', [member.shop.name])}
                       accessibilityState={{ selected: active }}
                       onPress={() => {
                         setOpen(false);
@@ -107,7 +113,7 @@ export function ShopSwitcher() {
                       <View style={{ flex: 1, gap: 4 }}>
                         <Text style={[styles.heading, { fontSize: 16 }]}>{member.shop.name}</Text>
                         <Text style={styles.small}>
-                          {active ? 'Current shop' : member.shop.timezone}
+                          {active ? t('Current shop') : member.shop.timezone}
                         </Text>
                       </View>
                       {active && (

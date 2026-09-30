@@ -10,7 +10,7 @@ def settings_for(shop):
 
 
 def shop_view(shop):
-    return {**public(shop), "settings": settings_for(shop)}
+    return {**public(shop), "language": shop.get("language", "en"), "settings": settings_for(shop)}
 
 
 def permissions_for(membership, shop):

@@ -1,10 +1,11 @@
+import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, Field, styles } from './ui';
 
 export function PasswordField({
-  label = 'Password',
+  label = t('Password'),
   value,
   onChange,
   fresh = false,
@@ -16,6 +17,7 @@ export function PasswordField({
   fresh?: boolean;
   error?: string;
 }) {
+  useLocale();
   const [visible, setVisible] = useState(false);
   return (
     <View>
@@ -25,7 +27,7 @@ export function PasswordField({
         error={
           error ||
           (fresh && value.trim() !== value
-            ? 'Remove spaces at the beginning or end of the password.'
+            ? t('Remove spaces at the beginning or end of the password.')
             : '')
         }
         label={label}
@@ -41,7 +43,7 @@ export function PasswordField({
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${visible ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+        accessibilityLabel={`${visible ? t('Hide') : t('Show')} ${label.toLowerCase()}`}
         onPress={() => setVisible(!visible)}
         style={{
           position: 'absolute',
@@ -81,22 +83,25 @@ export function NewPasswordFields({
   setPassword: (value: string) => void;
   setConfirm: (value: string) => void;
 }) {
+  useLocale();
   return (
     <>
       <Text style={styles.small}>
-        Use 12–128 characters. A unique phrase with several words is easier to remember. Avoid
-        common passwords and your mobile number.
+        {' '}
+        {t(
+          'Use 12–128 characters. A unique phrase with several words is easier to remember. Avoid common passwords and your mobile number.',
+        )}{' '}
       </Text>
-      <PasswordField label="New password" value={password} onChange={setPassword} fresh />
+      <PasswordField label={t('New password')} value={password} onChange={setPassword} fresh />
       <PasswordField
-        error={confirm && password !== confirm ? 'Passwords do not match.' : ''}
-        label="Confirm password"
+        error={confirm && password !== confirm ? t('Passwords do not match.') : ''}
+        label={t('Confirm password')}
         value={confirm}
         onChange={setConfirm}
         fresh
       />
       {!!confirm && password !== confirm && (
-        <Text style={styles.small}>Passwords do not match yet.</Text>
+        <Text style={styles.small}>{t('Passwords do not match yet.')}</Text>
       )}
     </>
   );

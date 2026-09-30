@@ -212,11 +212,11 @@ Session limits are enforced by an atomic, bounded allowlist on the User document
 
 Owners provide their name and a verified recovery email at registration. Existing names can be updated through **Account → Edit your name**. **Password & security** changes a known password. **Change mobile number** checks the current password and a code sent to the recovery email, then updates the number and revokes other sessions without changing user/shop/history IDs. No SMS verification is used.
 
-See [password onboarding, recovery, existing-account migration, SMTP settings and API reference](docs/PASSWORD-AUTH.md). Existing logged-out owners without an email require operator-assisted enrollment; a phone number alone cannot claim an old account.
+See [password onboarding, recovery, existing-account migration, Brevo settings and API reference](docs/PASSWORD-AUTH.md). Existing logged-out owners without an email require operator-assisted enrollment; a phone number alone cannot claim an old account.
 
 ## Test the complete flow
 
-Development **email** code is **123456**, shown on the email verification screen. No real email is sent until SMTP is configured. Use full international mobile numbers and passwords of 12–128 characters.
+Development **email** code is **123456**, shown on the email verification screen. No real email is sent until Brevo is configured. Use full international mobile numbers and passwords of 12–128 characters.
 
 1. Choose **Continue as Owner**, register with `+919876543210`, your name, a recovery email and a password, then create a shop. India/Kolkata is the default timezone; tap **Change** to use another IANA timezone.
 2. **Add worker** → name `Asha`, mobile `+919876543211`.
@@ -305,7 +305,7 @@ All paths below are prefixed with `/api`; all except the public login/onboarding
 | POST | `/auth/mobile-change/request` | Owner submits `{mobile, role: OWNER, password}`; send a code to the recovery email |
 | POST | `/auth/mobile-change/confirm` | Verify recovery-email `{challenge_id, code}`; update identity and return a replacement native token or web session cookie |
 | POST | `/auth/logout` | Revoke current session |
-| POST | `/shops` | Owner creates `{name, timezone}` |
+| POST | `/shops` | Owner creates `{name, timezone, language}`; language is the shop default (`en`, `hi` or `mr`) |
 | GET | `/shops/{shop_id}/team` | Owner/manager reads workers and managers, including inactive staff |
 | GET | `/shops/{shop_id}/workers` | Owner/authorised manager lists active and inactive workers |
 | POST | `/shops/{shop_id}/workers` | Owner/authorised manager adds `{name, mobile}` |
@@ -338,8 +338,8 @@ The attendance routes under `/workers/{worker_id}` accept either worker or manag
 | `MONGODB_DATABASE` | `hisab` | App database |
 | `JWT_SECRET` | **Required**, minimum 32 characters | Use a strong random secret; example value is development only |
 | `JWT_EXPIRE_MINUTES` | `10080` | Session duration (7 days); expires into password re-login |
-| `EMAIL_PROVIDER` | `dev` | `dev` or `smtp`; production requires SMTP |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_SSL` | See `.env.example` | Authenticated owner email delivery |
+| `EMAIL_PROVIDER` | `dev` | `dev` or `brevo`; production requires Brevo |
+| `BREVO_API_KEY`, `BREVO_SENDER_NAME`, `BREVO_SENDER_EMAIL` | See `.env.example` | Authenticated owner email delivery |
 | `DEV_OTP` | `123456` | Six-digit local test code |
 | `OTP_EXPIRE_SECONDS` | `300` | OTP lifetime |
 | `OTP_RESEND_SECONDS` | `30` | Per-email cooldown |
@@ -349,7 +349,7 @@ The attendance routes under `/workers/{worker_id}` accept either worker or manag
 | `EXPO_PUBLIC_WEB_API_URL` | Unset | Development web-only override; production web always uses same-origin /api |
 | `TEST_MONGODB_URI` | `mongodb://127.0.0.1:27018` | Test runner only |
 
-Password attempts and email-code requests are rate-limited per account/address and peer IP in MongoDB. Codes use HMAC hashes, are single-use and expire explicitly. Passwords use Argon2id hashes; native SecureStore and browser HttpOnly session cookies remain. See [security and SMTP setup](docs/PASSWORD-AUTH.md#email-configuration). SMS login is removed.
+Password attempts and email-code requests are rate-limited per account/address and peer IP in MongoDB. Codes use HMAC hashes, are single-use and expire explicitly. Passwords use Argon2id hashes; native SecureStore and browser HttpOnly session cookies remain. See [security and Brevo setup](docs/PASSWORD-AUTH.md#email-configuration). SMS login is removed.
 
 ## Files
 

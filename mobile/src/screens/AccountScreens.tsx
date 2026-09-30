@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import { phoneError } from '../phone';
 import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -20,8 +21,9 @@ import {
 import { BrandMark } from '../components/Brand';
 import { PasswordField } from '../components/PasswordFields';
 import { PhoneField } from '../components/PhoneField';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { useAction } from '../hooks';
-import { Challenge, Routes } from '../types';
+import { Challenge, Language, Routes } from '../types';
 
 function AccountLink({
   title,
@@ -34,6 +36,7 @@ function AccountLink({
   icon: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }) {
+  useLocale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -60,26 +63,30 @@ function AccountLink({
 }
 
 export function Profile() {
+  useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { session, selected, signOut, reload } = useAuth();
   const action = useAction();
   const owner = session!.role === 'OWNER';
   const name = owner
-    ? session!.user.name || 'Welcome, shop owner'
-    : selected?.worker_name || 'Team member';
+    ? session!.user.name || t('Welcome, shop owner')
+    : selected?.worker_name || t('Team member');
   return (
     <Page refresh={reload}>
-      <Heading title="Your account" subtitle="A little about you. Everything for your shop." />
+      <Heading
+        title={t('Your account')}
+        subtitle={t('A little about you. Everything for your shop.')}
+      />
       <View style={{ backgroundColor: colors.green, borderRadius: 26, padding: 22, gap: 18 }}>
         <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           <Avatar
-            name={owner && !session!.user.name ? 'Shop owner' : name}
+            name={owner && !session!.user.name ? t('Shop owner') : name}
             manager={session!.role !== 'WORKER'}
           />
           <View style={{ flex: 1, gap: 5 }}>
             <Text style={{ color: colors.white, fontWeight: '700', fontSize: 23 }}>{name}</Text>
             <Text style={{ color: '#D5E5D9', fontSize: 12 }}>
-              {owner ? 'Shop owner' : session!.role === 'MANAGER' ? 'Manager' : 'Worker'}
+              {owner ? t('Shop owner') : session!.role === 'MANAGER' ? t('Manager') : t('Worker')}
             </Text>
           </View>
         </View>
@@ -90,23 +97,23 @@ export function Profile() {
       </View>
       {owner && (
         <>
-          <Text style={styles.eyebrow}>PERSONAL DETAILS</Text>
+          <Text style={styles.eyebrow}>{t('PERSONAL DETAILS')}</Text>
           <Card>
             <AccountLink
-              title={session!.user.name ? 'Edit your name' : 'Add your name'}
-              detail="How you’ll appear in Hishob"
+              title={session!.user.name ? t('Edit your name') : t('Add your name')}
+              detail={t('How you’ll appear in Hishob')}
               icon="person-outline"
               onPress={() => navigation.navigate('OwnerProfile')}
             />
             <AccountLink
-              title="Change mobile number"
-              detail="Confirm with your password and recovery email"
+              title={t('Change mobile number')}
+              detail={t('Confirm with your password and recovery email')}
               icon="call-outline"
               onPress={() => navigation.navigate('ChangeMobile')}
             />
             <AccountLink
-              title="Change recovery email"
-              detail={session!.user.email || 'Verify a new recovery email'}
+              title={t('Change recovery email')}
+              detail={session!.user.email || t('Verify a new recovery email')}
               icon="mail-outline"
               onPress={() => navigation.navigate('ChangeEmail')}
             />
@@ -115,13 +122,19 @@ export function Profile() {
       )}
       <Card>
         <AccountLink
-          title="Password & security"
-          detail="Change your password and review recovery details"
+          title={t('Language')}
+          detail={t('Choose English, हिंदी or मराठी for your personal login')}
+          icon="language-outline"
+          onPress={() => navigation.navigate('LanguageSettings')}
+        />
+        <AccountLink
+          title={t('Password & security')}
+          detail={t('Change your password and review recovery details')}
           icon="lock-closed-outline"
           onPress={() => navigation.navigate('PasswordSecurity')}
         />
       </Card>
-      <Text style={styles.eyebrow}>CURRENT SHOP</Text>
+      <Text style={styles.eyebrow}>{t('CURRENT SHOP')}</Text>
       <Card>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           <Ionicons name="storefront-outline" size={24} color={colors.green} />
@@ -132,16 +145,16 @@ export function Profile() {
         </View>
         {session!.role === 'MANAGER' && (
           <AccountLink
-            title="My attendance"
-            detail="Your workday and monthly attendance"
+            title={t('My attendance')}
+            detail={t('Your workday and monthly attendance')}
             icon="checkmark-circle-outline"
             onPress={() => navigation.navigate('MyAttendance')}
           />
         )}
         {selected!.permissions.view_hishob && (
           <AccountLink
-            title="Hishob history"
-            detail="Daily cash records and preserved closings"
+            title={t('Hishob history')}
+            detail={t('Daily cash records and preserved closings')}
             icon="wallet-outline"
             onPress={() =>
               navigation.navigate('Hishob', { screen: 'HishobHistory', initial: false })
@@ -151,20 +164,20 @@ export function Profile() {
         {owner && (
           <>
             <AccountLink
-              title="Shop settings"
-              detail="Attendance rules and team permissions"
+              title={t('Shop settings')}
+              detail={t('Attendance rules and team permissions')}
               icon="options-outline"
               onPress={() => navigation.navigate('ShopSettings')}
             />
             <AccountLink
-              title="Manage managers"
-              detail="The people you trust to run the day"
+              title={t('Manage managers')}
+              detail={t('The people you trust to run the day')}
               icon="briefcase-outline"
               onPress={() => navigation.navigate('Managers')}
             />
             <AccountLink
-              title="Create another shop"
-              detail="One account, all your shops"
+              title={t('Create another shop')}
+              detail={t('One account, all your shops')}
               icon="add-circle-outline"
               onPress={() => navigation.navigate('ShopSetup')}
             />
@@ -173,12 +186,12 @@ export function Profile() {
       </Card>
       {session!.role === 'MANAGER' && (
         <Card>
-          <Text style={styles.heading}>Your permissions</Text>
+          <Text style={styles.heading}>{t('Your permissions')}</Text>
           {[
-            ['Record worker attendance', selected!.permissions.manage_attendance],
-            ['Mark my own attendance', selected!.permissions.mark_own_attendance],
-            ['Add workers', selected!.permissions.add_workers],
-            ['Edit workers', selected!.permissions.edit_workers],
+            [t('Record worker attendance'), selected!.permissions.manage_attendance],
+            [t('Mark my own attendance'), selected!.permissions.mark_own_attendance],
+            [t('Add workers'), selected!.permissions.add_workers],
+            [t('Edit workers'), selected!.permissions.edit_workers],
           ].map(([label, allowed]) => (
             <View style={styles.row} key={String(label)}>
               <Text style={[styles.small, { flex: 1 }]}>{label}</Text>
@@ -189,7 +202,7 @@ export function Profile() {
                   fontWeight: '700',
                 }}
               >
-                {allowed ? 'Enabled' : 'Owner only'}
+                {allowed ? t('Enabled') : t('Owner only')}
               </Text>
             </View>
           ))}
@@ -197,27 +210,32 @@ export function Profile() {
       )}
       {!owner && (
         <Text style={styles.small}>
-          Your shop owner manages your name and mobile number. Ask them if your details need
-          updating.
+          {' '}
+          {t(
+            'Your shop owner manages your name and mobile number. Ask them if your details need updating.',
+          )}{' '}
         </Text>
       )}
       <ErrorText message={action.error} />
       <InstallHelp />
       <Button
-        title="Sign out"
+        title={t('Sign out')}
         secondary
         busy={action.busy}
         onPress={() => void action.run(signOut)}
       />
       <View style={{ alignItems: 'center', paddingVertical: 12, gap: 4 }}>
         <BrandMark size={40} />
-        <Text style={[styles.small, { fontSize: 11 }]}>Made for the people behind the shop.</Text>
+        <Text style={[styles.small, { fontSize: 11 }]}>
+          {t('Made for the people behind the shop.')}
+        </Text>
       </View>
     </Page>
   );
 }
 
 export function OwnerProfile({ navigation }: NativeStackScreenProps<Routes, 'OwnerProfile'>) {
+  useLocale();
   const { session, api, reload } = useAuth();
   const [name, setName] = useState(session!.user.name || '');
   useUnsavedChanges(name !== (session!.user.name || ''));
@@ -225,28 +243,29 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<Routes, 'Own
   return (
     <Page>
       <Heading
-        title="What should we call you?"
-        subtitle="Your name makes Hishob feel a little more yours."
+        title={t('What should we call you?')}
+        subtitle={t('Your name makes Hishob feel a little more yours.')}
       />
       <Card>
         <Field
           required
           minLength={2}
-          label="Your name"
+          label={t('Your name')}
           value={name}
           onChangeText={setName}
           autoComplete="name"
           textContentType="name"
-          placeholder="e.g. Prajwal Patil"
+          placeholder={t('e.g. Prajwal Patil')}
           maxLength={100}
         />
         <Text style={styles.small}>
-          This name belongs to your account and is used across your shops.
+          {' '}
+          {t('This name belongs to your account and is used across your shops.')}{' '}
         </Text>
       </Card>
       <ErrorText message={action.error} />
       <Button
-        title="Save name"
+        title={t('Save name')}
         busy={action.busy}
         disabled={name.trim().length < 2}
         onPress={() =>
@@ -262,6 +281,7 @@ export function OwnerProfile({ navigation }: NativeStackScreenProps<Routes, 'Own
 }
 
 export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'ChangeMobile'>) {
+  useLocale();
   const { session, api, signIn } = useAuth();
   const [mobile, setMobile] = useState('+91');
   const [password, setPassword] = useState('');
@@ -272,28 +292,30 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
   return (
     <Page>
       <Heading
-        title={done ? 'Your number is updated' : 'A new number. Same shop.'}
+        title={done ? t('Your number is updated') : t('A new number. Same shop.')}
         subtitle={
           done
-            ? 'Your shops, people and attendance are all right here.'
-            : 'Confirm your password, then verify the code sent to your recovery email.'
+            ? t('Your shops, people and attendance are all right here.')
+            : t('Confirm your password, then verify the code sent to your recovery email.')
         }
       />
       <Card>
-        <Text style={styles.small}>Current login number</Text>
+        <Text style={styles.small}>{t('Current login number')}</Text>
         <Text style={styles.heading}>{session!.user.mobile}</Text>
       </Card>
       {!done &&
         (!challenge ? (
           <>
-            <PhoneField label="New mobile number" value={mobile} onChange={setMobile} />
-            <PasswordField label="Current password" value={password} onChange={setPassword} />
+            <PhoneField label={t('New mobile number')} value={mobile} onChange={setMobile} />
+            <PasswordField label={t('Current password')} value={password} onChange={setPassword} />
             <Text style={styles.small}>
-              This changes your login number. It does not verify ownership of the new phone number.
-              Check it carefully.
+              {' '}
+              {t(
+                'This changes your login number. It does not verify ownership of the new phone number. Check it carefully.',
+              )}{' '}
             </Text>
             <Button
-              title="Send confirmation email"
+              title={t('Send confirmation email')}
               busy={action.busy}
               disabled={!!phoneError(mobile) || !password}
               onPress={() =>
@@ -312,21 +334,25 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
           </>
         ) : (
           <>
-            <Text style={styles.subtitle}>Check {session!.user.email}</Text>
+            <Text style={styles.subtitle}>
+              {t('Check')} {session!.user.email}
+            </Text>
             {challenge.dev_otp && (
-              <Text style={styles.small}>Development email code: {challenge.dev_otp}</Text>
+              <Text style={styles.small}>
+                {t('Development email code:')} {challenge.dev_otp}
+              </Text>
             )}
             <Field
               required
               minLength={6}
-              label="Email code"
+              label={t('Email code')}
               value={code}
               onChangeText={setCode}
               maxLength={6}
               keyboardType="number-pad"
             />
             <Button
-              title="Confirm mobile change"
+              title={t('Confirm mobile change')}
               busy={action.busy}
               disabled={code.length !== 6}
               onPress={() =>
@@ -342,7 +368,7 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
               }
             />
             <Button
-              title="Start again"
+              title={t('Start again')}
               secondary
               onPress={() => {
                 setChallenge(null);
@@ -354,9 +380,12 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
       {done && (
         <>
           <Text style={styles.subtitle}>
-            Use this number next time you log in. Other signed-in sessions have been signed out.
+            {' '}
+            {t(
+              'Use this number next time you log in. Other signed-in sessions have been signed out.',
+            )}{' '}
           </Text>
-          <Button title="Back to account" onPress={() => navigation.goBack()} />
+          <Button title={t('Back to account')} onPress={() => navigation.goBack()} />
         </>
       )}
       <ErrorText message={action.error} />
@@ -365,6 +394,7 @@ export function ChangeMobile({ navigation }: NativeStackScreenProps<Routes, 'Cha
 }
 
 export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'ChangeEmail'>) {
+  useLocale();
   const { session, api, signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -375,23 +405,23 @@ export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'Chan
   return (
     <Page>
       <Heading
-        title={done ? 'Recovery email updated' : 'Use a new recovery email'}
+        title={done ? t('Recovery email updated') : t('Use a new recovery email')}
         subtitle={
           done
-            ? 'Your new email is ready for password recovery and account confirmation.'
-            : 'Confirm your password, then verify a code sent to the new email address.'
+            ? t('Your new email is ready for password recovery and account confirmation.')
+            : t('Confirm your password, then verify a code sent to the new email address.')
         }
       />
       <Card>
-        <Text style={styles.small}>Current recovery email</Text>
-        <Text style={styles.heading}>{session!.user.email || 'Not set'}</Text>
+        <Text style={styles.small}>{t('Current recovery email')}</Text>
+        <Text style={styles.heading}>{session!.user.email || t('Not set')}</Text>
       </Card>
       {!done &&
         (!challenge ? (
           <>
             <Field
               required
-              label="New recovery email"
+              label={t('New recovery email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -399,13 +429,15 @@ export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'Chan
               keyboardType="email-address"
               placeholder="you@example.com"
             />
-            <PasswordField label="Current password" value={password} onChange={setPassword} />
+            <PasswordField label={t('Current password')} value={password} onChange={setPassword} />
             <Text style={styles.small}>
-              The confirmation code is sent to this new address. It becomes your password-recovery
-              email after verification.
+              {' '}
+              {t(
+                'The confirmation code is sent to this new address. It becomes your password-recovery email after verification.',
+              )}{' '}
             </Text>
             <Button
-              title="Send verification email"
+              title={t('Send verification email')}
               busy={action.busy}
               disabled={!email.includes('@') || !password}
               onPress={() =>
@@ -424,21 +456,25 @@ export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'Chan
           </>
         ) : (
           <>
-            <Text style={styles.subtitle}>Check {email.trim().toLowerCase()}</Text>
+            <Text style={styles.subtitle}>
+              {t('Check')} {email.trim().toLowerCase()}
+            </Text>
             {challenge.dev_otp && (
-              <Text style={styles.small}>Development email code: {challenge.dev_otp}</Text>
+              <Text style={styles.small}>
+                {t('Development email code:')} {challenge.dev_otp}
+              </Text>
             )}
             <Field
               required
               minLength={6}
-              label="Email code"
+              label={t('Email code')}
               value={code}
               onChangeText={setCode}
               maxLength={6}
               keyboardType="number-pad"
             />
             <Button
-              title="Confirm email change"
+              title={t('Confirm email change')}
               busy={action.busy}
               disabled={code.length !== 6}
               onPress={() =>
@@ -454,7 +490,7 @@ export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'Chan
               }
             />
             <Button
-              title="Start again"
+              title={t('Start again')}
               secondary
               onPress={() => {
                 setChallenge(null);
@@ -463,8 +499,51 @@ export function ChangeEmail({ navigation }: NativeStackScreenProps<Routes, 'Chan
             />
           </>
         ))}
-      {done && <Button title="Back to account" onPress={() => navigation.goBack()} />}
+      {done && <Button title={t('Back to account')} onPress={() => navigation.goBack()} />}
       <ErrorText message={action.error} />
+    </Page>
+  );
+}
+
+export function LanguageSettings({
+  navigation,
+}: NativeStackScreenProps<Routes, 'LanguageSettings'>) {
+  useLocale();
+  const { session, selected, api, reload } = useAuth();
+  const [language, setLanguage] = useState<Language | null>(session!.user.language || null);
+  const action = useAction();
+  const defaultLanguage = selected?.shop.language || 'en';
+  return (
+    <Page>
+      <Heading
+        title={t('Language')}
+        subtitle={t('Your choice overrides this shop’s default language.')}
+      />
+      <Card>
+        <Text style={styles.small}>
+          {t('Shop default:')}{' '}
+          {defaultLanguage === 'en' ? 'English' : defaultLanguage === 'hi' ? 'हिंदी' : 'मराठी'}
+        </Text>
+        <LanguagePicker
+          value={language}
+          onChange={setLanguage}
+          allowDefault
+          label={t('Personal language')}
+          uiLanguage={session!.user.language || defaultLanguage}
+        />
+      </Card>
+      <ErrorText message={action.error} />
+      <Button
+        title={t('Save language')}
+        busy={action.busy}
+        onPress={() =>
+          void action.run(async () => {
+            await api('/auth/language', { language }, 'PATCH');
+            await reload();
+            navigation.goBack();
+          })
+        }
+      />
     </Page>
   );
 }

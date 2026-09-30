@@ -83,7 +83,9 @@ def issue_challenge(request, db, mobile, purpose, metadata):
     }
     db.otp_challenges.insert_one(challenge)
     try:
-        send_email(settings, mobile, code)
+        send_email(
+            settings, mobile, code, metadata.get("language") or getattr(request.state, "language", "en")
+        )
     except Exception:
         db.otp_challenges.delete_one({"_id": challenge_id})
         raise HTTPException(503, "Unable to send OTP. Please try again later.")

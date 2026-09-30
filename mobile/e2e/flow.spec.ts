@@ -536,9 +536,9 @@ test('daily Hishob closing, preserved history, corrections and manager permissio
   await owner.getByRole('button', { name: 'View closing 1', exact: true }).click();
   await expect(owner.getByText('₹12,500', { exact: true }).filter({ visible: true })).toBeVisible();
   await owner.getByRole('button', { name: 'View audit trail', exact: true }).click();
-  await expect(owner.getByText('DELETE TRANSACTION', { exact: true })).toBeVisible();
+  await expect(owner.getByText('Transaction deleted', { exact: true })).toBeVisible();
   await expect(owner.getByText('Receipt says 450', { exact: true })).toBeVisible();
-  await owner.getByText('DELETE TRANSACTION', { exact: true }).scrollIntoViewIfNeeded();
+  await owner.getByText('Transaction deleted', { exact: true }).scrollIntoViewIfNeeded();
   await owner.screenshot({ path: testInfo.outputPath('hishob-audit.png') });
   // Switch directly out of Hishob to enable the manager's financial access.
   await tab(owner, 'Home');

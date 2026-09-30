@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -24,6 +25,7 @@ import { money } from './money';
 import { dateInZone, hasDifference, HishobCalendar, monthRange } from './calendar';
 
 function MissedDay({ date, onCreated }: { date: string; onCreated: (id: string) => void }) {
+  useLocale();
   const { selected } = useAuth();
   const resource = useResource<TodayHishob>(
     `/shops/${selected!.shop_id}/hishob/day-context?for_date=${date}`,
@@ -36,7 +38,7 @@ function MissedDay({ date, onCreated }: { date: string; onCreated: (id: string) 
       {resource.data &&
         (resource.data.day ? (
           <Button
-            title={`Open Hishob · ${date}`}
+            title={t('Open Hishob · {0}', [date])}
             onPress={() => onCreated(resource.data!.day!.id)}
           />
         ) : (
@@ -52,6 +54,7 @@ function MissedDay({ date, onCreated }: { date: string; onCreated: (id: string) 
 }
 
 function DayCard({ day, open }: { day: DaySummary; open: () => void }) {
+  useLocale();
   return (
     <Card>
       <View style={styles.row}>
@@ -61,24 +64,26 @@ function DayCard({ day, open }: { day: DaySummary; open: () => void }) {
         </Text>
       </View>
       <Text style={styles.small}>
-        {day.status === 'OPEN' ? 'Current Galla' : 'Expected'} {money(day.expected_closing_cash)}
-        {day.status === 'CLOSED' ? ` · Cash kept ${money(day.actual_closing_cash)}` : ''}
+        {day.status === 'OPEN' ? t('Current Galla') : t('Expected')}{' '}
+        {money(day.expected_closing_cash)}
+        {day.status === 'CLOSED' ? t(' · Cash kept {0}', [money(day.actual_closing_cash)]) : ''}
       </Text>
       <Text style={[styles.heading, { color: hasDifference(day) ? colors.red : colors.green }]}>
         {day.status === 'OPEN'
-          ? 'Ready for your next entry'
+          ? t('Ready for your next entry')
           : day.mode === 'COUNTED'
-            ? 'Estimated sales · cash difference not measured'
+            ? t('Estimated sales · cash difference not measured')
             : day.difference === null
-              ? 'Payment breakdown unknown · cash difference unavailable'
-              : `Difference ${money(day.difference, true)}`}
+              ? t('Payment breakdown unknown · cash difference unavailable')
+              : t('Difference {0}', [money(day.difference, true)])}
       </Text>
-      <Button title={`Open Hishob · ${day.date}`} secondary onPress={open} />
+      <Button title={t('Open Hishob · {0}', [day.date])} secondary onPress={open} />
     </Card>
   );
 }
 
 export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'HishobHistory'>) {
+  useLocale();
   const { selected } = useAuth();
   const today = dateInZone(selected!.shop.timezone);
   const earliest = selected!.shop.created_at
@@ -116,14 +121,17 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
   };
   return (
     <Page refresh={resource.refresh}>
-      <Heading title="Hishob history" subtitle={`${selected!.shop.name} · Your cash, day by day`} />
+      <Heading
+        title={t('Hishob history')}
+        subtitle={t('{0} · Your cash, day by day', [selected!.shop.name])}
+      />
       <FilterChips
-        label="History view"
+        label={t('History view')}
         value={view}
         onChange={setView}
         options={[
-          { value: 'CALENDAR', label: 'Calendar' },
-          { value: 'LIST', label: 'Date range' },
+          { value: 'CALENDAR', label: t('Calendar') },
+          { value: 'LIST', label: t('Date range') },
         ]}
       />
       {view === 'CALENDAR' ? (
@@ -131,7 +139,7 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
           <MonthPicker month={month} setMonth={changeMonth} timezone={selected!.shop.timezone} />
           {month !== today.slice(0, 7) && (
             <Button
-              title="Current month"
+              title={t('Current month')}
               secondary
               onPress={() => changeMonth(today.slice(0, 7))}
             />
@@ -140,21 +148,21 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
       ) : (
         <Card>
           <Field
-            label="From date"
+            label={t('From date')}
             value={from}
             onChangeText={setFrom}
             placeholder="YYYY-MM-DD"
             maxLength={10}
           />
           <Field
-            label="To date"
+            label={t('To date')}
             value={to}
             onChangeText={setTo}
             placeholder="YYYY-MM-DD"
             maxLength={10}
           />
           <Button
-            title="Apply dates"
+            title={t('Apply dates')}
             disabled={!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)}
             onPress={() => setRange({ from, to })}
           />
@@ -165,64 +173,74 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
           <ErrorText message={monthly.error} />
           {monthly.data && (
             <Card>
-              <Text style={styles.heading}>Monthly sales · {money(monthly.data.total_sales)}</Text>
+              <Text style={styles.heading}>
+                {t('Monthly sales ·')} {money(monthly.data.total_sales)}
+              </Text>
               <Text style={styles.small}>
-                {monthly.data.closed_days} closed {monthly.data.closed_days === 1 ? 'day' : 'days'}{' '}
-                included · {monthly.data.open_days} open · {monthly.data.not_started_days} not
-                started (may include shop holidays)
+                {t(
+                  'Closed days included: {0} · Open: {1} · Not started: {2} (may include shop holidays)',
+                  [monthly.data.closed_days, monthly.data.open_days, monthly.data.not_started_days],
+                )}
               </Text>
               <Text style={styles.subtitle}>
-                Recorded sales {money(monthly.data.recorded_sales)} · Estimated cash sales{' '}
-                {money(monthly.data.estimated_sales)}
+                {' '}
+                {t('Recorded sales')} {money(monthly.data.recorded_sales)}{' '}
+                {t('· Estimated cash sales')} {money(monthly.data.estimated_sales)}
               </Text>
               <Text style={styles.small}>
-                Known breakdown · Cash {money(monthly.data.cash_sales)} · UPI / card{' '}
-                {money(monthly.data.digital_sales)} · Unpaid credit{' '}
+                {' '}
+                {t('Known breakdown · Cash')} {money(monthly.data.cash_sales)} {t('· UPI / card')}{' '}
+                {money(monthly.data.digital_sales)} {t('· Unpaid credit')}{' '}
                 {money(monthly.data.credit_sales)}
               </Text>
               {monthly.data.unallocated_days > 0 && (
                 <Text style={styles.small}>
-                  Sales without payment breakdown · {money(monthly.data.unallocated_sales)} across{' '}
-                  {monthly.data.unallocated_days} closed day(s). Included in monthly sales above;
-                  cash differences could not be checked for these days.
+                  {' '}
+                  {t(
+                    'Sales without payment breakdown · {0} across {1} closed day(s). Included in monthly sales above; cash differences could not be checked for these days.',
+                    [money(monthly.data.unallocated_sales), monthly.data.unallocated_days],
+                  )}
                 </Text>
               )}
               <Text style={styles.small}>
-                Expenses {money(monthly.data.expenses_total)} · Supplier payments{' '}
+                {' '}
+                {t('Expenses')} {money(monthly.data.expenses_total)} {t('· Supplier payments')}{' '}
                 {money(monthly.data.supplier_payments)}
               </Text>
               <Text style={styles.small}>
-                Bank transfers {money(monthly.data.bank_deposit)} · Take-home / withdrawals{' '}
-                {money(monthly.data.withdrawals)}
+                {' '}
+                {t('Bank transfers')} {money(monthly.data.bank_deposit)}{' '}
+                {t('· Take-home / withdrawals')} {money(monthly.data.withdrawals)}
               </Text>
               <Text style={styles.small}>
-                Closed days only. {monthly.data.estimated_days}{' '}
+                {' '}
+                {t('Closed days only.')} {monthly.data.estimated_days}{' '}
                 {monthly.data.estimated_days === 1
-                  ? 'cash-count day includes estimates.'
-                  : 'cash-count days include estimates.'}
-                Sales are not profit. Opening cash and transfers are not sales.
+                  ? t('cash-count day includes estimates.')
+                  : t('cash-count days include estimates.')}{' '}
+                {t('Sales are not profit. Opening cash and transfers are not sales.')}{' '}
               </Text>
             </Card>
           )}
         </>
       )}
       <FilterChips
-        label="Hishob status"
+        label={t('Hishob status')}
         value={status}
         onChange={(next) => {
           setStatus(next);
           setSelectedDate(null);
         }}
         options={[
-          { value: 'ALL', label: 'All days', count: allDays.length },
+          { value: 'ALL', label: t('All days'), count: allDays.length },
           {
             value: 'OPEN',
-            label: 'Open',
+            label: t('Open'),
             count: allDays.filter((day) => day.status === 'OPEN').length,
           },
           {
             value: 'CLOSED',
-            label: 'Closed',
+            label: t('Closed'),
             count: allDays.filter((day) => day.status === 'CLOSED').length,
           },
         ]}
@@ -232,9 +250,9 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
       {resource.data && (
         <>
           <Text style={styles.small}>
-            {allDays.filter(hasDifference).length} closed{' '}
-            {allDays.filter(hasDifference).length === 1 ? 'day has' : 'days have'} a cash difference
-            in this {view === 'CALENDAR' ? 'month' : 'range'}.
+            {t('Cash differences: {0} closed days in the selected period.', [
+              allDays.filter(hasDifference).length,
+            ])}
           </Text>
           {view === 'CALENDAR' ? (
             <>
@@ -259,15 +277,15 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
                 <EmptyState
                   title={
                     day
-                      ? `${date} · ${day.status === 'OPEN' ? 'Open' : 'Closed'}`
-                      : `${date} · Not started`
+                      ? `${date} · ${day.status === 'OPEN' ? t('Open') : t('Closed')}`
+                      : t('{0} · Not started', [date])
                   }
                   description={
                     day
-                      ? 'Choose All days to see this day’s summary.'
+                      ? t('Choose All days to see this day’s summary.')
                       : earliest && date < earliest
-                        ? 'This date is before this shop was created.'
-                        : 'No cash register was started on this date.'
+                        ? t('This date is before this shop was created.')
+                        : t('No cash register was started on this date.')
                   }
                 />
               )}
@@ -286,19 +304,21 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
                     />
                   ) : (
                     <Button
-                      title={`Start missed day · ${date}`}
+                      title={t('Start missed day · {0}', [date])}
                       onPress={() => setStartingDate(date)}
                     />
                   )
                 ) : (
                   <Text style={styles.small}>
-                    Ask your owner to open this missed day. You can then add entries with Hishob
-                    access.
+                    {' '}
+                    {t(
+                      'Ask your owner to open this missed day. You can then add entries with Hishob access.',
+                    )}{' '}
                   </Text>
                 ))}
               {!day && date === today && (
                 <Button
-                  title="Go to today’s Hishob"
+                  title={t('Go to today’s Hishob')}
                   onPress={() => navigation.navigate('HishobToday')}
                 />
               )}
@@ -314,8 +334,8 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
           )}
           {days.length === 0 && (
             <EmptyState
-              title="No Hishob days found"
-              description="Try another month or filter, or start today’s Hishob."
+              title={t('No Hishob days found')}
+              description={t('Try another month or filter, or start today’s Hishob.')}
             />
           )}
         </>

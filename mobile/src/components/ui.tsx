@@ -1,3 +1,4 @@
+import { localeTag, t, useLocale, original } from './../i18n';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { InfoHelp } from './InfoHelp';
 import React from 'react';
@@ -109,6 +110,7 @@ export function Page({
   refresh?: () => Promise<void>;
   topInset?: boolean;
 }) {
+  useLocale();
   const [refreshing, setRefreshing] = React.useState(false);
   const insets = useSafeAreaInsets();
   const [fields] = React.useState(() => new Map<string, InvalidField>());
@@ -169,6 +171,7 @@ export function Page({
   );
 }
 export function Heading({ title, subtitle }: { title: string; subtitle?: string }) {
+  useLocale();
   return (
     <View style={{ gap: 8 }}>
       <Text style={styles.title}>{title}</Text>
@@ -177,6 +180,7 @@ export function Heading({ title, subtitle }: { title: string; subtitle?: string 
   );
 }
 export function Card({ children }: { children: React.ReactNode }) {
+  useLocale();
   return <View style={styles.card}>{children}</View>;
 }
 export function Button({
@@ -198,22 +202,25 @@ export function Button({
   accessibilityLabel?: string;
   validationMessage?: string;
 }) {
+  useLocale();
   const form = React.useContext(FormContext);
   const [attempted, setAttempted] = React.useState(false);
   const submit =
     /^(save|confirm|continue|start|close today|create|register|sign in|set password|update|send|verify)/i.test(
-      title,
+      original(title),
     );
   const first = form?.fields.values().next().value;
   const explanation =
     validationMessage ||
-    (submit && disabled ? first?.message || 'Complete the required fields above to continue.' : '');
+    (submit && disabled
+      ? first?.message || t('Complete the required fields above to continue.')
+      : '');
   const icon: React.ComponentProps<typeof Ionicons>['name'] | undefined = secondary
-    ? title.startsWith('Edit ')
+    ? original(title).startsWith('Edit ')
       ? 'create-outline'
-      : title.startsWith('Delete ·')
+      : original(title).startsWith('Delete ·')
         ? 'trash-outline'
-        : title === 'Search'
+        : original(title) === 'Search'
           ? 'search-outline'
           : title === '←'
             ? 'chevron-back'
@@ -228,7 +235,7 @@ export function Button({
         label={accessibilityLabel || title}
         onPress={onPress}
         disabled={disabled || busy}
-        danger={title.startsWith('Delete ·')}
+        danger={original(title).startsWith('Delete ·')}
       />
     );
   return (
@@ -293,6 +300,7 @@ export function IconButton({
   danger?: boolean;
   compact?: boolean;
 }) {
+  useLocale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -330,6 +338,7 @@ export function Field({
   error?: string;
   minLength?: number;
 }) {
+  useLocale();
   const input = React.useRef<TextInput>(null);
   const wrapper = React.useRef<View>(null);
   const form = React.useContext(FormContext);
@@ -338,7 +347,10 @@ export function Field({
   const message =
     error ||
     (required && (props.value || '').trim().length < minLength
-      ? `Enter ${label.toLowerCase()}${minLength > 1 ? ` (at least ${minLength} characters)` : ''}.`
+      ? t('Enter {0}{1}.', [
+          label.toLowerCase(),
+          minLength > 1 ? t(' (at least {0} characters)', [minLength]) : '',
+        ])
       : '');
   const focus = () => {
     setTouched(true);
@@ -354,7 +366,9 @@ export function Field({
   return (
     <View ref={wrapper}>
       {help ? <InfoHelp title={label}>{help}</InfoHelp> : <Text style={styles.label}>{label}</Text>}
-      <Text style={[styles.small, { marginBottom: 6 }]}>{required ? 'Required' : 'Optional'}</Text>
+      <Text style={[styles.small, { marginBottom: 6 }]}>
+        {required ? t('Required') : t('Optional')}
+      </Text>
       <TextInput
         {...props}
         ref={input}
@@ -388,6 +402,7 @@ export function Field({
   );
 }
 export function ErrorText({ message }: { message: string }) {
+  useLocale();
   return message ? (
     <Text accessibilityRole="alert" style={{ color: colors.red, fontSize: 14, lineHeight: 21 }}>
       {message}
@@ -395,17 +410,19 @@ export function ErrorText({ message }: { message: string }) {
   ) : null;
 }
 export function Loading() {
+  useLocale();
   return <ActivityIndicator style={{ margin: 24 }} size="large" color={colors.green} />;
 }
 export const statusLabel = (status: Status) =>
   ({
-    PRESENT: 'Present',
-    ABSENT: 'Absent',
-    HALF_DAY: 'Half day',
-    LEAVE: 'Leave',
-    NOT_MARKED: 'Not marked',
+    PRESENT: t('Present'),
+    ABSENT: t('Absent'),
+    HALF_DAY: t('Half day'),
+    LEAVE: t('Leave'),
+    NOT_MARKED: t('Not marked'),
   })[status];
 export function Badge({ status }: { status: Status }) {
+  useLocale();
   const palette =
     status === 'ABSENT'
       ? ['#FAE4DE', '#A53535']
@@ -430,7 +447,7 @@ export function Badge({ status }: { status: Status }) {
 }
 export function timeLabel(value: string | null, timezone: string) {
   return value
-    ? new Intl.DateTimeFormat('en-IN', {
+    ? new Intl.DateTimeFormat(localeTag(), {
         timeZone: timezone,
         hour: 'numeric',
         minute: '2-digit',
@@ -446,6 +463,7 @@ export function AttendanceCard({
   timezone: string;
   action?: React.ReactNode;
 }) {
+  useLocale();
   return (
     <Card>
       <View style={styles.row}>
@@ -453,15 +471,19 @@ export function AttendanceCard({
         <Badge status={item.status} />
       </View>
       <Text style={styles.small}>
-        In {timeLabel(item.check_in, timezone)}
+        {' '}
+        {t('In')} {timeLabel(item.check_in, timezone)}
         {item.attendance_mode === 'CHECK_IN_OUT' || item.check_out || item.is_open
-          ? ` · Out ${timeLabel(item.check_out, timezone)}`
+          ? t(' · Out {0}', [timeLabel(item.check_out, timezone)])
           : ''}
       </Text>
       {item.note ? <Text style={styles.small}>{item.note}</Text> : null}
       {(item.source === 'OWNER' || item.source === 'MANAGER') && (
         <Text style={styles.small}>
-          Recorded by your shop {item.source === 'OWNER' ? 'owner' : 'manager'}
+          {' '}
+          {item.source === 'OWNER'
+            ? t('Recorded by your shop owner')
+            : t('Recorded by your shop manager')}
         </Text>
       )}
       {action}
@@ -485,6 +507,7 @@ export function MonthPicker({
   setMonth: (value: string) => void;
   timezone: string;
 }) {
+  useLocale();
   const move = (offset: number) => {
     const [year, m] = month.split('-').map(Number);
     const d = new Date(Date.UTC(year, m - 1 + offset, 1));
@@ -492,9 +515,14 @@ export function MonthPicker({
   };
   return (
     <View style={styles.row}>
-      <Button secondary title="←" accessibilityLabel="Previous month" onPress={() => move(-1)} />
+      <Button
+        secondary
+        title="←"
+        accessibilityLabel={t('Previous month')}
+        onPress={() => move(-1)}
+      />
       <Text style={styles.heading}>
-        {new Intl.DateTimeFormat('en-IN', {
+        {new Intl.DateTimeFormat(localeTag(), {
           month: 'long',
           year: 'numeric',
           timeZone: 'UTC',
@@ -503,7 +531,7 @@ export function MonthPicker({
       <Button
         secondary
         title="→"
-        accessibilityLabel="Next month"
+        accessibilityLabel={t('Next month')}
         disabled={month >= monthInZone(timezone)}
         onPress={() => move(1)}
       />
@@ -512,6 +540,7 @@ export function MonthPicker({
 }
 
 export function Avatar({ name, manager = false }: { name: string; manager?: boolean }) {
+  useLocale();
   return (
     <View
       style={{
@@ -536,6 +565,7 @@ export function Avatar({ name, manager = false }: { name: string; manager?: bool
   );
 }
 export function EmptyState({ title, description }: { title: string; description: string }) {
+  useLocale();
   return (
     <Card>
       <View style={{ alignItems: 'center', gap: 10, paddingVertical: 22 }}>

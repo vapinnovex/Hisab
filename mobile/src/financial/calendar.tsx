@@ -1,3 +1,4 @@
+import { weekdays, t, useLocale } from './../i18n';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Card, colors, styles } from '../components/ui';
@@ -42,6 +43,7 @@ export function HishobCalendar({
   onSelect: (date: string) => void;
   status: 'ALL' | 'OPEN' | 'CLOSED';
 }) {
+  useLocale();
   const [year, number] = month.split('-').map(Number);
   const offset = (new Date(Date.UTC(year, number - 1, 1)).getUTCDay() + 6) % 7;
   const count = new Date(Date.UTC(year, number, 0)).getUTCDate();
@@ -50,9 +52,9 @@ export function HishobCalendar({
     <Card>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
         {[
-          { label: 'Open', color: '#A46C0B' },
-          { label: 'Closed', color: colors.green },
-          { label: 'Cash difference', color: colors.red },
+          { label: t('Open'), color: '#A46C0B' },
+          { label: t('Closed'), color: colors.green },
+          { label: t('Cash difference'), color: colors.red },
         ].map(({ label, color }) => (
           <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: color }} />
@@ -61,7 +63,7 @@ export function HishobCalendar({
         ))}
       </View>
       <View style={{ flexDirection: 'row' }}>
-        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+        {weekdays().map((label, index) => (
           <Text
             key={index}
             style={[styles.small, { width: '14.2857%', textAlign: 'center', fontWeight: '700' }]}
@@ -85,7 +87,20 @@ export function HishobCalendar({
               {number > 0 && number <= count && (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Hishob ${date}, ${record ? (record.status === 'OPEN' ? 'Open' : 'Closed') : future ? 'Future date' : beforeShop ? 'Before shop creation' : 'Not started'}${record && hasDifference(record) ? ', Cash difference' : ''}${date === today ? ', Today' : ''}`}
+                  accessibilityLabel={t('Hishob {0}, {1}{2}{3}', [
+                    date,
+                    record
+                      ? record.status === 'OPEN'
+                        ? t('Open')
+                        : t('Closed')
+                      : future
+                        ? t('Future date')
+                        : beforeShop
+                          ? t('Before shop creation')
+                          : t('Not started'),
+                    record && hasDifference(record) ? t(', Cash difference') : '',
+                    date === today ? t(', Today') : '',
+                  ])}
                   accessibilityState={{ selected: selected === date, disabled }}
                   disabled={disabled}
                   onPress={() => onSelect(date)}
@@ -143,7 +158,8 @@ export function HishobCalendar({
         })}
       </View>
       <Text style={styles.small}>
-        Tap a date to see its cash summary. A gold outline marks today.
+        {' '}
+        {t('Tap a date to see its cash summary. A gold outline marks today.')}{' '}
       </Text>
     </Card>
   );

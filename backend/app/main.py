@@ -6,9 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings
 from .db import create_indexes
+from .i18n import message, negotiate, validation_message
 from .routers import account, attendance, auth, dues, hishob, password_auth, shops
 from .web_session import COOKIE_NAME
 
@@ -33,12 +35,19 @@ def create_app(settings: Settings = None):
         CORSMiddleware,
         allow_origins=config.cors_origins,
         allow_methods=["GET", "POST", "PATCH", "PUT"],
-        allow_headers=["Authorization", "Content-Type", "X-Hishob-Client"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Hishob-Client",
+            "Accept-Language",
+            "X-Hishob-Shop",
+        ],
         allow_credentials=True,
     )
 
     @app.middleware("http")
     async def browser_security(request: Request, call_next):
+        request.state.language = negotiate(request.headers.get("accept-language", "en"))
         web = request.headers.get("x-hishob-client") == "web"
         cookie_auth = COOKIE_NAME in request.cookies and not request.headers.get("authorization")
         if request.url.path.startswith("/api/"):
@@ -47,11 +56,19 @@ def create_app(settings: Settings = None):
                 if not web or request.headers.get("origin") not in config.cors_origins:
                     return JSONResponse(
                         status_code=403,
-                        content={"detail": "Untrusted browser origin. Open Hishob from its app address."},
-                        headers={"Cache-Control": "no-store"},
+                        content={
+                            "detail": message(
+                                request, "Untrusted browser origin. Open Hishob from its app address."
+                            )
+                        },
+                        headers={"Cache-Control": "no-store", "Content-Language": request.state.language},
                     )
             response = await call_next(request)
             response.headers["Cache-Control"] = "no-store"
+            response.headers["Content-Language"] = request.state.language
+            response.headers["Vary"] = ", ".join(
+                filter(None, [response.headers.get("Vary"), "Accept-Language"])
+            )
             return response
         return await call_next(request)
 
@@ -61,7 +78,10 @@ def create_app(settings: Settings = None):
         return JSONResponse(
             status_code=422,
             content={
-                "detail": [{key: error[key] for key in ("loc", "msg", "type")} for error in exc.errors()]
+                "detail": [
+                    {"loc": error["loc"], "msg": validation_message(request, error), "type": error["type"]}
+                    for error in exc.errors()
+                ]
             },
             headers={"Cache-Control": "no-store"},
         )
@@ -69,13 +89,35 @@ def create_app(settings: Settings = None):
     @app.exception_handler(PyMongoError)
     async def database_error(request: Request, exc: PyMongoError):
         return JSONResponse(
-            status_code=503, content={"detail": "Database temporarily unavailable. Please retry."}
+            status_code=503,
+            content={"detail": message(request, "Database temporarily unavailable. Please retry.")},
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request: Request, exc: StarletteHTTPException):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": message(request, exc.detail) if isinstance(exc.detail, str) else exc.detail},
+            headers=exc.headers,
         )
 
     @app.get("/health", tags=["System"])
     def health(request: Request):
         request.app.state.db.command("ping")
         return {"status": "ok"}
+
+    @app.exception_handler(Exception)
+    async def unexpected_error(request: Request, exc: Exception):
+        # Starlette logs/re-raises the original exception; never expose its details to clients.
+        return JSONResponse(
+            status_code=500,
+            content={"detail": message(request, "Unexpected server error. Please retry.")},
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Language": getattr(request.state, "language", "en"),
+                "Vary": "Accept-Language",
+            },
+        )
 
     app.include_router(auth.router, prefix="/api")
     app.include_router(password_auth.router, prefix="/api")

@@ -37,7 +37,12 @@ def ensure_user(db, mobile):
 
 @router.post("", status_code=201)
 def create_shop(body: ShopCreate, identity=Depends(require_owner), db=Depends(get_db)):
-    shop = {"_id": new_id(), **body.model_dump(), "created_by": identity.user["_id"], "created_at": now()}
+    shop = {
+        "_id": new_id(),
+        **body.model_dump(mode="json"),
+        "created_by": identity.user["_id"],
+        "created_at": now(),
+    }
     shop["settings"] = ShopSettings().model_dump(mode="json")
     db.shops.insert_one(shop)
     try:
@@ -137,7 +142,7 @@ def update_shop_settings(
     shop_id: str, body: ShopSettingsUpdate, identity=Depends(current_identity), db=Depends(get_db)
 ):
     shop_access(shop_id, db, identity, {"OWNER"})
-    settings = body.model_dump(mode="json", exclude={"shop_name"})
+    settings = body.model_dump(mode="json", exclude={"shop_name", "language"})
     changes = {
         "settings": settings,
         "updated_at": now(),
@@ -145,6 +150,8 @@ def update_shop_settings(
     }
     if body.shop_name is not None:
         changes["name"] = body.shop_name
+    if body.language is not None:
+        changes["language"] = body.language.value
     db.shops.update_one({"_id": shop_id}, {"$set": changes})
     return settings
 

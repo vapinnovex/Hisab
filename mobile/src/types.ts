@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
+export type Language = 'en' | 'hi' | 'mr';
 export type ShopSettings = {
   hishob_mode: 'ENTRIES' | 'COUNTED' | 'BILLING';
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
@@ -33,6 +34,7 @@ export type Shop = {
   id: string;
   name: string;
   timezone: string;
+  language: Language;
   settings: ShopSettings;
   created_at?: string;
 };
@@ -52,6 +54,7 @@ export type Session = {
     email?: string;
     password_ready: boolean;
     email_verified: boolean;
+    language?: Language | null;
   };
   role: Role;
   memberships: Membership[];
@@ -151,6 +154,7 @@ export type Routes = HishobRoutes & {
   OwnerProfile: undefined;
   ChangeMobile: undefined;
   ChangeEmail: undefined;
+  LanguageSettings: undefined;
   PasswordSecurity: undefined;
   StaffPasswordAccess: { worker: Worker };
   RoleSelection: undefined;

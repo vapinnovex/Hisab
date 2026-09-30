@@ -53,19 +53,16 @@ DEV_OTP=123456
 
 The development email code is shown in the app; no email is sent. Staff setup codes remain random, even in development. `OTP_PROVIDER` is obsolete and ignored.
 
-For real email, register with an SMTP mail service and configure its authenticated sender/domain and credentials:
+For real email, create a Brevo API key, authenticate your sender/domain in Brevo, and configure:
 
 ```dotenv
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtp.your-provider.example
-SMTP_PORT=587
-SMTP_USERNAME=your-username
-SMTP_PASSWORD=your-secret
-SMTP_FROM=Hishob <noreply@your-domain.example>
-SMTP_SSL=false
+EMAIL_PROVIDER=brevo
+BREVO_API_KEY=your-api-v3-key
+BREVO_SENDER_NAME=Hishob
+BREVO_SENDER_EMAIL=noreply@your-domain.example
 ```
 
-Port 587 uses STARTTLS with certificate verification. If your provider requires implicit TLS, use its port (typically 465) and `SMTP_SSL=true`. Credentials stay in backend environment variables, never `EXPO_PUBLIC_*`. `APP_ENV=production` rejects the development email provider and placeholder JWT secret. SMTP delivery errors return a retryable error and invalidate the unsent challenge. Actual delivery requires valid provider credentials; automated checks use a fake SMTP transport, not a real mailbox.
+The backend sends each OTP through Brevo's transactional `POST https://api.brevo.com/v3/smtp/email` endpoint. Credentials stay in backend environment variables, never `EXPO_PUBLIC_*`. `APP_ENV=production` rejects the development email provider and placeholder JWT secret. Brevo delivery errors return a retryable error and invalidate the unsent challenge. Actual delivery requires valid provider credentials; automated checks use a fake API transport, not a real mailbox.
 
 `OTP_EXPIRE_SECONDS` (300), `OTP_RESEND_SECONDS` (30) and `OTP_MAX_ATTEMPTS` (5) now apply to **email** codes. Codes are generated randomly for SMTP, stored as keyed hashes, single-use and purpose/account scoped. Explicit expiry checks do not rely on MongoDB's TTL cleanup. Login, setup, recovery and sending are rate-limited in MongoDB. Passwords use Argon2id (19 MiB, two iterations, one lane), following [OWASP's storage guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). Passwords support 12–128 characters and internal spaces; mismatches, common/repeated passwords, surrounding whitespace and use of the account mobile/email are rejected. User responses and validation errors exclude password hashes, setup hashes and submitted secrets.
 
@@ -77,7 +74,8 @@ Paths are prefixed with `/api`. Public endpoints still require the web-origin/cu
 | --- | --- |
 | `/auth/password/options` | `{mobile, role}`; returns PASSWORD, REGISTER, SETUP, OWNER_RECOVERY or OWNER_MIGRATION |
 | `/auth/password/login` | `{mobile, role, password}` |
-| `/auth/owner/register/request` | `{mobile, role: OWNER, name, email}`; email challenge |
+| `/auth/owner/register/request` | `{mobile, role: OWNER, name, email, language}`; email challenge; language is `en`, `hi` or `mr` |
+| `/auth/language` | `PATCH {language}` for any signed-in role; `null` clears the personal override and uses the active shop default |
 | `/auth/owner/register/confirm` | `{challenge_id, code, password, confirm_password}` |
 | `/auth/owner/recovery/request` | `{email}`; generic recovery challenge response |
 | `/auth/owner/recovery/confirm` | `{challenge_id, code, password, confirm_password}` |

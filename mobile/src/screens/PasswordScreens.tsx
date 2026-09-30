@@ -1,13 +1,17 @@
+import { localeTag, t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Text } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
 import { Button, Card, ErrorText, Field, Heading, Page, styles } from '../components/ui';
 import { NewPasswordFields, PasswordField, passwordsMatch } from '../components/PasswordFields';
 import { Challenge, Routes, Worker } from '../types';
+import { useNavigation } from '@react-navigation/native';
 
 export function PasswordSecurity() {
+  useLocale();
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { session, api, signIn, signOut } = useAuth();
   const enroll = session!.role === 'OWNER' && !session!.user.password_ready;
   const [email, setEmail] = useState(session!.user.email || '');
@@ -20,17 +24,26 @@ export function PasswordSecurity() {
   const action = useAction();
   return (
     <Page>
+      {enroll && (
+        <Button
+          title={t('Personal language')}
+          secondary
+          onPress={() => navigation.navigate('LanguageSettings')}
+        />
+      )}
       <Heading
-        title={enroll ? 'Secure your owner account' : 'Password & security'}
+        title={enroll ? t('Secure your owner account') : t('Password & security')}
         subtitle={
           enroll
-            ? 'Set a password and verify a recovery email. Your existing shops and records stay with you.'
-            : 'Changing your password signs out your other devices.'
+            ? t(
+                'Set a password and verify a recovery email. Your existing shops and records stay with you.',
+              )
+            : t('Changing your password signs out your other devices.')
         }
       />
       {session!.user.email && (
         <Card>
-          <Text style={styles.label}>Recovery email</Text>
+          <Text style={styles.label}>{t('Recovery email')}</Text>
           <Text style={styles.subtitle}>{session!.user.email}</Text>
         </Card>
       )}
@@ -38,7 +51,7 @@ export function PasswordSecurity() {
         <>
           <Field
             required
-            label="Email address"
+            label={t('Email address')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -46,7 +59,7 @@ export function PasswordSecurity() {
             keyboardType="email-address"
           />
           <Button
-            title="Verify recovery email"
+            title={t('Verify recovery email')}
             busy={action.busy}
             disabled={!email.includes('@')}
             onPress={() =>
@@ -62,13 +75,15 @@ export function PasswordSecurity() {
             <>
               {challenge?.dev_otp && (
                 <Text style={styles.small}>
-                  Development email code: {challenge.dev_otp}. No email is sent.
+                  {' '}
+                  {t('Development email code:')} {challenge.dev_otp}
+                  {t('. No email is sent.')}{' '}
                 </Text>
               )}
               <Field
                 required
                 minLength={6}
-                label="Email code"
+                label={t('Email code')}
                 value={code}
                 onChangeText={setCode}
                 keyboardType="number-pad"
@@ -76,7 +91,7 @@ export function PasswordSecurity() {
               />
             </>
           ) : (
-            <PasswordField label="Current password" value={current} onChange={setCurrent} />
+            <PasswordField label={t('Current password')} value={current} onChange={setCurrent} />
           )}
           <NewPasswordFields
             password={password}
@@ -85,7 +100,7 @@ export function PasswordSecurity() {
             setConfirm={setConfirm}
           />
           <Button
-            title={enroll ? 'Finish password setup' : 'Change password'}
+            title={enroll ? t('Finish password setup') : t('Change password')}
             busy={action.busy}
             disabled={!passwordsMatch(password, confirm) || (enroll ? code.length !== 6 : !current)}
             onPress={() =>
@@ -111,7 +126,7 @@ export function PasswordSecurity() {
           />
           {enroll && (
             <Button
-              title="Request a fresh email code"
+              title={t('Request a fresh email code')}
               secondary
               onPress={() => {
                 setChallenge(null);
@@ -122,14 +137,20 @@ export function PasswordSecurity() {
         </Card>
       )}
       {saved && (
-        <Text style={styles.subtitle}>Password updated. Other devices have been signed out.</Text>
+        <Text style={styles.subtitle}>
+          {t('Password updated. Other devices have been signed out.')}
+        </Text>
       )}
       <ErrorText message={action.error} />
-      {enroll && <Button title="Sign out" secondary onPress={() => void action.run(signOut)} />}
+      {enroll && (
+        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
+      )}
       {!enroll && !session!.user.password_ready && (
         <Text style={styles.small}>
-          Ask your owner for a setup code, then sign out and set your first password from the login
-          screen.
+          {' '}
+          {t(
+            'Ask your owner for a setup code, then sign out and set your first password from the login screen.',
+          )}{' '}
         </Text>
       )}
     </Page>
@@ -139,6 +160,7 @@ export function PasswordSecurity() {
 export function StaffPasswordAccess({
   route,
 }: NativeStackScreenProps<Routes, 'StaffPasswordAccess'>) {
+  useLocale();
   const { api, selected } = useAuth();
   const resource = useResource<Worker[]>(`/shops/${selected!.shop_id}/team`, true);
   const worker = resource.data?.find((w) => w.id === route.params.worker.id);
@@ -152,31 +174,34 @@ export function StaffPasswordAccess({
   return (
     <Page refresh={resource.refresh}>
       <Heading
-        title="Team password access"
+        title={t('Team password access')}
         subtitle={`${route.params.worker.name} · ${route.params.worker.mobile}`}
       />
       {worker && (
         <Card>
           <Text style={styles.heading}>
             {!worker.password_ready
-              ? 'First password setup'
+              ? t('First password setup')
               : worker.password_reset_required
-                ? 'Reset approved'
+                ? t('Reset approved')
                 : worker.password_reset_requested
-                  ? 'Password reset requested'
-                  : 'Password is already set'}
+                  ? t('Password reset requested')
+                  : t('Password is already set')}
           </Text>
           <Text style={styles.small}>
-            Confirm who you are speaking to before sharing a code. Approval signs this person out on
-            all devices. The code expires in 24 hours and works once. A new code replaces any
-            previous one.
+            {' '}
+            {t(
+              'Confirm who you are speaking to before sharing a code. Approval signs this person out on all devices. The code expires in 24 hours and works once. A new code replaces any previous one.',
+            )}{' '}
           </Text>
           {worker.active &&
             (!worker.password_ready ||
               worker.password_reset_requested ||
               worker.password_reset_required) && (
               <Button
-                title={!worker.password_ready ? 'Generate setup code' : 'Approve password reset'}
+                title={
+                  !worker.password_ready ? t('Generate setup code') : t('Approve password reset')
+                }
                 busy={action.busy}
                 onPress={() =>
                   void action.run(async () => {
@@ -194,7 +219,7 @@ export function StaffPasswordAccess({
             )}
           {worker.password_reset_requested && !worker.password_reset_required && (
             <Button
-              title="Decline request"
+              title={t('Decline request')}
               secondary
               busy={action.busy}
               onPress={() =>
@@ -204,7 +229,7 @@ export function StaffPasswordAccess({
                     {},
                     'POST',
                   );
-                  setMessage('Request declined.');
+                  setMessage(t('Request declined.'));
                   await resource.refresh();
                 })
               }
@@ -212,30 +237,36 @@ export function StaffPasswordAccess({
           )}
           {!worker.active && (
             <Text style={styles.small}>
-              Activate this team member before allowing password setup.
+              {' '}
+              {t('Activate this team member before allowing password setup.')}{' '}
             </Text>
           )}
           {worker.password_ready &&
             !worker.password_reset_requested &&
             !worker.password_reset_required && (
               <Text style={styles.small}>
-                For a forgotten password, they must request a reset from their login screen first.
+                {' '}
+                {t(
+                  'For a forgotten password, they must request a reset from their login screen first.',
+                )}{' '}
               </Text>
             )}
         </Card>
       )}
       {issued && (
         <Card>
-          <Text style={styles.eyebrow}>SHARE DIRECTLY WITH THIS PERSON</Text>
+          <Text style={styles.eyebrow}>{t('SHARE DIRECTLY WITH THIS PERSON')}</Text>
           <Text
             selectable
-            accessibilityLabel={`Setup code ${issued.setup_code}`}
+            accessibilityLabel={t('Setup code {0}', [issued.setup_code])}
             style={[styles.heading, { fontSize: 26, letterSpacing: 2 }]}
           >
             {issued.setup_code}
           </Text>
           <Text style={styles.small}>{issued.message}</Text>
-          <Text style={styles.small}>Expires {new Date(issued.expires_at).toLocaleString()}</Text>
+          <Text style={styles.small}>
+            {t('Expires')} {new Date(issued.expires_at).toLocaleString(localeTag())}
+          </Text>
         </Card>
       )}
       {!!message && <Text style={styles.subtitle}>{message}</Text>}

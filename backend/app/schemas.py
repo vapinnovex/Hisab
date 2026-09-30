@@ -20,6 +20,12 @@ class LoginRole(str, Enum):
     WORKER = "WORKER"
 
 
+class Language(str, Enum):
+    ENGLISH = "en"
+    HINDI = "hi"
+    MARATHI = "mr"
+
+
 class AttendanceStatus(str, Enum):
     PRESENT = "PRESENT"
     ABSENT = "ABSENT"
@@ -62,9 +68,14 @@ class OwnerProfileUpdate(Input):
     name: str = Field(min_length=2, max_length=100)
 
 
+class LanguageUpdate(Input):
+    language: Optional[Language] = None
+
+
 class ShopCreate(Input):
     name: str = Field(min_length=2, max_length=100)
     timezone: str = "Asia/Kolkata"
+    language: Language = Language.ENGLISH
 
     @field_validator("timezone")
     @classmethod
@@ -116,3 +127,4 @@ class ShopSettings(Input):
 
 class ShopSettingsUpdate(ShopSettings):
     shop_name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    language: Optional[Language] = None

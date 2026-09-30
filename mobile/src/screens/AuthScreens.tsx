@@ -1,3 +1,4 @@
+import { t, useLocale, getLanguage, roleLabel, setLanguage as setAppLanguage } from './../i18n';
 import { phoneError } from '../phone';
 import React, { useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
@@ -11,8 +12,10 @@ import { Challenge, Routes, Role } from '../types';
 import { logo } from '../components/Brand';
 import { NewPasswordFields, PasswordField, passwordsMatch } from '../components/PasswordFields';
 import { PhoneField } from '../components/PhoneField';
+import { LanguagePicker } from '../components/LanguagePicker';
 
 export function RoleSelection({ navigation }: NativeStackScreenProps<Routes, 'RoleSelection'>) {
+  useLocale();
   const roles: {
     role: Role;
     title: string;
@@ -21,49 +24,53 @@ export function RoleSelection({ navigation }: NativeStackScreenProps<Routes, 'Ro
   }[] = [
     {
       role: 'OWNER',
-      title: 'Owner',
-      detail: 'Your shop. Your team. Your way.',
+      title: t('Owner'),
+      detail: t('Your shop. Your team. Your way.'),
       icon: 'storefront-outline',
     },
     {
       role: 'MANAGER',
-      title: 'Manager',
-      detail: 'Keep the team and the day on track.',
+      title: t('Manager'),
+      detail: t('Keep the team and the day on track.'),
       icon: 'briefcase-outline',
     },
     {
       role: 'WORKER',
-      title: 'Worker',
-      detail: 'Every workday, clearly in view.',
+      title: t('Worker'),
+      detail: t('Every workday, clearly in view.'),
       icon: 'person-outline',
     },
   ];
   return (
     <Page topInset>
+      <LanguagePicker value={getLanguage()} onChange={(value) => value && setAppLanguage(value)} />
       <View style={{ alignItems: 'center', gap: 9, paddingTop: 10, paddingBottom: 12 }}>
         <Image
           source={logo}
-          accessibilityLabel="Hishob logo"
+          accessibilityLabel={t('Hishob logo')}
           resizeMode="contain"
           style={{ width: 152, height: 152 }}
         />
         <Text style={{ fontSize: 39, fontWeight: '800', color: colors.ink, letterSpacing: -1.5 }}>
-          Hishob<Text style={{ color: colors.gold }}>.</Text>
+          {' '}
+          {t('Hishob')}
+          <Text style={{ color: colors.gold }}>.</Text>
         </Text>
         <Text style={[styles.eyebrow, { fontSize: 10, letterSpacing: 2.3 }]}>
-          SMALL SHOP. BIG POSSIBILITIES.
+          {' '}
+          {t('SMALL SHOP. BIG POSSIBILITIES.')}{' '}
         </Text>
       </View>
       <Heading
-        title="Good days start together."
-        subtitle="A simpler way to look after your shop and the people who make it happen."
+        title={t('Good days start together.')}
+        subtitle={t('A simpler way to look after your shop and the people who make it happen.')}
       />
-      <Text style={styles.label}>HOW WILL YOU USE HISHOB?</Text>
+      <Text style={styles.label}>{t('HOW WILL YOU USE HISHOB?')}</Text>
       {roles.map((item) => (
         <Pressable
           key={item.role}
           accessibilityRole="button"
-          accessibilityLabel={`Continue as ${item.title}`}
+          accessibilityLabel={t('Continue as {0}', [item.title])}
           onPress={() => navigation.navigate('MobileLogin', { role: item.role })}
           style={({ pressed }) => ({
             padding: 18,
@@ -101,7 +108,8 @@ export function RoleSelection({ navigation }: NativeStackScreenProps<Routes, 'Ro
                 color: item.role === 'OWNER' ? 'white' : colors.ink,
               }}
             >
-              Continue as {item.title}
+              {' '}
+              {t('Continue as')} {item.title}
             </Text>
             <Text
               style={{
@@ -121,7 +129,8 @@ export function RoleSelection({ navigation }: NativeStackScreenProps<Routes, 'Ro
         </Pressable>
       ))}
       <Text style={[styles.small, { textAlign: 'center', fontSize: 11 }]}>
-        One mobile number. Your place in the team.
+        {' '}
+        {t('One mobile number. Your place in the team.')}{' '}
       </Text>
     </Page>
   );
@@ -137,12 +146,14 @@ type Step =
   | 'SETUP'
   | 'OWNER_MIGRATION';
 export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLogin'>) {
+  useLocale();
   const { role } = route.params;
   const { signIn } = useAuth();
   const [mobile, setMobile] = useState('+91');
   const [step, setStep] = useState<Step>('NUMBER');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const language = getLanguage();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [code, setCode] = useState('');
@@ -165,7 +176,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
     const registration = step === 'REGISTER';
     const next = await post<Challenge>(
       `/auth/owner/${registration ? 'register' : 'recovery'}/request`,
-      registration ? { mobile, role, name, email } : { email },
+      registration ? { mobile, role, name, email, language } : { email },
     );
     setChallenge(next);
     go(registration ? 'REGISTER_CONFIRM' : 'RECOVERY_CONFIRM');
@@ -173,30 +184,30 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
   const emailConfirm = step === 'REGISTER_CONFIRM' || step === 'RECOVERY_CONFIRM';
   return (
     <Page>
-      <Text style={styles.eyebrow}>{role} ACCOUNT</Text>
+      <Text style={styles.eyebrow}>{t('{0} account', [roleLabel(role)])}</Text>
       <Heading
         title={
           step === 'NUMBER'
-            ? 'Welcome to Hishob'
+            ? t('Welcome to Hishob')
             : step === 'PASSWORD'
-              ? 'Welcome back'
+              ? t('Welcome back')
               : step === 'REGISTER'
-                ? 'Create your owner account'
+                ? t('Create your owner account')
                 : step === 'RECOVERY'
-                  ? 'Recover your account'
+                  ? t('Recover your account')
                   : step === 'SETUP'
-                    ? 'Set your password'
+                    ? t('Set your password')
                     : step === 'OWNER_MIGRATION'
-                      ? 'Secure your existing account'
-                      : 'Check your email'
+                      ? t('Secure your existing account')
+                      : t('Check your email')
         }
         subtitle={
           step === 'NUMBER'
-            ? 'Use your mobile number to continue.'
+            ? t('Use your mobile number to continue.')
             : step === 'PASSWORD' || step === 'SETUP'
               ? mobile
               : emailConfirm
-                ? `Enter the code sent to ${email}.`
+                ? t('Enter the code sent to {0}.', [email])
                 : undefined
         }
       />
@@ -206,12 +217,12 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             <PhoneField value={mobile} onChange={setMobile} />
             <Text style={styles.small}>
               {role === 'OWNER'
-                ? 'New owners will need an email address for account recovery.'
-                : 'Your owner must add your number to an active shop first.'}
+                ? t('New owners will need an email address for account recovery.')
+                : t('Your owner must add your number to an active shop first.')}
             </Text>
           </Card>
           <Button
-            title="Continue"
+            title={t('Continue')}
             busy={action.busy}
             disabled={!!phoneError(mobile)}
             onPress={() =>
@@ -232,7 +243,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             <PasswordField value={password} onChange={setPassword} />
           </Card>
           <Button
-            title="Sign in"
+            title={t('Sign in')}
             busy={action.busy}
             disabled={!password}
             onPress={() =>
@@ -240,7 +251,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             }
           />
           <Button
-            title="Forgot password?"
+            title={t('Forgot password?')}
             secondary
             disabled={action.busy}
             onPress={() => go(role === 'OWNER' ? 'RECOVERY' : 'SETUP')}
@@ -251,24 +262,30 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
         <>
           <Card>
             {step === 'REGISTER' && (
-              <Field
-                required
-                minLength={2}
-                label="Your name"
-                value={name}
-                onChangeText={setName}
-                maxLength={100}
-                autoComplete="name"
-              />
+              <>
+                <Field
+                  required
+                  minLength={2}
+                  label={t('Your name')}
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={100}
+                  autoComplete="name"
+                />
+                <LanguagePicker
+                  value={language}
+                  onChange={(value) => value && setAppLanguage(value)}
+                />
+              </>
             )}
             <Field
               required
               error={
                 email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-                  ? 'Enter a valid email address.'
+                  ? t('Enter a valid email address.')
                   : ''
               }
-              label="Email address"
+              label={t('Email address')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -279,12 +296,14 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             />
             <Text style={styles.small}>
               {step === 'REGISTER'
-                ? 'We will verify this email. Keep access to it to recover your password.'
-                : 'If this email belongs to an owner account, we’ll send a recovery code. Your shop data stays unchanged.'}
+                ? t('We will verify this email. Keep access to it to recover your password.')
+                : t(
+                    'If this email belongs to an owner account, we’ll send a recovery code. Your shop data stays unchanged.',
+                  )}
             </Text>
           </Card>
           <Button
-            title="Send email code"
+            title={t('Send email code')}
             busy={action.busy}
             disabled={
               !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
@@ -298,9 +317,11 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
         <>
           {challenge?.dev_otp && (
             <Card>
-              <Text style={styles.eyebrow}>DEVELOPMENT EMAIL</Text>
+              <Text style={styles.eyebrow}>{t('DEVELOPMENT EMAIL')}</Text>
               <Text style={styles.small}>
-                Use code {challenge.dev_otp}. No email is sent in development mode.
+                {' '}
+                {t('Use code')} {challenge.dev_otp}
+                {t('. No email is sent in development mode.')}{' '}
               </Text>
             </Card>
           )}
@@ -308,7 +329,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             <Field
               required
               minLength={6}
-              label="Email code"
+              label={t('Email code')}
               value={code}
               onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
               maxLength={6}
@@ -323,7 +344,9 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             />
           </Card>
           <Button
-            title={step === 'REGISTER_CONFIRM' ? 'Create account' : 'Reset password & sign in'}
+            title={
+              step === 'REGISTER_CONFIRM' ? t('Create account') : t('Reset password & sign in')
+            }
             busy={action.busy}
             disabled={code.length !== 6 || !passwordsMatch(password, confirm)}
             onPress={() =>
@@ -341,7 +364,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             }
           />
           <Button
-            title="Request a fresh email code"
+            title={t('Request a fresh email code')}
             secondary
             disabled={action.busy}
             onPress={() => go(step === 'REGISTER_CONFIRM' ? 'REGISTER' : 'RECOVERY')}
@@ -352,13 +375,15 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
         <>
           <Card>
             <Text style={styles.subtitle}>
-              Ask your owner for a one-time setup code. For a forgotten password, request approval
-              below first. An authorised manager can help workers when the owner enables this.
+              {' '}
+              {t(
+                'Ask your owner for a one-time setup code. For a forgotten password, request approval below first. An authorised manager can help workers when the owner enables this.',
+              )}{' '}
             </Text>
             <Field
               required
               minLength={8}
-              label="Setup code"
+              label={t('Setup code')}
               value={code}
               onChangeText={setCode}
               autoCapitalize="characters"
@@ -373,7 +398,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             />
           </Card>
           <Button
-            title="Set password & sign in"
+            title={t('Set password & sign in')}
             busy={action.busy}
             disabled={code.trim().length < 8 || !passwordsMatch(password, confirm)}
             onPress={() =>
@@ -389,7 +414,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
             }
           />
           <Button
-            title="Request password reset"
+            title={t('Request password reset')}
             secondary
             disabled={action.busy}
             onPress={() =>
@@ -402,15 +427,20 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
               })
             }
           />
-          <Button title="My account also owns a shop" secondary onPress={() => go('RECOVERY')} />
+          <Button
+            title={t('My account also owns a shop')}
+            secondary
+            onPress={() => go('RECOVERY')}
+          />
         </>
       )}
       {step === 'OWNER_MIGRATION' && (
         <Card>
           <Text style={styles.subtitle}>
-            This existing owner account needs a recovery email and password. Use an already
-            signed-in device to complete setup. If you no longer have a session, contact the Hishob
-            administrator to link your recovery email securely. Your shops are preserved.
+            {' '}
+            {t(
+              'This existing owner account needs a recovery email and password. Use an already signed-in device to complete setup. If you no longer have a session, contact the Hishob administrator to link your recovery email securely. Your shops are preserved.',
+            )}{' '}
           </Text>
         </Card>
       )}
@@ -422,14 +452,14 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
       <ErrorText message={action.error} />
       {step !== 'NUMBER' && (
         <Button
-          title="Use another mobile number"
+          title={t('Use another mobile number')}
           secondary
           disabled={action.busy}
           onPress={() => go('NUMBER')}
         />
       )}
       {step === 'NUMBER' && role === 'OWNER' && (
-        <Button title="Forgot password?" secondary onPress={() => go('RECOVERY')} />
+        <Button title={t('Forgot password?')} secondary onPress={() => go('RECOVERY')} />
       )}
     </Page>
   );

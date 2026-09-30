@@ -1,3 +1,4 @@
+import { t, getLanguage } from './i18n';
 import { Platform } from 'react-native';
 import { browserOffline, setConnection, trackWrite } from './connection';
 
@@ -21,6 +22,11 @@ export class ApiError extends Error {
   }
 }
 
+let activeShop: string | null = null;
+export function setRequestShop(id: string | null) {
+  activeShop = id;
+}
+
 export async function request<T>(
   path: string,
   token?: string | null,
@@ -29,7 +35,7 @@ export async function request<T>(
 ): Promise<T> {
   if (Platform.OS === 'web' && browserOffline()) {
     setConnection('offline');
-    throw new Error('You’re offline. Nothing was sent. Reconnect and try again.');
+    throw new Error(t('You’re offline. Nothing was sent. Reconnect and try again.'));
   }
   const finishWrite = method === 'GET' ? () => {} : trackWrite();
   const controller = new AbortController();
@@ -41,6 +47,8 @@ export async function request<T>(
       cache: 'no-store',
       signal: controller.signal,
       headers: {
+        'Accept-Language': getLanguage(),
+        ...(activeShop ? { 'X-Hishob-Shop': activeShop } : {}),
         ...(Platform.OS === 'web'
           ? { 'X-Hishob-Client': 'web' }
           : token
@@ -60,10 +68,10 @@ export async function request<T>(
       throw new ApiError(
         response.status,
         response.status >= 500 && method !== 'GET'
-          ? 'The server could not confirm this change. Refresh and check before trying again.'
+          ? t('The server could not confirm this change. Refresh and check before trying again.')
           : typeof detail === 'string'
             ? detail
-            : 'Something went wrong. Please try again.',
+            : t('Something went wrong. Please try again.'),
       );
     }
     return data as T;
@@ -72,8 +80,10 @@ export async function request<T>(
     setConnection(browserOffline() ? 'offline' : 'unavailable');
     throw new Error(
       method === 'GET'
-        ? 'Cannot reach Hishob. Check your connection and the API server address.'
-        : 'Could not confirm this request. It may have reached Hishob. Reconnect and check before trying again.',
+        ? t('Cannot reach Hishob. Check your connection and the API server address.')
+        : t(
+            'Could not confirm this request. It may have reached Hishob. Reconnect and check before trying again.',
+          ),
     );
   } finally {
     clearTimeout(timeout);

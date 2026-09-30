@@ -9,6 +9,7 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db, new_id, now
+from ..i18n import message
 from ..otp import code_hash
 from ..password_schemas import (
     EmailInput,
@@ -127,7 +128,11 @@ def register_request(body: RegisterInput, request: Request, db=Depends(get_db)):
     if db.users.find_one({"$or": [{"mobile": body.mobile}, {"email": email}]}):
         raise HTTPException(409, "An account already uses these details. Sign in or recover your password.")
     return issue_challenge(
-        request, db, email, "OWNER_REGISTER", {"target_mobile": body.mobile, "name": body.name}
+        request,
+        db,
+        email,
+        "OWNER_REGISTER",
+        {"target_mobile": body.mobile, "name": body.name, "language": body.language.value},
     )
 
 
@@ -143,6 +148,7 @@ def register_confirm(body: EmailPassword, request: Request, response: Response, 
         "email_verified": True,
         "owner_registered": True,
         "name": challenge["name"],
+        "language": challenge.get("language", "en"),
         "password_hash": hash_password(body.password),
         "created_at": now(),
         "auth_version": 1,
@@ -261,7 +267,10 @@ def staff_request(body: OTPRequest, request: Request, db=Depends(get_db)):
         {"$set": {"password_reset_requested_at": now()}},
     )
     return {
-        "message": "Request sent. Ask your owner or an authorised manager for your setup code after approval."
+        "message": message(
+            request,
+            "Request sent. Ask your owner or an authorised manager for your setup code after approval.",
+        )
     }
 
 
@@ -326,12 +335,16 @@ def approve_staff(
     return {
         "setup_code": code,
         "expires_at": expiry,
-        "message": "Share this code directly with this person. It is shown only now and can be used once.",
+        "message": message(
+            request, "Share this code directly with this person. It is shown only now and can be used once."
+        ),
     }
 
 
 @router.post("/shops/{shop_id}/team/{staff_id}/password-deny")
-def deny_staff(shop_id: str, staff_id: str, identity=Depends(current_identity), db=Depends(get_db)):
+def deny_staff(
+    shop_id: str, staff_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)
+):
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     target = staff_in_shop(db, shop_id, staff_id, active_only=True)
     user = db.users.find_one({"_id": target["user_id"]})
@@ -339,7 +352,7 @@ def deny_staff(shop_id: str, staff_id: str, identity=Depends(current_identity), 
     if user.get("password_reset_required"):
         raise HTTPException(409, "Reset already approved. Issue a new setup code if needed.")
     db.users.update_one(version_query(user), {"$unset": {"password_reset_requested_at": ""}})
-    return {"message": "Request declined. Existing password remains unchanged."}
+    return {"message": message(request, "Request declined. Existing password remains unchanged.")}
 
 
 @router.post("/auth/staff/password/setup")

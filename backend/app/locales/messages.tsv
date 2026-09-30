@@ -1,0 +1,119 @@
+A payment or cancellation was recorded at the same time. Refresh before trying again.|उसी समय भुगतान या रद्दीकरण दर्ज हुआ। फिर कोशिश से पहले रीफ़्रेश करें।|त्याच वेळी भुगतान किंवा रद्द नोंद झाली. पुन्हा प्रयत्न करण्याआधी रीफ्रेश करा.
+Active transaction not found.|सक्रिय लेनदेन नहीं मिला।|सक्रिय व्यवहार सापडला नाही.
+Add a difference note before closing with a shortage or extra cash.|कमी या अधिक नकदी के साथ बंद करने से पहले अंतर का नोट दें।|तूट किंवा जादा रोख असताना बंद करण्याआधी फरकाची नोंद द्या.
+Add a reason for changing the carried opening cash.|आगे लाई शुरुआती नकदी बदलने का कारण दें।|पुढे आणलेली सुरुवातीची रोख बदलण्याचे कारण द्या.
+Add a reason for opening this missed day.|छूटा दिन खोलने का कारण दें।|राहिलेला दिवस उघडण्याचे कारण द्या.
+An account already uses these details. Sign in or recover your password.|इन विवरणों का खाता मौजूद है। साइन इन करें या पासवर्ड वापस पाएँ।|या तपशिलांचे खाते आहे. साइन इन करा किंवा पासवर्ड परत मिळवा.
+An earlier shift is still open. Record its check-out first.|पिछली शिफ्ट खुली है। पहले उसका प्रस्थान दर्ज करें।|मागील शिफ्ट खुली आहे. आधी तिचे प्रस्थान नोंदवा.
+An unpaid sale’s amount cannot be changed. Before collecting, delete and re-add it with the correct amount.|उधार बिक्री की राशि नहीं बदल सकते। वसूली से पहले मिटाकर सही राशि से फिर जोड़ें।|उधारी विक्रीची रक्कम बदलता येत नाही. वसुलीपूर्वी हटवून योग्य रकमेसह पुन्हा जोडा.
+Ask the owner to open this missed day before adding entries.|प्रविष्टियाँ जोड़ने से पहले मालिक से छूटा दिन खोलने को कहें।|नोंदी जोडण्याआधी मालकाला राहिलेला दिवस उघडायला सांगा.
+Attendance cannot be viewed for a future date|भविष्य की तारीख की हाज़िरी नहीं देख सकते|भविष्यातील तारखेची हजेरी पाहता येत नाही
+Attendance date must be between the worker’s join date and today|हाज़िरी तारीख कर्मचारी की शामिल होने की तारीख और आज के बीच होनी चाहिए|हजेरीची तारीख कर्मचारी रुजू झाल्यापासून आजपर्यंतची असावी
+Attendance is already recorded, or an earlier shift is open.|हाज़िरी पहले से दर्ज है या पिछली शिफ्ट खुली है।|हजेरी आधीच नोंदली आहे किंवा मागील शिफ्ट खुली आहे.
+Bank and take-home cash cannot exceed the cash you counted.|बैंक और घर की नकदी गिनी नकदी से अधिक नहीं हो सकती।|बँक व घरची रोख मोजलेल्या रोखीपेक्षा जास्त असू शकत नाही.
+Billing totals are only available for the billing method.|बिलिंग कुल केवल बिलिंग विधि में उपलब्ध है।|बिलिंग एकूण फक्त बिलिंग पद्धतीत उपलब्ध आहे.
+Cash sales are estimated from your count in this method.|इस विधि में गिनी नकदी से बिक्री का अनुमान होता है।|या पद्धतीत मोजलेल्या रोखीवरून विक्रीचा अंदाज होतो.
+Cash sales cannot be less than cash collected for today’s unpaid sales.|नकद बिक्री आज की उधारी से मिली नकदी से कम नहीं हो सकती।|रोख विक्री आजच्या उधारीतून मिळालेल्या रोखीपेक्षा कमी असू शकत नाही.
+Choose a date between shop creation and today.|दुकान बनने की तारीख और आज के बीच चुनें।|दुकान तयार झाल्यापासून आजपर्यंतची तारीख निवडा.
+Choose a date range of at most 366 days.|अधिकतम 366 दिन की अवधि चुनें।|जास्तीत जास्त 366 दिवसांचा कालावधी निवडा.
+Choose a different email address.|दूसरा ईमेल पता चुनें।|दुसरा ईमेल पत्ता निवडा.
+Choose a different number that is not already in use.|दूसरा, इस्तेमाल न हो रहा नंबर चुनें।|दुसरा, वापरात नसलेला क्रमांक निवडा.
+Choose a valid month.|मान्य महीना चुनें।|वैध महिना निवडा.
+Choose both a start and end date, or search all dates.|शुरू और अंत दोनों तारीखें चुनें या सभी में खोजें।|सुरुवातीची व शेवटची तारीख निवडा किंवा सर्व तारखांत शोधा.
+Choose cash/digital payment only for expenses or supplier payments.|नकद/डिजिटल भुगतान केवल खर्च या आपूर्तिकर्ता भुगतान के लिए चुनें।|रोख/डिजिटल भुगतान फक्त खर्च किंवा पुरवठादार भुगतानासाठी निवडा.
+Choose total sales only to enter a billing grand total.|बिलिंग कुल भरने के लिए केवल कुल बिक्री चुनें।|बिलिंग एकूण भरण्यासाठी फक्त एकूण विक्री निवडा.
+Collect payments in today’s open Hishob, using the actual date of receipt.|वास्तविक प्राप्ति तारीख पर आज के खुले हिशोब में वसूली करें।|प्रत्यक्ष प्राप्ती तारखेला आजच्या खुल्या हिशोबात वसुली करा.
+Current password is incorrect.|वर्तमान पासवर्ड गलत है।|सध्याचा पासवर्ड चुकीचा आहे.
+Database temporarily unavailable. Please retry.|डेटाबेस अभी उपलब्ध नहीं। फिर कोशिश करें।|डेटाबेस तात्पुरता उपलब्ध नाही. पुन्हा प्रयत्न करा.
+Digital and unpaid credit sales cannot exceed total sales.|डिजिटल और बकाया उधार बिक्री कुल बिक्री से अधिक नहीं हो सकती।|डिजिटल व बाकी उधारी विक्री एकूण विक्रीपेक्षा जास्त असू शकत नाही.
+Do not use your mobile number or email as your password.|मोबाइल नंबर या ईमेल को पासवर्ड न बनाएँ।|मोबाइल क्रमांक किंवा ईमेल पासवर्ड म्हणून वापरू नका.
+Email already belongs to another account.|यह ईमेल दूसरे खाते में है।|हा ईमेल दुसऱ्या खात्यात आहे.
+Enter a payment greater than zero and no more than the remaining due.|शून्य से अधिक और शेष बकाया तक भुगतान भरें।|शून्यापेक्षा जास्त आणि बाकी रकमेपर्यंत भुगतान भरा.
+Enter a valid mobile number|मान्य मोबाइल नंबर भरें|वैध मोबाइल क्रमांक भरा
+Enter an amount greater than zero.|शून्य से अधिक राशि भरें।|शून्यापेक्षा जास्त रक्कम भरा.
+Enter opening cash for your first Hishob day.|पहले हिशोब दिन की शुरुआती नकदी भरें।|पहिल्या हिशोब दिवसाची सुरुवातीची रोख भरा.
+Enter sales in the closing form for this shop’s Hishob method.|इस दुकान की विधि में बिक्री बंदी फ़ॉर्म में भरें।|या दुकानच्या पद्धतीत विक्री बंदीच्या फॉर्ममध्ये भरा.
+Enter sales totals, including zero for payment types with no sales.|बिक्री कुल भरें; बिना बिक्री वाले भुगतान प्रकार में शून्य भरें।|विक्री एकूण भरा; विक्री नसलेल्या भुगतान प्रकारात शून्य भरा.
+Enter the billing total without a separate cash sales amount.|अलग नकद बिक्री के बिना बिलिंग कुल भरें।|वेगळ्या रोख विक्रीशिवाय बिलिंग एकूण भरा.
+Hishob day not found in this shop.|इस दुकान में हिशोब दिन नहीं मिला।|या दुकानात हिशोब दिवस सापडला नाही.
+Include country code, e.g. +919876543210|देश का कोड जोड़ें, उदा. +919876543210|देशाचा कोड जोडा, उदा. +919876543210
+Include today’s collected UPI/card sales in the digital total.|आज की प्राप्त UPI/कार्ड बिक्री डिजिटल कुल में जोड़ें।|आजची प्राप्त UPI/कार्ड विक्री डिजिटल एकूणमध्ये जोडा.
+Incorrect mobile number or password, or password setup is required.|मोबाइल या पासवर्ड गलत है, या पासवर्ड सेटअप चाहिए।|मोबाइल किंवा पासवर्ड चुकीचा आहे, किंवा पासवर्ड सेटअप आवश्यक आहे.
+Invalid or expired OTP. Request a new code if needed.|OTP गलत या समाप्त है। ज़रूरत हो तो नया कोड माँगें।|OTP चुकीचा किंवा मुदत संपलेला आहे. आवश्यक असल्यास नवीन कोड मागवा.
+Invalid or expired setup code. Ask your owner for a new one.|सेटअप कोड गलत या समाप्त है। मालिक से नया लें।|सेटअप कोड चुकीचा किंवा मुदत संपलेला आहे. मालकाकडून नवीन घ्या.
+Manager already exists. Edit their profile to reactivate them.|प्रबंधक पहले से है। सक्रिय करने के लिए प्रोफ़ाइल बदलें।|व्यवस्थापक आधीच आहे. सक्रिय करण्यासाठी प्रोफाइल बदला.
+Manager not found in this shop|इस दुकान में प्रबंधक नहीं मिला|या दुकानात व्यवस्थापक सापडला नाही
+Month must be YYYY-MM|महीना YYYY-MM प्रारूप में होना चाहिए|महिना YYYY-MM स्वरूपात हवा
+No open shift. Check-out is only needed for an in-and-out shift.|खुली शिफ्ट नहीं। प्रस्थान केवल आगमन-प्रस्थान शिफ्ट में चाहिए।|खुली शिफ्ट नाही. प्रस्थान फक्त आगमन-प्रस्थान शिफ्टमध्ये आवश्यक आहे.
+Only your owner can authorise this attendance action.|यह हाज़िरी कार्य केवल मालिक मंज़ूर कर सकता है।|ही हजेरी कृती फक्त मालक मंजूर करू शकतो.
+Owner access required|मालिक की पहुँच चाहिए|मालकाचा प्रवेश आवश्यक
+Owner account required.|मालिक खाता चाहिए।|मालक खाते आवश्यक आहे.
+Passwords do not match.|पासवर्ड मेल नहीं खाते।|पासवर्ड जुळत नाहीत.
+Payment receipts cannot be edited or deleted.|भुगतान रसीद बदल या मिटा नहीं सकते।|भुगतान पावती बदलता किंवा हटवता येत नाही.
+Please wait before requesting another OTP.|दूसरा OTP माँगने से पहले प्रतीक्षा करें।|दुसरा OTP मागण्याआधी थांबा.
+Provide both digital and unpaid credit sales, or leave both unknown.|डिजिटल और बकाया बिक्री दोनों दें या दोनों अज्ञात छोड़ें।|डिजिटल व बाकी उधारी विक्री दोन्ही द्या किंवा दोन्ही अज्ञात ठेवा.
+Record payments through Customer dues.|भुगतान ग्राहक उधारी से दर्ज करें।|भुगतान ग्राहक उधारीतून नोंदवा.
+Request declined. Existing password remains unchanged.|अनुरोध अस्वीकार हुआ। मौजूदा पासवर्ड नहीं बदला।|विनंती नाकारली. सध्याचा पासवर्ड बदललेला नाही.
+Request sent. Ask your owner or an authorised manager for your setup code after approval.|अनुरोध भेजा। मंज़ूरी के बाद मालिक या अधिकृत प्रबंधक से सेटअप कोड लें।|विनंती पाठवली. मंजुरीनंतर मालक किंवा अधिकृत व्यवस्थापकाकडून सेटअप कोड घ्या.
+Reset already approved. Issue a new setup code if needed.|रीसेट पहले से मंज़ूर है। ज़रूरत हो तो नया सेटअप कोड दें।|रीसेट आधीच मंजूर आहे. आवश्यक असल्यास नवीन सेटअप कोड द्या.
+Sales are already recorded as transactions. Do not enter them twice.|बिक्री पहले से लेनदेन में दर्ज है। दोबारा न भरें।|विक्री आधीच व्यवहारांत नोंदली आहे. पुन्हा भरू नका.
+Session expired. Please log in again.|सत्र समाप्त। फिर लॉगिन करें।|सत्र संपले. पुन्हा लॉगिन करा.
+Set up your recovery email first.|पहले रिकवरी ईमेल सेट करें।|आधी पुनर्प्राप्ती ईमेल सेट करा.
+Share this code directly with this person. It is shown only now and can be used once.|कोड सीधे इसी व्यक्ति को दें। यह केवल अभी दिखता है और एक बार चलेगा।|कोड थेट याच व्यक्तीला द्या. तो फक्त आत्ता दिसतो व एकदाच चालतो.
+Shop not found|दुकान नहीं मिली|दुकान सापडले नाही
+Team member not found in this shop|इस दुकान में सदस्य नहीं मिला|या दुकानात सदस्य सापडला नाही
+The account changed. Refresh and try again.|खाता बदल गया। रीफ़्रेश करके फिर कोशिश करें।|खाते बदलले. रीफ्रेश करून पुन्हा प्रयत्न करा.
+The count implies negative cash sales. Review opening cash, expenses and cash movements.|गिनती से ऋणात्मक नकद बिक्री निकलती है। शुरुआती नकदी, खर्च और लेनदेन जाँचें।|मोजणीवरून रोख विक्री ऋण येते. सुरुवातीची रोख, खर्च व व्यवहार तपासा.
+The team member must request a password reset first.|सदस्य को पहले पासवर्ड रीसेट माँगना होगा।|सदस्याने आधी पासवर्ड रीसेट मागवावा.
+This OTP has already been used|यह OTP इस्तेमाल हो चुका है|हा OTP वापरलेला आहे
+This account also owns a shop. Use owner email recovery.|यह खाता दुकान का मालिक भी है। मालिक ईमेल रिकवरी इस्तेमाल करें।|हे खाते दुकानाचे मालकही आहे. मालक ईमेल पुनर्प्राप्ती वापरा.
+This business date already has a Hishob. Open the existing day.|इस तारीख का हिशोब मौजूद है। वही दिन खोलें।|या तारखेचा हिशोब आहे. तोच दिवस उघडा.
+This closing changed. Refresh and try again.|बंदी बदल गई। रीफ़्रेश करके फिर कोशिश करें।|बंदी बदलली. रीफ्रेश करून पुन्हा प्रयत्न करा.
+This day changed on another device. Refresh and try again.|दूसरे डिवाइस पर दिन बदल गया। रीफ़्रेश करके फिर कोशिश करें।|दुसऱ्या डिव्हाइसवर दिवस बदलला. रीफ्रेश करून पुन्हा प्रयत्न करा.
+This day has reached its storage limit. Contact support before adding more entries.|इस दिन की संग्रह सीमा पूरी है। और प्रविष्टियों से पहले सहायता लें।|या दिवसाची साठवण मर्यादा पूर्ण झाली. आणखी नोंदी करण्याआधी मदत घ्या.
+This day is closed. The owner must reopen it before making changes.|दिन बंद है। बदलाव से पहले मालिक को फिर खोलना होगा।|दिवस बंद आहे. बदलांआधी मालकाने पुन्हा उघडणे आवश्यक आहे.
+This mobile already belongs to a manager in this shop|यह मोबाइल इस दुकान के प्रबंधक का है|हा मोबाइल या दुकानातील व्यवस्थापकाचा आहे
+This mobile number already belongs to a worker in this shop|यह मोबाइल इस दुकान के कर्मचारी का है|हा मोबाइल या दुकानातील कर्मचाऱ्याचा आहे
+This number already belongs to an account.|यह नंबर किसी खाते में है।|हा क्रमांक एका खात्यात आहे.
+This number belongs to a team account. Sign in with your team role.|यह टीम का नंबर है। टीम भूमिका से साइन इन करें।|हा टीम खात्याचा क्रमांक आहे. टीम भूमिकेने साइन इन करा.
+This password is too common. Choose a longer, unique passphrase.|यह पासवर्ड बहुत आम है। लंबा और अनोखा वाक्य चुनें।|हा पासवर्ड खूप सामान्य आहे. लांब व वेगळे वाक्य निवडा.
+This payment reference was already used.|भुगतान संदर्भ पहले इस्तेमाल हुआ है।|भुगतान संदर्भ आधी वापरला आहे.
+This sale has payments and cannot be deleted.|इस बिक्री पर भुगतान हैं, इसे मिटा नहीं सकते।|या विक्रीवर भुगतान आहे; ती हटवता येत नाही.
+This setup approval is no longer valid.|सेटअप मंज़ूरी अब मान्य नहीं है।|सेटअप मंजुरी आता वैध नाही.
+This setup is only for an existing owner without a password.|यह सेटअप केवल बिना पासवर्ड के पुराने मालिक के लिए है।|हा सेटअप फक्त पासवर्ड नसलेल्या जुन्या मालकासाठी आहे.
+This transaction reference was already used.|लेनदेन संदर्भ पहले इस्तेमाल हुआ है।|व्यवहार संदर्भ आधी वापरला आहे.
+This unpaid entry was cancelled. Refresh the register.|उधार प्रविष्टि रद्द हुई। रजिस्टर रीफ़्रेश करें।|उधारी नोंद रद्द झाली. नोंदवही रीफ्रेश करा.
+Too many attempts. Please try again later.|बहुत प्रयास हुए। बाद में फिर कोशिश करें।|खूप प्रयत्न झाले. नंतर पुन्हा प्रयत्न करा.
+Total sales cannot be less than recorded credit sales and their same-day payments.|कुल बिक्री दर्ज उधारी और उसके उसी दिन के भुगतान से कम नहीं हो सकती।|एकूण विक्री नोंदवलेली उधारी व त्याच दिवसाच्या भुगतानांपेक्षा कमी असू शकत नाही.
+Unable to send OTP. Please try again later.|OTP नहीं भेज सके। बाद में कोशिश करें।|OTP पाठवता आला नाही. नंतर प्रयत्न करा.
+Unpaid sale not found in this shop.|इस दुकान में उधार बिक्री नहीं मिली।|या दुकानात उधारी विक्री सापडली नाही.
+Unpaid sales are calculated from transactions. Refresh and review Customer dues.|उधारी लेनदेन से गणना होती है। रीफ़्रेश करके ग्राहक उधारी जाँचें।|उधारी व्यवहारांवरून मोजली जाते. रीफ्रेश करून ग्राहक उधारी तपासा.
+Untrusted browser origin. Open Hishob from its app address.|ब्राउज़र का स्रोत विश्वसनीय नहीं। हिशोब उसके ऐप पते से खोलें।|ब्राउझरचा स्रोत विश्वासार्ह नाही. हिशोब त्याच्या ॲप पत्त्यावरून उघडा.
+Use 12–128 characters, without spaces at the beginning or end.|12–128 अक्षर रखें, शुरू या अंत में खाली जगह न हो।|12–128 अक्षरे वापरा, सुरुवातीला किंवा शेवटी रिकामी जागा नको.
+Use a valid IANA timezone, e.g. Asia/Kolkata|मान्य IANA समय क्षेत्र दें, उदा. Asia/Kolkata|वैध IANA वेळ विभाग द्या, उदा. Asia/Kolkata
+Use your own account settings or owner email recovery.|अपनी खाता सेटिंग या मालिक ईमेल रिकवरी इस्तेमाल करें।|स्वतःची खाते सेटिंग किंवा मालक ईमेल पुनर्प्राप्ती वापरा.
+Worker already exists. Edit their profile to reactivate them.|कर्मचारी पहले से है। सक्रिय करने के लिए प्रोफ़ाइल बदलें।|कर्मचारी आधीच आहे. सक्रिय करण्यासाठी प्रोफाइल बदला.
+Worker not found in this shop|इस दुकान में कर्मचारी नहीं मिला|या दुकानात कर्मचारी सापडला नाही
+You do not have access to this shop|इस दुकान की पहुँच नहीं है|या दुकानाचा प्रवेश नाही
+You were signed out because this account was used on another device. Please log in again.|खाता दूसरे डिवाइस पर इस्तेमाल होने से साइन आउट हुए। फिर लॉगिन करें।|खाते दुसऱ्या डिव्हाइसवर वापरल्याने साइन आउट झाले. पुन्हा लॉगिन करा.
+Your account changed. Please log in again.|खाता बदल गया। फिर लॉगिन करें।|खाते बदलले. पुन्हा लॉगिन करा.
+Your account changed. Request a new email code.|खाता बदल गया। नया ईमेल कोड माँगें।|खाते बदलले. नवीन ईमेल कोड मागवा.
+Your account changed. Start again.|खाता बदल गया। फिर शुरू करें।|खाते बदलले. पुन्हा सुरू करा.
+Your owner must handle this password request.|यह पासवर्ड अनुरोध मालिक को संभालना होगा।|ही पासवर्ड विनंती मालकाने हाताळावी.
+Your shop owner has not enabled this permission for your role.|मालिक ने आपकी भूमिका के लिए यह अनुमति चालू नहीं की है।|मालकाने तुमच्या भूमिकेसाठी ही परवानगी सुरू केलेली नाही.
+You haven’t been added to any shop yet. Ask your shop owner to add you.|आप अभी किसी दुकान में नहीं जोड़े गए हैं। मालिक से जोड़ने को कहें।|तुम्हाला अजून कोणत्याही दुकानात जोडलेले नाही. मालकाला जोडण्यास सांगा.
+Not Found|नहीं मिला|सापडले नाही
+Method Not Allowed|यह तरीका मान्य नहीं|ही पद्धत मान्य नाही
+Field required|यह जानकारी आवश्यक है|ही माहिती आवश्यक आहे
+Invalid value.|मान्य जानकारी भरें।|वैध माहिती भरा.
+Enter a valid email address.|मान्य ईमेल पता भरें।|वैध ईमेल पत्ता भरा.
+Use one of the allowed choices.|दिए गए विकल्पों में से चुनें।|दिलेल्या पर्यायांपैकी निवडा.
+Use the required format.|आवश्यक प्रारूप इस्तेमाल करें।|आवश्यक स्वरूप वापरा.
+Use at least {min} characters.|कम से कम {min} अक्षर रखें।|किमान {min} अक्षरे वापरा.
+Use no more than {max} characters.|अधिकतम {max} अक्षर रखें।|जास्तीत जास्त {max} अक्षरे वापरा.
+Enter a valid date.|मान्य तारीख भरें।|वैध तारीख भरा.
+Enter a valid number.|मान्य संख्या भरें।|वैध संख्या भरा.
+Unexpected field.|यह जानकारी अपेक्षित नहीं है।|ही माहिती अपेक्षित नाही.
+Unexpected server error. Please retry.|सर्वर पर अनपेक्षित त्रुटि हुई। कृपया फिर कोशिश करें।|सर्व्हरवर अनपेक्षित त्रुटी आली. कृपया पुन्हा प्रयत्न करा.
+Your Hishob verification code|आपका हिशोब सत्यापन कोड|तुमचा हिशोब पडताळणी कोड
+Your Hishob code is {code}. It expires in {minutes} minutes. If you did not request this, ignore this email. Never share this code.|आपका हिशोब कोड {code} है। यह {minutes} मिनट में समाप्त होगा। अनुरोध नहीं किया तो ईमेल अनदेखा करें। कोड किसी को न दें।|तुमचा हिशोब कोड {code} आहे. तो {minutes} मिनिटांत संपेल. विनंती केली नसेल तर ईमेल दुर्लक्षित करा. कोड कोणालाही देऊ नका.

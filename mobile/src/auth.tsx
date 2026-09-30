@@ -1,5 +1,6 @@
+import { useLocale, setLanguage } from './i18n';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ApiError, request } from './api';
+import { ApiError, request, setRequestShop } from './api';
 import { AppState } from 'react-native';
 import { onReconnect } from './connection';
 import { BROWSER_SESSION, tokenStorage } from './storage';
@@ -19,6 +20,7 @@ type Auth = {
 };
 const Context = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  useLocale();
   const [session, setSession] = useState<Session | null>(null);
   const [selectedId, select] = useState<string>('');
   const token = useRef<string | null>(null);
@@ -122,6 +124,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [reload],
   );
   const signedIn = !!session;
+  const language =
+    session?.user.language ||
+    session?.memberships.find((m) => m.id === selectedId)?.shop.language ||
+    'en';
+  useEffect(() => {
+    setRequestShop(session?.memberships.find((m) => m.id === selectedId)?.shop_id || null);
+    if (session) setLanguage(language);
+  }, [session, language, selectedId]);
   useEffect(() => {
     if (!signedIn) return;
     const refresh = () => {

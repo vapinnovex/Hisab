@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -18,13 +19,14 @@ export function SearchField({
   value,
   onChange,
   label,
-  placeholder = 'Search by name or mobile',
+  placeholder = t('Search by name or mobile'),
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   placeholder?: string;
 }) {
+  useLocale();
   return (
     <View
       style={{
@@ -52,7 +54,7 @@ export function SearchField({
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Clear ${label.toLowerCase()}`}
+        accessibilityLabel={t('Clear {0}', [label.toLowerCase()])}
         disabled={!value}
         onPress={() => onChange('')}
         style={{ padding: 14, opacity: value ? 1 : 0 }}
@@ -74,6 +76,7 @@ export function FilterChips<T extends string>({
   value: T;
   onChange: (value: T) => void;
 }) {
+  useLocale();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {options.map((option) => {

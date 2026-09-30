@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import { dateInZone } from './calendar';
 import { Calculator } from './Calculator';
 import { HelpButton as Button, FinancialHelp } from './help';
@@ -13,6 +14,7 @@ import { decimal, money, parseMoney, signedPaise } from './money';
 import { Day, modeLabels } from './types';
 
 export function CloseForm({ initial: loaded, done }: { initial: Day; done: () => void }) {
+  useLocale();
   const [initial] = useState(loaded);
   const { api, selected } = useAuth();
   const isToday = initial.date === dateInZone(initial.timezone);
@@ -102,7 +104,7 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
       ? cashSales + digitalSales + creditSales
       : null;
   if (initial.status !== 'OPEN')
-    return <Text style={styles.subtitle}>This day is already closed.</Text>;
+    return <Text style={styles.subtitle}>{t('This day is already closed.')}</Text>;
   return (
     <>
       <Calculator />
@@ -110,26 +112,35 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         <Text style={styles.heading}>{modeLabels[mode]}</Text>
         <Text style={styles.subtitle}>
           {mode === 'COUNTED'
-            ? 'First record every expense and cash movement. We will estimate net cash sales from the money you count. A shortage cannot be checked without a separate sales record.'
+            ? t(
+                'First record every expense and cash movement. We will estimate net cash sales from the money you count. A shortage cannot be checked without a separate sales record.',
+              )
             : mode === 'BILLING'
-              ? 'Enter the billing machine’s grand total, including unpaid sales and tax charged, after returns. If your report gives separate payment amounts, add them to obtain this total.'
-              : 'Check that all sales, expenses and cash movements are recorded before counting.'}
+              ? t(
+                  'Enter the billing machine’s grand total, including unpaid sales and tax charged, after returns. If your report gives separate payment amounts, add them to obtain this total.',
+                )
+              : t(
+                  'Check that all sales, expenses and cash movements are recorded before counting.',
+                )}
         </Text>
         {mode === 'BILLING' && (
           <>
-            <MoneyField label="Total sales from billing" value={total} onChange={setTotal} />
-            <FinancialHelp topic="Non-cash sales" />
+            <MoneyField label={t('Total sales from billing')} value={total} onChange={setTotal} />
+            <FinancialHelp topic={t('Non-cash sales')} />
             <FilterChips
-              label="Non-cash sales"
+              label={t('Non-cash sales')}
               value={knowNonCash ? 'KNOWN' : 'UNKNOWN'}
               onChange={(value) => setKnowNonCash(value === 'KNOWN')}
               options={[
-                { value: 'KNOWN', label: 'I know the totals' },
-                { value: 'UNKNOWN', label: 'Not known' },
+                { value: 'KNOWN', label: t('I know the totals') },
+                { value: 'UNKNOWN', label: t('Not known') },
               ]}
             />
             <Text style={styles.small}>
-              Cash sales = billing total − UPI/card sales − this day’s remaining unpaid sales.
+              {' '}
+              {t(
+                'Cash sales = billing total − UPI/card sales − this day’s remaining unpaid sales.',
+              )}{' '}
             </Text>
           </>
         )}
@@ -137,66 +148,81 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
           <>
             <MoneyField
               error={invalidSplit ? 'UPI/card and unpaid sales exceed the billing total.' : ''}
-              label="UPI / card sales"
+              label={t('UPI / card sales')}
               value={digital}
               onChange={setDigital}
             />
             <Text style={styles.small}>
-              Include payments collected for this day’s sales. Exclude collections of older dues and
-              owner transfers. Enter 0 if none.
+              {' '}
+              {t(
+                'Include payments collected for this day’s sales. Exclude collections of older dues and owner transfers. Enter 0 if none.',
+              )}{' '}
             </Text>
           </>
         )}
         <Text style={styles.heading}>
-          {isToday ? 'Today’s unpaid sales' : 'This day’s unpaid sales'} · {money(credit)}
+          {isToday ? t('Today’s unpaid sales') : t('This day’s unpaid sales')} · {money(credit)}
         </Text>
         <Text style={styles.small}>
-          Calculated from unpaid-sale transactions, less payments collected for them on this date.
-          Older customer dues are not part of this day’s sales. To add or correct an unpaid sale,
-          return to the day before closing.
+          {' '}
+          {t(
+            'Calculated from unpaid-sale transactions, less payments collected for them on this date. Older customer dues are not part of this day’s sales. To add or correct an unpaid sale, return to the day before closing.',
+          )}{' '}
         </Text>
         {legacyCredit > BigInt(0) && (
           <Text style={styles.small}>
-            Includes {money(decimal(legacyCredit))} from an older closing entered as a total. This
-            amount is preserved but has no individual customer records in the dues register.
+            {' '}
+            {t('Includes')} {money(decimal(legacyCredit))}{' '}
+            {t(
+              'from an older closing entered as a total. This amount is preserved but has no individual customer records in the dues register.',
+            )}{' '}
           </Text>
         )}
         {totalOnly && knowNonCash && cashSales !== null && cashSales >= BigInt(0) && (
-          <Text style={styles.heading}>Calculated cash sales · {money(decimal(cashSales))}</Text>
+          <Text style={styles.heading}>
+            {t('Calculated cash sales ·')} {money(decimal(cashSales))}
+          </Text>
         )}
       </Card>
       <Button
-        title={review ? 'Hide recorded totals' : 'Review recorded totals'}
+        title={review ? t('Hide recorded totals') : t('Review recorded totals')}
         secondary
         onPress={() => setReview(!review)}
       />
       {review && <Breakdown day={initial} />}
       <Card>
-        <Text style={styles.heading}>1. Count your cash</Text>
+        <Text style={styles.heading}>{t('1. Count your cash')}</Text>
         <Text style={styles.small}>
-          Count before the closing transfers below. Cash already removed during the day must have
-          its own bank deposit or withdrawal entry.
+          {' '}
+          {t(
+            'Count before the closing transfers below. Cash already removed during the day must have its own bank deposit or withdrawal entry.',
+          )}{' '}
         </Text>
         <MoneyField
-          error={badEstimate ? 'Review this cash count and the recorded cash movements.' : ''}
-          label="Actual cash in galla"
+          error={badEstimate ? t('Review this cash count and the recorded cash movements.') : ''}
+          label={t('Actual cash in galla')}
           value={actual}
           onChange={setActual}
         />
         {mode === 'COUNTED' ? (
           <>
             <Text style={styles.heading}>
-              Estimated cash sales · {cashSales === null ? '—' : money(decimal(cashSales))}
+              {' '}
+              {t('Estimated cash sales ·')} {cashSales === null ? '—' : money(decimal(cashSales))}
             </Text>
             <Text style={styles.small}>
-              Cash counted − opening − other cash in + cash expenses + supplier payments + cash
-              already removed. This is an estimate, not a verified cash difference.
+              {' '}
+              {t(
+                'Cash counted − opening − other cash in + cash expenses + supplier payments + cash already removed. This is an estimate, not a verified cash difference.',
+              )}{' '}
             </Text>
           </>
         ) : totalOnly && !knowNonCash ? (
           <Text style={styles.subtitle}>
-            Your sales total and cash count will be saved. A cash shortage or surplus cannot be
-            checked without knowing how much of your sales was cash.
+            {' '}
+            {t(
+              'Your sales total and cash count will be saved. A cash shortage or surplus cannot be checked without knowing how much of your sales was cash.',
+            )}{' '}
           </Text>
         ) : (
           <Galla
@@ -206,25 +232,29 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         )}
         {sales !== null && (
           <Text style={styles.heading}>
-            Day’s sales · {money(decimal(sales))}
-            {mode === 'COUNTED' ? ' (includes estimate)' : ''}
+            {' '}
+            {t('Day’s sales ·')} {money(decimal(sales))}
+            {mode === 'COUNTED' ? t(' (includes estimate)') : ''}
           </Text>
         )}
       </Card>
       {needsNote && (
         <>
           <FilterChips
-            label="Difference reason"
-            options={['Cash shortage', 'Extra cash found', 'Entry missing', 'Other'].map(
-              (label) => ({ value: label, label }),
-            )}
+            label={t('Difference reason')}
+            options={[
+              t('Cash shortage'),
+              t('Extra cash found'),
+              t('Entry missing'),
+              t('Other'),
+            ].map((label) => ({ value: label, label }))}
             value={differenceNote}
             onChange={setDifferenceNote}
           />
           <Field
             required
             minLength={2}
-            label="Difference note"
+            label={t('Difference note')}
             value={differenceNote}
             onChangeText={setDifferenceNote}
             maxLength={500}
@@ -232,33 +262,37 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         </>
       )}
       <Card>
-        <Text style={styles.heading}>2. Decide what stays in the galla</Text>
+        <Text style={styles.heading}>{t('2. Decide what stays in the galla')}</Text>
         <Text style={styles.small}>
-          Only enter cash you are removing now. Leave blank if you are not removing cash now. Do not
-          repeat transfers already recorded above.
+          {' '}
+          {t(
+            'Only enter cash you are removing now. Leave blank if you are not removing cash now. Do not repeat transfers already recorded above.',
+          )}{' '}
         </Text>
         <MoneyField
           required={false}
-          error={transferError ? 'Bank and home amounts cannot exceed the cash counted.' : ''}
-          label="Cash removed for bank at closing"
+          error={transferError ? t('Bank and home amounts cannot exceed the cash counted.') : ''}
+          label={t('Cash removed for bank at closing')}
           value={bank}
           onChange={setBank}
         />
         <MoneyField
           required={false}
-          label="Cash taken home at closing"
+          label={t('Cash taken home at closing')}
           value={home}
           onChange={setHome}
         />
         <Text style={styles.heading}>
-          Cash kept for next day · {retained === null ? '—' : money(decimal(retained))}
+          {' '}
+          {t('Cash kept for next day ·')} {retained === null ? '—' : money(decimal(retained))}
         </Text>
         <Text style={styles.small}>
-          These are transfers of cash, not expenses or reductions in sales.
+          {' '}
+          {t('These are transfers of cash, not expenses or reductions in sales.')}{' '}
         </Text>
       </Card>
       <Field
-        label="Day notes (optional)"
+        label={t('Day notes (optional)')}
         value={notes}
         onChangeText={setNotes}
         multiline
@@ -266,15 +300,15 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
       />
       <ErrorText message={action.error} />
       <Button
-        title={isToday ? 'Close today’s Hishob' : `Close Hishob · ${initial.date}`}
+        title={isToday ? t('Close today’s Hishob') : t('Close Hishob · {0}', [initial.date])}
         busy={action.busy}
         validationMessage={
           badEstimate
-            ? 'Review the cash count and movements: estimated cash sales are negative.'
+            ? t('Review the cash count and movements: estimated cash sales are negative.')
             : invalidSplit
-              ? 'Check billing total and UPI/card sales: payments cannot exceed total sales.'
+              ? t('Check billing total and UPI/card sales: payments cannot exceed total sales.')
               : transferError
-                ? 'Reduce bank/home withdrawals: they exceed the cash counted.'
+                ? t('Reduce bank/home withdrawals: they exceed the cash counted.')
                 : undefined
         }
         disabled={
@@ -310,8 +344,10 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         }
       />
       <Text style={styles.small}>
-        Closing preserves these totals and the cash kept for tomorrow. Only the owner can reopen a
-        day, with a reason. Changes made elsewhere require a refresh before closing.
+        {' '}
+        {t(
+          'Closing preserves these totals and the cash kept for tomorrow. Only the owner can reopen a day, with a reason. Changes made elsewhere require a refresh before closing.',
+        )}{' '}
       </Text>
     </>
   );

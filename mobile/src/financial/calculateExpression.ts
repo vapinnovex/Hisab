@@ -1,3 +1,4 @@
+import { t } from './../i18n';
 // Decimal rational arithmetic: no eval and no binary floating-point money errors.
 type Fraction = [bigint, bigint];
 export function calculateExpression(expression: string): string {
@@ -7,7 +8,7 @@ export function calculateExpression(expression: string): string {
     .replace(/÷/g, '/')
     .replace(/−/g, '-');
   if (!source || source.length > 100)
-    throw new Error('Enter a calculation (up to 100 characters).');
+    throw new Error(t('Enter a calculation (up to 100 characters).'));
   let at = 0;
   function number(): Fraction {
     let sign = BigInt(1);
@@ -16,7 +17,7 @@ export function calculateExpression(expression: string): string {
       at++;
     }
     const match = /^(?:\d+(?:\.\d*)?|\.\d+)/.exec(source.slice(at));
-    if (!match) throw new Error('Complete the calculation, for example 120 + 30.');
+    if (!match) throw new Error(t('Complete the calculation, for example 120 + 30.'));
     at += match[0].length;
     const [whole, decimal = ''] = match[0].split('.');
     let value: Fraction = [
@@ -35,7 +36,7 @@ export function calculateExpression(expression: string): string {
       const op = source[at++];
       const [c, d] = number();
       if (op === '/') {
-        if (!c) throw new Error('Cannot divide by zero.');
+        if (!c) throw new Error(t('Cannot divide by zero.'));
         a *= d;
         b *= c;
       } else {
@@ -52,7 +53,7 @@ export function calculateExpression(expression: string): string {
     a = a * d + (op === '+' ? c : -c) * b;
     b *= d;
   }
-  if (at !== source.length) throw new Error('Use numbers, +, −, ×, ÷ and %.');
+  if (at !== source.length) throw new Error(t('Use numbers, +, −, ×, ÷ and %.'));
   const negative = a < BigInt(0) !== b < BigInt(0);
   a = a < BigInt(0) ? -a : a;
   b = b < BigInt(0) ? -b : b;

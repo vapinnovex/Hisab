@@ -1,3 +1,5 @@
+import { t, useLocale, roleLabel } from './../i18n';
+import { auditAction, auditValues } from './audit';
 import { InfoHelp } from '../components/InfoHelp';
 import { HelpButton as Button, FinancialHelp, financialHelp, transactionHelp } from './help';
 import React, { useState } from 'react';
@@ -36,6 +38,7 @@ function TransactionForm({
   initialType?: 'CREDIT_SALE';
   done: () => void;
 }) {
+  useLocale();
   const [initial] = useState(loaded);
   const { api, selected } = useAuth();
   const entry = initial.transactions.find((item) => item.id === entryId);
@@ -64,26 +67,29 @@ function TransactionForm({
       !!reason,
   );
   if (initial.status !== 'OPEN' || (entryId && (!entry || entry.deleted)))
-    return <ErrorText message="This entry is no longer editable. Go back and refresh the day." />;
+    return (
+      <ErrorText message={t('This entry is no longer editable. Go back and refresh the day.')} />
+    );
   return (
     <>
       <Text style={styles.small}>
-        Required fields are labelled. Explain corrections before saving.
+        {' '}
+        {t('Required fields are labelled. Explain corrections before saving.')}{' '}
       </Text>
       {entryId && (
         <Field
           required
           minLength={2}
-          label="Correction reason"
+          label={t('Correction reason')}
           value={reason}
           onChangeText={setReason}
           maxLength={500}
           autoFocus
-          placeholder="e.g. Amount was entered incorrectly"
+          placeholder={t('e.g. Amount was entered incorrectly')}
         />
       )}
       <FilterChips
-        label="Transaction type"
+        label={t('Transaction type')}
         options={transactionTypes
           .filter(
             (item) =>
@@ -101,49 +107,51 @@ function TransactionForm({
       </InfoHelp>
       {(type === 'EXPENSE' || type === 'SUPPLIER_PAYMENT') && (
         <FilterChips
-          label="Paid from"
+          label={t('Paid from')}
           value={payment}
           onChange={setPayment}
           options={[
-            { value: 'CASH', label: 'Cash from galla' },
-            { value: 'DIGITAL', label: 'UPI / bank / card' },
+            { value: 'CASH', label: t('Cash from galla') },
+            { value: 'DIGITAL', label: t('UPI / bank / card') },
           ]}
         />
       )}
-      {(type === 'EXPENSE' || type === 'SUPPLIER_PAYMENT') && <FinancialHelp topic="Paid from" />}
+      {(type === 'EXPENSE' || type === 'SUPPLIER_PAYMENT') && (
+        <FinancialHelp topic={t('Paid from')} />
+      )}
       <Card>
         {type === 'CREDIT_SALE' && (
           <Field
             required
             minLength={2}
-            label="Customer name / bill reference"
+            label={t('Customer name / bill reference')}
             value={customer}
             onChangeText={setCustomer}
             maxLength={100}
-            placeholder="e.g. Ravi · Bill 42"
+            placeholder={t('e.g. Ravi · Bill 42')}
           />
         )}
-        <MoneyField label="Amount (₹)" value={amount} onChange={setAmount} />
+        <MoneyField label={t('Amount (₹)')} value={amount} onChange={setAmount} />
         <Field
           required
-          label="Description"
+          label={t('Description')}
           value={description}
           onChangeText={setDescription}
-          placeholder="e.g. Tea, transport, cash sales"
+          placeholder={t('e.g. Tea, transport, cash sales')}
           maxLength={300}
         />
         <Field
-          label="Category (optional)"
+          label={t('Category (optional)')}
           help={financialHelp['Category (optional)']}
           value={category}
           onChangeText={setCategory}
-          placeholder="e.g. Shop expenses"
+          placeholder={t('e.g. Shop expenses')}
           maxLength={80}
         />
       </Card>
       <ErrorText message={action.error} />
       <Button
-        title={entryId ? 'Save correction' : 'Save transaction'}
+        title={entryId ? t('Save correction') : t('Save transaction')}
         busy={action.busy}
         disabled={
           parseMoney(amount) === null ||
@@ -174,8 +182,10 @@ function TransactionForm({
         }
       />
       <Text style={styles.small}>
-        Keep this form open until the save is confirmed. If the day changes on another device, go
-        back and refresh before saving again.
+        {' '}
+        {t(
+          'Keep this form open until the save is confirmed. If the day changes on another device, go back and refresh before saving again.',
+        )}{' '}
       </Text>
     </>
   );
@@ -184,6 +194,7 @@ export function HishobTransaction({
   route,
   navigation,
 }: NativeStackScreenProps<Routes, 'HishobTransaction'>) {
+  useLocale();
   const { selected } = useAuth();
   const resource = useResource<Day>(
     `/shops/${selected!.shop_id}/hishob/days/${route.params.dayId}`,
@@ -191,8 +202,8 @@ export function HishobTransaction({
   return (
     <Page>
       <Heading
-        title={route.params.entryId ? 'Correct transaction' : 'Add transaction'}
-        subtitle="One amount. One clear entry."
+        title={route.params.entryId ? t('Correct transaction') : t('Add transaction')}
+        subtitle={t('One amount. One clear entry.')}
       />
       <ErrorText message={resource.error} />
       {resource.loading && <Loading />}
@@ -221,6 +232,7 @@ export function EntryCard({
   remove?: () => void;
   footer?: React.ReactNode;
 }) {
+  useLocale();
   return (
     <Card>
       <View style={styles.row}>
@@ -234,24 +246,32 @@ export function EntryCard({
         {entry.type === 'EXPENSE' ||
         entry.type === 'SUPPLIER_PAYMENT' ||
         entry.type === 'DUE_COLLECTION'
-          ? ` · ${entry.payment_method === 'DIGITAL' ? 'Digital' : 'Cash'}`
+          ? ` · ${entry.payment_method === 'DIGITAL' ? t('Digital') : t('Cash')}`
           : ''}
         {entry.category ? ` · ${entry.category}` : ''}
-        {entry.deleted ? ' · Deleted' : ''}
+        {entry.deleted ? t(' · Deleted') : ''}
       </Text>
       <Text style={styles.small}>
-        Added by {entry.created_by.name} · {timestamp(entry.created_at, zone)}
+        {' '}
+        {t('Added by')} {entry.created_by.name} · {timestamp(entry.created_at, zone)}
       </Text>
       {entry.updated_by && (
         <Text style={styles.small}>
-          Changed by {entry.updated_by.name} · {timestamp(entry.updated_at, zone)}
+          {' '}
+          {t('Changed by')} {entry.updated_by.name} · {timestamp(entry.updated_at, zone)}
         </Text>
       )}
-      {entry.deleted_by && <Text style={styles.small}>Deleted by {entry.deleted_by.name}</Text>}
+      {entry.deleted_by && (
+        <Text style={styles.small}>
+          {t('Deleted by')} {entry.deleted_by.name}
+        </Text>
+      )}
       {(edit || remove) && (
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-          {edit && <Button title={`Edit · ${entry.description}`} secondary onPress={edit} />}
-          {remove && <Button title={`Delete · ${entry.description}`} secondary onPress={remove} />}
+          {edit && <Button title={t('Edit · {0}', [entry.description])} secondary onPress={edit} />}
+          {remove && (
+            <Button title={t('Delete · {0}', [entry.description])} secondary onPress={remove} />
+          )}
         </View>
       )}
       {footer}
@@ -262,6 +282,7 @@ export function HishobTransactions({
   route,
   navigation,
 }: NativeStackScreenProps<Routes, 'HishobTransactions'>) {
+  useLocale();
   const { selected, api } = useAuth();
   const resource = useResource<Day>(
     `/shops/${selected!.shop_id}/hishob/days/${route.params.dayId}`,
@@ -286,32 +307,32 @@ export function HishobTransactions({
     ) || [];
   return (
     <Page refresh={resource.refresh}>
-      <Heading title="Transactions" subtitle={resource.data?.date} />
+      <Heading title={t('Transactions')} subtitle={resource.data?.date} />
       <SearchField
-        label="Search this day’s transactions"
-        placeholder="Description, category or recorded by"
+        label={t('Search this day’s transactions')}
+        placeholder={t('Description, category or recorded by')}
         value={query}
         onChange={setQuery}
       />
       <TransactionTypeFilter value={type} onChange={setType} />
       <Button
-        title="Search across all dates"
+        title={t('Search across all dates')}
         secondary
         onPress={() => navigation.navigate('HishobSearch')}
       />
       {resource.data?.status === 'OPEN' && (
         <Button
-          title="Add transaction"
+          title={t('Add transaction')}
           onPress={() => navigation.navigate('HishobTransaction', { dayId: route.params.dayId })}
         />
       )}
       <FilterChips
-        label="Entries"
+        label={t('Entries')}
         value={filter}
         onChange={setFilter}
         options={[
-          { value: 'ACTIVE', label: 'Active entries' },
-          { value: 'ALL', label: 'Include deleted' },
+          { value: 'ACTIVE', label: t('Active entries') },
+          { value: 'ALL', label: t('Include deleted') },
         ]}
       />
       <ErrorText message={resource.error || action.error} />
@@ -326,23 +347,26 @@ export function HishobTransactions({
         >
           <Page topInset>
             <Card>
-              <Text style={styles.heading}>Delete {deleting.entry.description}?</Text>
+              <Text style={styles.heading}>
+                {t('Delete')} {deleting.entry.description}?
+              </Text>
               <Text style={styles.small}>
-                The entry remains in the audit trail but is removed from totals.
+                {' '}
+                {t('The entry remains in the audit trail but is removed from totals.')}{' '}
               </Text>
               <Field
                 required
                 minLength={2}
-                label="Deletion reason"
+                label={t('Deletion reason')}
                 autoFocus
-                placeholder="e.g. Duplicate entry"
+                placeholder={t('e.g. Duplicate entry')}
                 value={reason}
                 onChangeText={setReason}
                 maxLength={500}
               />
               <ErrorText message={action.error} />
               <Button
-                title="Confirm deletion"
+                title={t('Confirm deletion')}
                 danger
                 busy={action.busy}
                 disabled={reason.trim().length < 2}
@@ -360,7 +384,7 @@ export function HishobTransactions({
                 }
               />
               <Button
-                title="Cancel deletion"
+                title={t('Cancel deletion')}
                 secondary
                 disabled={action.busy}
                 onPress={() => setDeleting(null)}
@@ -371,11 +395,11 @@ export function HishobTransactions({
       )}
       {resource.data && entries.length === 0 && (
         <EmptyState
-          title={query || type !== 'ALL' ? 'No matching transactions' : 'No entries yet'}
+          title={query || type !== 'ALL' ? t('No matching transactions') : t('No entries yet')}
           description={
             query || type !== 'ALL'
-              ? 'Try another search or transaction type.'
-              : 'Add a sale, expense or another cash movement.'
+              ? t('Try another search or transaction type.')
+              : t('Add a sale, expense or another cash movement.')
           }
         />
       )}
@@ -409,13 +433,14 @@ export function HishobTransactions({
 }
 
 export function HishobClose({ route, navigation }: NativeStackScreenProps<Routes, 'HishobClose'>) {
+  useLocale();
   const { selected } = useAuth();
   const resource = useResource<Day>(
     `/shops/${selected!.shop_id}/hishob/days/${route.params.dayId}`,
   );
   return (
     <Page>
-      <Heading title="Close the day" subtitle={resource.data?.date} />
+      <Heading title={t('Close the day')} subtitle={resource.data?.date} />
       <ErrorText message={resource.error} />
       {resource.loading && <Loading />}
       {resource.data && (
@@ -429,6 +454,7 @@ export function HishobClose({ route, navigation }: NativeStackScreenProps<Routes
 }
 
 function ChangeOpening({ initial: loaded, done }: { initial: Day; done: () => Promise<void> }) {
+  useLocale();
   const [initial] = useState(loaded);
   const { api, selected } = useAuth();
   const [opening, setOpening] = useState(initial.opening_cash);
@@ -437,18 +463,18 @@ function ChangeOpening({ initial: loaded, done }: { initial: Day; done: () => Pr
   const action = useAction();
   return (
     <Card>
-      <MoneyField label="Updated opening cash" value={opening} onChange={setOpening} />
+      <MoneyField label={t('Updated opening cash')} value={opening} onChange={setOpening} />
       <Field
         required
         minLength={2}
-        label="Opening correction reason"
+        label={t('Opening correction reason')}
         value={reason}
         onChangeText={setReason}
         maxLength={500}
       />
       <ErrorText message={action.error} />
       <Button
-        title="Save opening cash"
+        title={t('Save opening cash')}
         busy={action.busy}
         disabled={parseMoney(opening) === null || reason.trim().length < 2}
         onPress={() =>
@@ -466,42 +492,15 @@ function ChangeOpening({ initial: loaded, done }: { initial: Day; done: () => Pr
   );
 }
 function AuditValues({ value }: { value: Record<string, unknown> | null }) {
+  useLocale();
   if (!value) return <Text style={styles.small}>—</Text>;
-  return (
-    <Text style={styles.small}>
-      {Object.entries(value)
-        .filter(([key]) =>
-          [
-            'type',
-            'amount',
-            'description',
-            'category',
-            'deleted',
-            'opening_cash',
-            'actual_closing_cash',
-            'expected_closing_cash',
-            'difference',
-            'counted_cash',
-            'closing_bank_deposit',
-            'closing_withdrawal',
-            'payment_method',
-            'reported_sales',
-            'billing_input',
-            'status',
-          ].includes(key),
-        )
-        .map(
-          ([key, entry]) =>
-            `${key.replaceAll('_', ' ')}: ${typeof entry === 'object' && entry !== null ? JSON.stringify(entry) : (entry ?? '—')}`,
-        )
-        .join(' · ') || 'Day created'}
-    </Text>
-  );
+  return <Text style={styles.small}>{auditValues(value) || t('Day created')}</Text>;
 }
 export function HishobDetails({
   route,
   navigation,
 }: NativeStackScreenProps<Routes, 'HishobDetails'>) {
+  useLocale();
   const { selected, api } = useAuth();
   const resource = useResource<Day>(
     `/shops/${selected!.shop_id}/hishob/days/${route.params.dayId}`,
@@ -517,8 +516,12 @@ export function HishobDetails({
   return (
     <Page refresh={resource.refresh}>
       <Heading
-        title="Hishob day details"
-        subtitle={day ? `${day.date} · ${day.status}` : selected!.shop.name}
+        title={t('Hishob day details')}
+        subtitle={
+          day
+            ? `${day.date} · ${day.status === 'OPEN' ? t('Open') : t('Closed')}`
+            : selected!.shop.name
+        }
       />
       <ErrorText message={resource.error || action.error} />
       {resource.loading && <Loading />}
@@ -533,35 +536,45 @@ export function HishobDetails({
           <Breakdown day={day} />
           {day.opening_source && (
             <Text style={styles.small}>
-              Opening carried from {day.opening_source.date}:{' '}
-              {money(day.opening_source.actual_closing_cash)}. Later corrections do not change this
-              day’s opening automatically.
+              {' '}
+              {t('Opening carried from')} {day.opening_source.date}:{' '}
+              {money(day.opening_source.actual_closing_cash)}
+              {t('. Later corrections do not change this day’s opening automatically.')}{' '}
             </Text>
           )}
           {day.closed_by && (
             <Text style={styles.small}>
-              Closed by {day.closed_by.name} · {timestamp(day.closed_at!, day.timezone)}
+              {' '}
+              {t('Closed by')} {day.closed_by.name} · {timestamp(day.closed_at!, day.timezone)}
             </Text>
           )}
           {day.difference_note ? (
-            <Text style={styles.subtitle}>Difference note: {day.difference_note}</Text>
+            <Text style={styles.subtitle}>
+              {t('Difference note:')} {day.difference_note}
+            </Text>
           ) : null}
-          {day.notes ? <Text style={styles.subtitle}>Notes: {day.notes}</Text> : null}
+          {day.notes ? (
+            <Text style={styles.subtitle}>
+              {t('Notes:')} {day.notes}
+            </Text>
+          ) : null}
           <Button
-            title={`View transactions (${day.transactions.filter((entry) => !entry.deleted).length})`}
+            title={t('View transactions ({0})', [
+              day.transactions.filter((entry) => !entry.deleted).length,
+            ])}
             secondary
             onPress={() => navigation.navigate('HishobTransactions', { dayId: day.id })}
           />
           {day.status === 'OPEN' && (
             <>
               <Button
-                title="Add transaction"
+                title={t('Add transaction')}
                 onPress={() => navigation.navigate('HishobTransaction', { dayId: day.id })}
               />
-              <Button title="Change opening cash" secondary onPress={() => setOpening(day)} />
+              <Button title={t('Change opening cash')} secondary onPress={() => setOpening(day)} />
               {selected!.permissions.close_hishob && (
                 <Button
-                  title="Close day"
+                  title={t('Close day')}
                   onPress={() => navigation.navigate('HishobClose', { dayId: day.id })}
                 />
               )}
@@ -576,28 +589,38 @@ export function HishobDetails({
                   await resource.refresh();
                 }}
               />
-              <Button title="Cancel opening change" secondary onPress={() => setOpening(null)} />
+              <Button
+                title={t('Cancel opening change')}
+                secondary
+                onPress={() => setOpening(null)}
+              />
             </>
           )}
           {day.status === 'CLOSED' && selected!.permissions.reopen_hishob && (
-            <Button title="Reopen day" secondary onPress={() => setReopenRevision(day.revision)} />
+            <Button
+              title={t('Reopen day')}
+              secondary
+              onPress={() => setReopenRevision(day.revision)}
+            />
           )}
           {reopenRevision !== null && day.status === 'CLOSED' && (
             <Card>
               <Text style={styles.subtitle}>
-                The original closing is kept. Changes will be recorded in the audit trail and
-                carried openings on other days remain unchanged.
+                {' '}
+                {t(
+                  'The original closing is kept. Changes will be recorded in the audit trail and carried openings on other days remain unchanged.',
+                )}{' '}
               </Text>
               <Field
                 required
                 minLength={2}
-                label="Reopening reason"
+                label={t('Reopening reason')}
                 value={reason}
                 onChangeText={setReason}
                 maxLength={500}
               />
               <Button
-                title="Confirm reopening"
+                title={t('Confirm reopening')}
                 busy={action.busy}
                 disabled={reason.trim().length < 2}
                 onPress={() =>
@@ -614,7 +637,7 @@ export function HishobDetails({
                 }
               />
               <Button
-                title="Cancel reopening"
+                title={t('Cancel reopening')}
                 secondary
                 disabled={action.busy}
                 onPress={() => setReopenRevision(null)}
@@ -622,23 +645,24 @@ export function HishobDetails({
             </Card>
           )}
           {day.closing_snapshots.length > 0 && (
-            <Text style={styles.heading}>Preserved closings</Text>
+            <Text style={styles.heading}>{t('Preserved closings')}</Text>
           )}
           {day.closing_snapshots.map((item, index) => (
             <Card key={item.snapshot_id}>
               <Text style={styles.heading}>
-                Closing {index + 1} ·{' '}
+                {' '}
+                {t('Closing')} {index + 1} ·{' '}
                 {item.mode === 'COUNTED'
-                  ? 'Cash-count estimate'
+                  ? t('Cash-count estimate')
                   : item.difference === null
-                    ? 'Cash difference unavailable'
+                    ? t('Cash difference unavailable')
                     : money(item.difference, true)}
               </Text>
               <Text style={styles.small}>
                 {item.closed_by.name} · {timestamp(item.closed_at, day.timezone)}
               </Text>
               <Button
-                title={`View closing ${index + 1}`}
+                title={t('View closing {0}', [index + 1])}
                 secondary
                 onPress={() => setSnapshot(snapshot === item.snapshot_id ? null : item.snapshot_id)}
               />
@@ -661,20 +685,21 @@ export function HishobDetails({
             </Card>
           ))}
           <Button
-            title={showAudit ? 'Hide audit trail' : 'View audit trail'}
+            title={showAudit ? t('Hide audit trail') : t('View audit trail')}
             secondary
             onPress={() => setShowAudit(!showAudit)}
           />
           {showAudit &&
             [...day.audit].reverse().map((event) => (
               <Card key={event.id}>
-                <Text style={styles.heading}>{event.action.replaceAll('_', ' ')}</Text>
+                <Text style={styles.heading}>{auditAction(event.action)}</Text>
                 <Text style={styles.small}>
-                  {event.actor.name} ({event.actor.role}) · {timestamp(event.at, day.timezone)}
+                  {event.actor.name} ({roleLabel(event.actor.role)}) ·{' '}
+                  {timestamp(event.at, day.timezone)}
                 </Text>
-                <Text style={styles.label}>Before</Text>
+                <Text style={styles.label}>{t('Before')}</Text>
                 <AuditValues value={event.previous} />
-                <Text style={styles.label}>After</Text>
+                <Text style={styles.label}>{t('After')}</Text>
                 <AuditValues value={event.new} />
                 {event.reason ? <Text style={styles.subtitle}>{event.reason}</Text> : null}
               </Card>

@@ -14,9 +14,13 @@ test('owner starts a missed date from history and records its transactions', asy
   const response = await created;
   const shop = await response.json();
   // Age only this shop in the isolated browser-test database.
-  execFileSync('../backend/.venv/bin/python', [
-    '-c',
-    `
+  execFileSync(
+    process.platform === 'win32'
+      ? '../backend/.venv/Scripts/python.exe'
+      : '../backend/.venv/bin/python',
+    [
+      '-c',
+      `
 import os, sys
 from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
@@ -29,8 +33,9 @@ with MongoClient(os.getenv('TEST_MONGODB_URI', 'mongodb://127.0.0.1:27018')) as 
     else:
         raise RuntimeError('Isolated test shop not found')
 `,
-    shop.id,
-  ]);
+      shop.id,
+    ],
+  );
   const endpoint = `${response.url()}/${shop.id}/hishob`;
   const today = (await (await page.request.get(`${endpoint}/today`)).json()).date;
   const previous = new Date(`${today}T12:00:00Z`);

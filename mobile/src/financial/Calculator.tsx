@@ -1,3 +1,4 @@
+import { t, useLocale } from './../i18n';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
 import { Keyboard, Modal, Pressable, Text, View } from 'react-native';
@@ -6,6 +7,7 @@ import { Button, IconButton, Card, colors, ErrorText, Field, Page, styles } from
 import { calculateExpression } from './calculateExpression';
 
 export function Calculator() {
+  useLocale();
   const [open, setOpen] = useState(false);
   const [expression, setExpression] = useState('');
   const [result, setResult] = useState('');
@@ -31,7 +33,7 @@ export function Calculator() {
   return (
     <>
       <IconButton
-        label="Calculator"
+        label={t('Calculator')}
         name="calculator-outline"
         onPress={() => {
           Keyboard.dismiss();
@@ -65,50 +67,55 @@ export function Calculator() {
                   },
                 ]}
               >
-                <Text style={styles.heading}>Calculator</Text>
-                <IconButton label="Close calculator" name="close" onPress={close} />
+                <Text style={styles.heading}>{t('Calculator')}</Text>
+                <IconButton label={t('Close calculator')} name="close" onPress={close} />
               </View>
               <Page>
                 <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', gap: 16 }}>
                   <Text style={styles.small}>
-                    Work out amounts here, then copy the result where you need it.
+                    {' '}
+                    {t('Work out amounts here, then copy the result where you need it.')}{' '}
                   </Text>
                   <Card>
                     <Field
                       showSoftInputOnFocus={false}
-                      label="Calculation"
+                      label={t('Calculation')}
                       value={expression}
                       onChangeText={edit}
                       maxLength={100}
-                      placeholder="e.g. 2500 + 300 − 150"
+                      placeholder={t('e.g. 2500 + 300 − 150')}
                       onSubmitEditing={solve}
                     />
-                    <Text style={styles.small}>Result · rounded to 8 decimal places</Text>
+                    <Text style={styles.small}>{t('Result · rounded to 8 decimal places')}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text
                         selectable
-                        accessibilityLabel="Calculator result"
+                        accessibilityLabel={t('Calculator result')}
                         style={[styles.title, { flex: 1, fontVariant: ['tabular-nums'] }]}
                       >
                         {result || '—'}
                       </Text>
                       <IconButton
-                        label="Copy result"
-                        name={message === 'Result copied.' ? 'checkmark-outline' : 'copy-outline'}
+                        label={t('Copy result')}
+                        name={
+                          message === t('Result copied.') ? 'checkmark-outline' : 'copy-outline'
+                        }
                         compact
                         disabled={!result}
                         onPress={() => {
                           void Clipboard.setStringAsync(result)
                             .then((ok) =>
                               setMessage(
-                                ok ? 'Result copied.' : 'Select and hold the result to copy it.',
+                                ok
+                                  ? t('Result copied.')
+                                  : t('Select and hold the result to copy it.'),
                               ),
                             )
-                            .catch(() => setMessage('Select and hold the result to copy it.'));
+                            .catch(() => setMessage(t('Select and hold the result to copy it.')));
                         }}
                       />
                     </View>
-                    {message === 'Result copied.' ? (
+                    {message === t('Result copied.') ? (
                       <Text accessibilityLiveRegion="polite" style={{ color: colors.green }}>
                         {message}
                       </Text>
@@ -124,11 +131,11 @@ export function Calculator() {
                           accessibilityRole="button"
                           accessibilityLabel={
                             key === '⌫'
-                              ? 'Backspace'
+                              ? t('Backspace')
                               : key === 'C'
-                                ? 'Clear calculation'
+                                ? t('Clear calculation')
                                 : key === '='
-                                  ? 'Calculate result'
+                                  ? t('Calculate result')
                                   : key
                           }
                           onPress={() => {
@@ -161,8 +168,10 @@ export function Calculator() {
                     </View>
                   ))}
                   <Text style={styles.small}>
-                    × and ÷ are calculated first. % divides a number by 100; use 500 × 10% for ten
-                    percent of 500.
+                    {' '}
+                    {t(
+                      '× and ÷ are calculated first. % divides a number by 100; use 500 × 10% for ten percent of 500.',
+                    )}{' '}
                   </Text>
                 </View>
               </Page>
@@ -177,7 +186,7 @@ export function Calculator() {
                   borderColor: colors.line,
                 }}
               >
-                <Button title="Done" onPress={close} />
+                <Button title={t('Done')} onPress={close} />
               </View>
             </SafeAreaView>
           </SafeAreaProvider>
