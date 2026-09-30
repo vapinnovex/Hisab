@@ -56,7 +56,7 @@ The frontend should load at:
 The backend health endpoint should return:
 
 ```json
-{"status":"ok"}
+{ "status": "ok" }
 ```
 
 ## Stop the frontend
