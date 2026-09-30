@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -68,6 +69,11 @@ def create_app(settings: Settings = None):
 
     @app.exception_handler(PyMongoError)
     async def database_error(request: Request, exc: PyMongoError):
+        logging.getLogger("uvicorn.error.database").error(
+            "Database request failed method=%s error_type=%s",
+            request.method,
+            type(exc).__name__,
+        )
         return JSONResponse(
             status_code=503, content={"detail": "Database temporarily unavailable. Please retry."}
         )
