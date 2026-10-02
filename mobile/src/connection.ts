@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 export type Connection = 'online' | 'offline' | 'unavailable';
 let state: Connection = 'online';
+let lastReconnect = -Infinity;
 const listeners = new Set<() => void>();
 const reconnectListeners = new Set<() => void>();
 export const browserOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -10,7 +11,14 @@ export function setConnection(next: Connection) {
   const previous = state;
   state = next;
   listeners.forEach((listener) => listener());
-  if (next === 'online' && previous !== 'online') {
+  if (
+    next === 'online' &&
+    previous !== 'online' &&
+    (previous === 'offline' || Date.now() - lastReconnect >= 5000)
+  ) {
+    // A healthy endpoint alongside a failing one must not create a refresh loop.
+    // Normal polling and explicit retry remain available during this cooldown.
+    lastReconnect = Date.now();
     // Finish the successful request before refreshing mounted resources.
     setTimeout(() => reconnectListeners.forEach((listener) => listener()), 0);
   }

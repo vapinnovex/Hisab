@@ -878,5 +878,17 @@
   "This day is still open. Review entries and close when ready.": "हा दिवस अजून उघडा आहे. नोंदी तपासा आणि तयार झाल्यावर बंद करा.",
   "Hide monthly breakdown": "मासिक तपशील लपवा",
   "View monthly breakdown": "मासिक तपशील पहा",
-  "Review recorded totals before closing.": "बंद करण्यापूर्वी नोंदवलेली एकूण रक्कम तपासा."
+  "Review recorded totals before closing.": "बंद करण्यापूर्वी नोंदवलेली एकूण रक्कम तपासा.",
+  "Showing previously loaded information. It may be out of date until refresh succeeds.": "आधी लोड केलेली माहिती दाखवली आहे. रीफ्रेश यशस्वी होईपर्यंत ती जुनी असू शकते.",
+  "Loading Hishob days…": "हिशोबचे दिवस लोड होत आहेत…",
+  "Retry Hishob days": "हिशोब पुन्हा लोड करा",
+  "Loading monthly summary…": "मासिक सारांश लोड होत आहे…",
+  "Retry monthly summary": "मासिक सारांश पुन्हा लोड करा",
+  "Loading customer dues…": "ग्राहकांची थकबाकी लोड होत आहे…",
+  "Retry customer dues": "ग्राहकांची थकबाकी पुन्हा लोड करा",
+  "Checking today’s Hishob…": "आजचा हिशोब तपासत आहे…",
+  "Retry today’s Hishob": "आजचा हिशोब पुन्हा लोड करा",
+  "Check saved result": "जतन झालेला निकाल तपासा",
+  "Review latest day": "दिवसाची ताजी माहिती पहा",
+  "This change is not confirmed yet. Keep this form open and retry the same save, or review the latest day if it changed.": "या बदलाची खात्री अजून झालेली नाही. हा फॉर्म उघडा ठेवा आणि तोच बदल पुन्हा जतन करा, किंवा दिवस बदलला असल्यास ताजी माहिती पहा."
 }

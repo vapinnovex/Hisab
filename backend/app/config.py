@@ -30,9 +30,7 @@ class Settings(BaseSettings):
         if self.email_provider == "brevo" and (
             not self.brevo_api_key or not self.brevo_sender_name or not self.brevo_sender_email
         ):
-            raise ValueError(
-                "BREVO_API_KEY, BREVO_SENDER_NAME and BREVO_SENDER_EMAIL are required"
-            )
+            raise ValueError("BREVO_API_KEY, BREVO_SENDER_NAME and BREVO_SENDER_EMAIL are required")
         if self.app_env not in {"development", "test"}:
             if self.email_provider == "dev":
                 raise ValueError("Development email provider cannot run in production")

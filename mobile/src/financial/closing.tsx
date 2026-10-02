@@ -1,5 +1,6 @@
 import { t, useLocale } from './../i18n';
 import { dateInZone } from './calendar';
+import { SaveRecovery } from './SaveRecovery';
 import { Calculator } from './Calculator';
 import { HelpButton as Button, FinancialHelp } from './help';
 import React, { useState } from 'react';
@@ -334,6 +335,17 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         </Card>
       )}
       <ErrorText message={action.error} />
+      {!!action.error && <Button secondary title={t('Review latest day')} onPress={done} />}
+      {!!action.error && (
+        <SaveRecovery
+          check={async () => {
+            const day = await api<Day>(`/shops/${selected!.shop_id}/hishob/days/${initial.id}`);
+            if (day.status !== 'CLOSED') return false;
+            done();
+            return true;
+          }}
+        />
+      )}
       <Button
         title={isToday ? t('Close today’s Hishob') : t('Close Hishob · {0}', [initial.date])}
         busy={action.busy}

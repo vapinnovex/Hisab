@@ -10,11 +10,13 @@ export function useResource<T>(path: string, poll = false) {
   const [result, setResult] = useState<{ path: string; data: T | null; error: string } | null>(
     null,
   );
+  const [refreshingPath, setRefreshingPath] = useState<string | null>(null);
   const sequenceRef = useRef({ value: 0, pending: false });
   const sequence = sequenceRef.current;
   const refresh = useCallback(async () => {
     const current = ++sequence.value;
     sequence.pending = true;
+    setRefreshingPath(path);
     try {
       const data = await api<T>(path);
       if (sequence.value === current) setResult({ path, data, error: '' });
@@ -26,15 +28,20 @@ export function useResource<T>(path: string, poll = false) {
           error: (e as Error).message,
         }));
     } finally {
-      if (sequence.value === current) sequence.pending = false;
+      if (sequence.value === current) {
+        sequence.pending = false;
+        setRefreshingPath(null);
+      }
     }
   }, [api, path, sequence]);
   useEffect(() => {
     if (!focused) return;
     void refresh();
-    const reconnect = onReconnect(() => void refresh());
+    const reconnect = onReconnect(() => {
+      if (!sequence.pending) void refresh();
+    });
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refresh();
+      if (state === 'active' && !sequence.pending) void refresh();
     });
     const timer = poll
       ? setInterval(() => {
@@ -53,6 +60,7 @@ export function useResource<T>(path: string, poll = false) {
     data: result?.path === path ? result.data : null,
     error: result?.path === path ? result.error : '',
     loading: result?.path !== path,
+    refreshing: refreshingPath === path,
     refresh,
   };
 }

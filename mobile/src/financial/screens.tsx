@@ -22,6 +22,7 @@ import { FilterChips, SearchField } from '../components/ListControls';
 import { Routes } from '../types';
 import { Breakdown, Galla, MoneyField, timestamp, TransactionTypeFilter } from './components';
 import { money, parseMoney } from './money';
+import { SaveRecovery } from './SaveRecovery';
 import { CloseForm } from './closing';
 import { Day, Entry, TransactionType, transactionTypes } from './types';
 export { HishobHistory } from './history';
@@ -150,6 +151,16 @@ function TransactionForm({
         />
       </Card>
       <ErrorText message={action.error} />
+      {!!action.error && !entryId && (
+        <SaveRecovery
+          check={async () => {
+            const day = await api<Day>(`/shops/${selected!.shop_id}/hishob/days/${initial.id}`);
+            if (!day.transactions.some((item) => item.id === requestId)) return false;
+            done();
+            return true;
+          }}
+        />
+      )}
       <Button
         title={entryId ? t('Save correction') : t('Save transaction')}
         busy={action.busy}

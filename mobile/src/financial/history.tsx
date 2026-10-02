@@ -10,14 +10,13 @@ import {
   Card,
   colors,
   EmptyState,
-  ErrorText,
   Field,
   Heading,
-  Loading,
   MonthPicker,
   Page,
   styles,
 } from '../components/ui';
+import { ResourceStatus } from '../components/ResourceStatus';
 import { FilterChips } from '../components/ListControls';
 import { DaySummary, MonthlySummary, TodayHishob } from './types';
 import { NewDay } from './today';
@@ -33,8 +32,11 @@ function MissedDay({ date, onCreated }: { date: string; onCreated: (id: string) 
   );
   return (
     <>
-      <ErrorText message={resource.error} />
-      {resource.loading && <Loading />}
+      <ResourceStatus
+        resource={resource}
+        loadingLabel={t('Loading Hishob days…')}
+        retryLabel={t('Retry Hishob days')}
+      />
       {resource.data &&
         (resource.data.day ? (
           <Button
@@ -129,7 +131,11 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
     setSelectedDate(null);
   };
   return (
-    <Page refresh={resource.refresh}>
+    <Page
+      refresh={async () => {
+        await Promise.all([resource.refresh(), monthly.refresh()]);
+      }}
+    >
       <Heading
         title={t('Hishob history')}
         subtitle={t('{0} · Your cash, day by day', [selected!.shop.name])}
@@ -198,8 +204,11 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
           },
         ]}
       />
-      <ErrorText message={resource.error} />
-      {resource.loading && <Loading />}
+      <ResourceStatus
+        resource={resource}
+        loadingLabel={t('Loading Hishob days…')}
+        retryLabel={t('Retry Hishob days')}
+      />
       {resource.data && (
         <>
           <Text style={styles.small}>
@@ -295,7 +304,11 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
       )}
       {view === 'CALENDAR' && (
         <>
-          <ErrorText message={monthly.error} />
+          <ResourceStatus
+            resource={monthly}
+            loadingLabel={t('Loading monthly summary…')}
+            retryLabel={t('Retry monthly summary')}
+          />
           {monthly.data && (
             <Card>
               <Text style={styles.heading}>

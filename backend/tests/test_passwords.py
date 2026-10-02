@@ -298,7 +298,7 @@ def test_brevo_email_provider_and_failed_delivery_cleanup(client, monkeypatch):
             pass
 
         def read(self):
-            return b'{}'
+            return b"{}"
 
     def send_request(request, timeout):
         assert timeout == 15

@@ -5,12 +5,14 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
 import { useUnsavedChanges } from '../pwa';
-import { Button, Card, ErrorText, Field, Heading, Loading, Page, styles } from '../components/ui';
+import { Button, Card, ErrorText, Field, Heading, Page, styles } from '../components/ui';
+import { SaveRecovery } from './SaveRecovery';
+import { ResourceStatus } from '../components/ResourceStatus';
 import { FilterChips, SearchField } from '../components/ListControls';
 import { InfoHelp } from '../components/InfoHelp';
 import { MoneyField, timestamp } from './components';
 import { money, parseMoney } from './money';
-import { Entry, TodayHishob } from './types';
+import { Day, Entry, TodayHishob } from './types';
 import { Routes } from '../types';
 
 type Due = {
@@ -32,7 +34,7 @@ type Register = {
 
 function ReceivePayment({
   due,
-  today,
+  today: loadedToday,
   done,
   cancel,
 }: {
@@ -43,6 +45,8 @@ function ReceivePayment({
 }) {
   useLocale();
   const { api, selected } = useAuth();
+  // Keep retries tied to the original receipt date, even if polling crosses midnight.
+  const [today] = useState(loadedToday);
   const [amount, setAmount] = useState(due.remaining_amount);
   const [payment, setPayment] = useState<'CASH' | 'DIGITAL'>('CASH');
   const [note, setNote] = useState('');
@@ -94,6 +98,16 @@ function ReceivePayment({
             )}
       </Text>
       <ErrorText message={action.error} />
+      {!!action.error && (
+        <SaveRecovery
+          check={async () => {
+            const day = await api<Day>(`/shops/${selected!.shop_id}/hishob/days/${today.day!.id}`);
+            if (!day.transactions.some((entry) => entry.id === requestId)) return false;
+            await done();
+            return true;
+          }}
+        />
+      )}
       <Button
         validationMessage={
           value !== null && value > (parseMoney(due.remaining_amount) ?? BigInt(0))
@@ -208,8 +222,16 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
           { value: 'ALL', label: t('All') },
         ]}
       />
-      <ErrorText message={resource.error || today.error} />
-      {resource.loading && <Loading />}
+      <ResourceStatus
+        resource={resource}
+        loadingLabel={t('Loading customer dues…')}
+        retryLabel={t('Retry customer dues')}
+      />
+      <ResourceStatus
+        resource={today}
+        loadingLabel={t('Checking today’s Hishob…')}
+        retryLabel={t('Retry today’s Hishob')}
+      />
       {resource.data && (
         <Card>
           <Text style={styles.heading}>
