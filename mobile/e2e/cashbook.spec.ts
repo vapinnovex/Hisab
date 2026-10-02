@@ -83,6 +83,11 @@ test('cash-count shop estimates sales, excludes digital expenses and carries ret
   await expect(page.getByText('Monthly sales · ₹7,300', { exact: true })).toBeVisible();
   await expect(
     page.getByText('Recorded sales ₹2,300 · Estimated cash sales ₹5,000', { exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath('history-summary.png'), fullPage: true });
+  await page.getByRole('button', { name: 'View monthly breakdown', exact: true }).click();
+  await expect(
+    page.getByText('Recorded sales ₹2,300 · Estimated cash sales ₹5,000', { exact: true }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath('monthly-sales.png'), fullPage: true });
 });
@@ -179,6 +184,7 @@ test('total-only billing saves unknown payment split and can later reconcile kno
     .click();
   await page.getByRole('button', { name: 'Hishob history', exact: true }).click();
   await expect(page.getByText('Monthly sales · ₹7,000', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'View monthly breakdown', exact: true }).click();
   await expect(page.getByText(/Sales without payment breakdown · ₹7,000/)).toBeVisible();
   await page.screenshot({ path: info.outputPath('total-only-monthly.png'), fullPage: true });
   await page

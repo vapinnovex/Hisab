@@ -867,5 +867,16 @@
   "Deleted": "हटाया गया",
   "Expected closing cash": "अपेक्षित बंद नकदी",
   "UPI / card": "यूपीआई / कार्ड",
-  "Back": "वापस"
+  "Back": "वापस",
+  "Before you close": "बंद करने से पहले",
+  "Enter the actual cash counted. Enter 0 if the galla is empty.": "गिनी हुई नकदी दर्ज करें। गल्ला खाली हो तो 0 दर्ज करें।",
+  "Enter total sales from billing. Enter 0 if there were no sales.": "बिलिंग की कुल बिक्री दर्ज करें। बिक्री नहीं हुई तो 0 दर्ज करें।",
+  "Enter UPI / card sales. Enter 0 if there were none.": "UPI / कार्ड की बिक्री दर्ज करें। नहीं हुई तो 0 दर्ज करें।",
+  "Enter a valid bank transfer amount or leave it blank.": "बैंक में जमा की सही राशि दर्ज करें या खाली छोड़ें।",
+  "Enter a valid take-home amount or leave it blank.": "घर ले जाने की सही राशि दर्ज करें या खाली छोड़ें।",
+  "Choose a difference reason or write a note of at least 2 characters.": "अंतर का कारण चुनें या कम से कम 2 अक्षरों की टिप्पणी लिखें।",
+  "This day is still open. Review entries and close when ready.": "यह दिन अभी खुला है। प्रविष्टियाँ जाँचें और तैयार होने पर बंद करें।",
+  "Hide monthly breakdown": "मासिक विवरण छिपाएँ",
+  "View monthly breakdown": "मासिक विवरण देखें",
+  "Review recorded totals before closing.": "बंद करने से पहले दर्ज किए गए कुल की जाँच करें।"
 }

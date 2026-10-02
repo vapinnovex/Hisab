@@ -103,6 +103,31 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
     : cashSales !== null && digitalSales !== null && creditSales !== null
       ? cashSales + digitalSales + creditSales
       : null;
+  const closingIssues = [
+    counted === null && t('Enter the actual cash counted. Enter 0 if the galla is empty.'),
+    totalOnly &&
+      totalValue === null &&
+      t('Enter total sales from billing. Enter 0 if there were no sales.'),
+    mode !== 'ENTRIES' &&
+      (!totalOnly || knowNonCash) &&
+      digitalSales === null &&
+      t('Enter UPI / card sales. Enter 0 if there were none.'),
+    bankValue === null && t('Enter a valid bank transfer amount or leave it blank.'),
+    homeValue === null && t('Enter a valid take-home amount or leave it blank.'),
+    badEstimate && t('Review the cash count and movements: estimated cash sales are negative.'),
+    invalidSplit &&
+      t('Check billing total and UPI/card sales: payments cannot exceed total sales.'),
+    transferError && t('Reduce bank/home withdrawals: they exceed the cash counted.'),
+    needsNote &&
+      differenceNote.trim().length < 2 &&
+      t('Choose a difference reason or write a note of at least 2 characters.'),
+  ].filter((issue): issue is string => typeof issue === 'string');
+  if (
+    closingIssues.length === 0 &&
+    (retained === null || sales === null || (totalOnly && knowNonCash && cashSales === null))
+  ) {
+    closingIssues.push(t('Review recorded totals before closing.'));
+  }
   if (initial.status !== 'OPEN')
     return <Text style={styles.subtitle}>{t('This day is already closed.')}</Text>;
   return (
@@ -298,29 +323,22 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         multiline
         maxLength={1000}
       />
+      {closingIssues.length > 0 && (
+        <Card>
+          <Text style={styles.heading}>{t('Before you close')}</Text>
+          {closingIssues.map((issue) => (
+            <Text key={issue} style={styles.subtitle}>
+              • {issue}
+            </Text>
+          ))}
+        </Card>
+      )}
       <ErrorText message={action.error} />
       <Button
         title={isToday ? t('Close today’s Hishob') : t('Close Hishob · {0}', [initial.date])}
         busy={action.busy}
-        validationMessage={
-          badEstimate
-            ? t('Review the cash count and movements: estimated cash sales are negative.')
-            : invalidSplit
-              ? t('Check billing total and UPI/card sales: payments cannot exceed total sales.')
-              : transferError
-                ? t('Reduce bank/home withdrawals: they exceed the cash counted.')
-                : undefined
-        }
-        disabled={
-          counted === null ||
-          retained === null ||
-          sales === null ||
-          (totalOnly && knowNonCash && cashSales === null) ||
-          badEstimate ||
-          invalidSplit ||
-          transferError ||
-          (needsNote && differenceNote.trim().length < 2)
-        }
+        validationMessage={closingIssues[0]}
+        disabled={closingIssues.length > 0}
         onPress={() =>
           void action.run(async () => {
             await api(

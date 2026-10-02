@@ -39,7 +39,7 @@ with MongoClient(os.getenv('TEST_MONGODB_URI', 'mongodb://127.0.0.1:27018')) as 
   const endpoint = `${response.url()}/${shop.id}/hishob`;
   const today = (await (await page.request.get(`${endpoint}/today`)).json()).date;
   const previous = new Date(`${today}T12:00:00Z`);
-  previous.setUTCDate(previous.getUTCDate() - 1);
+  previous.setUTCDate(previous.getUTCDate() - 2);
   const missed = previous.toISOString().slice(0, 10);
   await page.reload();
   await page.getByLabel('Hishob tab', { exact: true }).click();
@@ -70,7 +70,29 @@ with MongoClient(os.getenv('TEST_MONGODB_URI', 'mongodb://127.0.0.1:27018')) as 
   expect(day.audit[0].reason).toBe('Forgot to start yesterday');
   expect((await (await page.request.get(`${endpoint}/today`)).json()).day).toBeNull();
   await page.getByRole('button', { name: 'Close day', exact: true }).click();
+  const close = page.getByRole('button', { name: `Close Hishob · ${missed}`, exact: true });
+  await expect(page.getByText('Before you close', { exact: true })).toBeVisible();
+  await expect(close).toBeEnabled();
+  await close.click();
   await expect(
-    page.getByRole('button', { name: `Close Hishob · ${missed}`, exact: true }),
+    page.getByRole('alert').filter({ hasText: 'Enter the actual cash counted.' }),
   ).toBeVisible();
+  await page.getByLabel('Actual cash in galla', { exact: true }).fill('140');
+  await expect(
+    page.getByText('Choose a difference reason or write a note of at least 2 characters.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await close.click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: 'Choose a difference reason' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Difference reason: Cash shortage', exact: true }).click();
+  await expect(page.getByText('Before you close', { exact: true })).toHaveCount(0);
+  await close.click();
+  await expect(page.getByRole('button', { name: 'View closing 1', exact: true })).toBeVisible();
+  const saved = await (await page.request.get(`${endpoint}/days/${day.id}`)).json();
+  expect(saved.status).toBe('CLOSED');
+  expect(saved.date).toBe(missed);
+  expect(saved.difference).toBe('-10.00');
 });

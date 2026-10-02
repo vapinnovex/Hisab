@@ -1,4 +1,4 @@
-import { t, useLocale } from './../i18n';
+import { t, useLocale, localeTag } from './../i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -58,9 +58,16 @@ function DayCard({ day, open }: { day: DaySummary; open: () => void }) {
   return (
     <Card>
       <View style={styles.row}>
-        <Text style={styles.heading}>{day.date}</Text>
+        <Text style={[styles.heading, { flex: 1 }]}>
+          {new Intl.DateTimeFormat(localeTag(), {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            timeZone: 'UTC',
+          }).format(new Date(`${day.date}T12:00:00Z`))}
+        </Text>
         <Text style={[styles.eyebrow, { color: day.status === 'OPEN' ? '#A46C0B' : colors.green }]}>
-          {day.status}
+          {day.status === 'OPEN' ? t('Open') : t('Closed')}
         </Text>
       </View>
       <Text style={styles.small}>
@@ -70,7 +77,7 @@ function DayCard({ day, open }: { day: DaySummary; open: () => void }) {
       </Text>
       <Text style={[styles.heading, { color: hasDifference(day) ? colors.red : colors.green }]}>
         {day.status === 'OPEN'
-          ? t('Ready for your next entry')
+          ? t('This day is still open. Review entries and close when ready.')
           : day.mode === 'COUNTED'
             ? t('Estimated sales · cash difference not measured')
             : day.difference === null
@@ -89,6 +96,7 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
   const earliest = selected!.shop.created_at
     ? dateInZone(selected!.shop.timezone, new Date(selected!.shop.created_at!))
     : undefined;
+  const [showSummary, setShowSummary] = useState(false);
   const [month, setMonth] = useState(today.slice(0, 7));
   const [view, setView] = useState<'CALENDAR' | 'LIST'>('CALENDAR');
   const [from, setFrom] = useState(monthRange(month).from);
@@ -106,7 +114,7 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
     `/shops/${selected!.shop_id}/hishob/monthly-summary?month=${month}`,
     true,
   );
-  const allDays = resource.data || [];
+  const allDays = [...(resource.data || [])].sort((a, b) => b.date.localeCompare(a.date));
   const days = allDays.filter((day) => status === 'ALL' || day.status === status);
   const date =
     selectedDate ||
@@ -116,6 +124,7 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
   const day = allDays.find((item) => item.date === date);
   const changeMonth = (next: string) => {
     setStartingDate(null);
+    setShowSummary(false);
     setMonth(next);
     setSelectedDate(null);
   };
@@ -167,62 +176,6 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
             onPress={() => setRange({ from, to })}
           />
         </Card>
-      )}
-      {view === 'CALENDAR' && (
-        <>
-          <ErrorText message={monthly.error} />
-          {monthly.data && (
-            <Card>
-              <Text style={styles.heading}>
-                {t('Monthly sales ·')} {money(monthly.data.total_sales)}
-              </Text>
-              <Text style={styles.small}>
-                {t(
-                  'Closed days included: {0} · Open: {1} · Not started: {2} (may include shop holidays)',
-                  [monthly.data.closed_days, monthly.data.open_days, monthly.data.not_started_days],
-                )}
-              </Text>
-              <Text style={styles.subtitle}>
-                {' '}
-                {t('Recorded sales')} {money(monthly.data.recorded_sales)}{' '}
-                {t('· Estimated cash sales')} {money(monthly.data.estimated_sales)}
-              </Text>
-              <Text style={styles.small}>
-                {' '}
-                {t('Known breakdown · Cash')} {money(monthly.data.cash_sales)} {t('· UPI / card')}{' '}
-                {money(monthly.data.digital_sales)} {t('· Unpaid credit')}{' '}
-                {money(monthly.data.credit_sales)}
-              </Text>
-              {monthly.data.unallocated_days > 0 && (
-                <Text style={styles.small}>
-                  {' '}
-                  {t(
-                    'Sales without payment breakdown · {0} across {1} closed day(s). Included in monthly sales above; cash differences could not be checked for these days.',
-                    [money(monthly.data.unallocated_sales), monthly.data.unallocated_days],
-                  )}
-                </Text>
-              )}
-              <Text style={styles.small}>
-                {' '}
-                {t('Expenses')} {money(monthly.data.expenses_total)} {t('· Supplier payments')}{' '}
-                {money(monthly.data.supplier_payments)}
-              </Text>
-              <Text style={styles.small}>
-                {' '}
-                {t('Bank transfers')} {money(monthly.data.bank_deposit)}{' '}
-                {t('· Take-home / withdrawals')} {money(monthly.data.withdrawals)}
-              </Text>
-              <Text style={styles.small}>
-                {' '}
-                {t('Closed days only.')} {monthly.data.estimated_days}{' '}
-                {monthly.data.estimated_days === 1
-                  ? t('cash-count day includes estimates.')
-                  : t('cash-count days include estimates.')}{' '}
-                {t('Sales are not profit. Opening cash and transfers are not sales.')}{' '}
-              </Text>
-            </Card>
-          )}
-        </>
       )}
       <FilterChips
         label={t('Hishob status')}
@@ -337,6 +290,75 @@ export function HishobHistory({ navigation }: NativeStackScreenProps<Routes, 'Hi
               title={t('No Hishob days found')}
               description={t('Try another month or filter, or start today’s Hishob.')}
             />
+          )}
+        </>
+      )}
+      {view === 'CALENDAR' && (
+        <>
+          <ErrorText message={monthly.error} />
+          {monthly.data && (
+            <Card>
+              <Text style={styles.heading}>
+                {t('Monthly sales ·')} {money(monthly.data.total_sales)}
+              </Text>
+              <Text style={styles.small}>
+                {t(
+                  'Closed days included: {0} · Open: {1} · Not started: {2} (may include shop holidays)',
+                  [monthly.data.closed_days, monthly.data.open_days, monthly.data.not_started_days],
+                )}
+              </Text>
+              <Text style={styles.small}>
+                {t('Closed days only.')}{' '}
+                {t('Sales are not profit. Opening cash and transfers are not sales.')}
+              </Text>
+              <Button
+                secondary
+                title={showSummary ? t('Hide monthly breakdown') : t('View monthly breakdown')}
+                onPress={() => setShowSummary(!showSummary)}
+              />
+              {showSummary && (
+                <>
+                  <Text style={styles.subtitle}>
+                    {' '}
+                    {t('Recorded sales')} {money(monthly.data.recorded_sales)}{' '}
+                    {t('· Estimated cash sales')} {money(monthly.data.estimated_sales)}
+                  </Text>
+                  <Text style={styles.small}>
+                    {' '}
+                    {t('Known breakdown · Cash')} {money(monthly.data.cash_sales)}{' '}
+                    {t('· UPI / card')} {money(monthly.data.digital_sales)} {t('· Unpaid credit')}{' '}
+                    {money(monthly.data.credit_sales)}
+                  </Text>
+                  {monthly.data.unallocated_days > 0 && (
+                    <Text style={styles.small}>
+                      {' '}
+                      {t(
+                        'Sales without payment breakdown · {0} across {1} closed day(s). Included in monthly sales above; cash differences could not be checked for these days.',
+                        [money(monthly.data.unallocated_sales), monthly.data.unallocated_days],
+                      )}
+                    </Text>
+                  )}
+                  <Text style={styles.small}>
+                    {' '}
+                    {t('Expenses')} {money(monthly.data.expenses_total)} {t('· Supplier payments')}{' '}
+                    {money(monthly.data.supplier_payments)}
+                  </Text>
+                  <Text style={styles.small}>
+                    {' '}
+                    {t('Bank transfers')} {money(monthly.data.bank_deposit)}{' '}
+                    {t('· Take-home / withdrawals')} {money(monthly.data.withdrawals)}
+                  </Text>
+                  <Text style={styles.small}>
+                    {' '}
+                    {t('Closed days only.')} {monthly.data.estimated_days}{' '}
+                    {monthly.data.estimated_days === 1
+                      ? t('cash-count day includes estimates.')
+                      : t('cash-count days include estimates.')}{' '}
+                    {t('Sales are not profit. Opening cash and transfers are not sales.')}{' '}
+                  </Text>
+                </>
+              )}
+            </Card>
           )}
         </>
       )}
