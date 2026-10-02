@@ -520,15 +520,12 @@ export function LanguageSettings({
         subtitle={t('Your choice overrides this shop’s default language.')}
       />
       <Card>
-        <Text style={styles.small}>
-          {t('Shop default:')}{' '}
-          {defaultLanguage === 'en' ? 'English' : defaultLanguage === 'hi' ? 'हिंदी' : 'मराठी'}
-        </Text>
         <LanguagePicker
           value={language}
           onChange={setLanguage}
           allowDefault
           label={t('Personal language')}
+          defaultLanguage={defaultLanguage}
           uiLanguage={session!.user.language || defaultLanguage}
         />
       </Card>

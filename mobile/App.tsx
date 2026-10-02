@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { WebExperience } from './src/pwa';
 import { AuthProvider, useAuth } from './src/auth';
-import { AccountButton, AppHeader, BrandMark } from './src/components/Brand';
+import { AppHeader, BrandMark } from './src/components/Brand';
 import { Button, colors, ErrorText, Heading, Loading, Page, styles } from './src/components/ui';
 import { useAction } from './src/hooks';
 import { MobileLogin, RoleSelection } from './src/screens/AuthScreens';
@@ -67,12 +67,12 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShadowVisible: false,
-        headerTitle: () => <BrandMark size={34} />,
-        headerRight: () => <AccountButton />,
-        headerTitleAlign: 'left',
-        headerBackButtonDisplayMode: 'minimal',
-        headerTintColor: colors.green,
+        header: ({ navigation, back }) => (
+          <AppHeader
+            onBack={back ? () => navigation.goBack() : undefined}
+            showShopSwitcher={!back}
+          />
+        ),
         contentStyle: { backgroundColor: colors.background },
       }}
     >
@@ -353,10 +353,13 @@ function Navigation() {
     >
       <Stack.Navigator
         screenOptions={{
-          headerShadowVisible: false,
-          headerTitle: () => <BrandMark size={34} />,
-          headerBackButtonDisplayMode: 'minimal',
-          headerTintColor: colors.green,
+          header: ({ navigation, back }) => (
+            <AppHeader
+              onBack={back ? () => navigation.goBack() : undefined}
+              showAccount={false}
+              showShopSwitcher={false}
+            />
+          ),
           contentStyle: { backgroundColor: colors.background },
         }}
       >

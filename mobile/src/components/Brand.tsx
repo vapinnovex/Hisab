@@ -14,15 +14,18 @@ export const logo = require('../../assets/brand/hishob-logo.png');
 export function BrandMark({ size = 46, subtitle }: { size?: number; subtitle?: string }) {
   useLocale();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+    <View
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexShrink: 1, minWidth: 0 }}
+    >
       <Image
         source={logo}
         accessibilityLabel={t('Hishob logo')}
         resizeMode="contain"
         style={{ width: size, height: size }}
       />
-      <View>
+      <View style={{ flexShrink: 1, minWidth: 0 }}>
         <Text
+          numberOfLines={1}
           style={{
             fontSize: size > 50 ? 30 : 23,
             fontWeight: '800',
@@ -66,18 +69,28 @@ export function AccountButton() {
   );
 }
 
-export function AppHeader() {
+export function AppHeader({
+  onBack,
+  showAccount = true,
+  showShopSwitcher = true,
+}: {
+  onBack?: () => void;
+  showAccount?: boolean;
+  showShopSwitcher?: boolean;
+}) {
   useLocale();
   const { session } = useAuth();
   const multipleShops = (session?.memberships.length || 0) > 1;
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: colors.background }}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={{ backgroundColor: colors.background }}>
       <View
         style={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 16,
+          minWidth: 0,
           paddingVertical: 10,
           gap: 10,
           maxWidth: 720,
+          // Shared by tab roots and every nested screen.
           width: '100%',
           alignSelf: 'center',
         }}
@@ -90,10 +103,34 @@ export function AppHeader() {
             gap: 12,
           }}
         >
-          <BrandMark size={36} />
-          <AccountButton />
+          {onBack && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('Back')}
+              onPress={onBack}
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                flexShrink: 0,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 14,
+                backgroundColor: pressed ? colors.mint : 'transparent',
+              })}
+            >
+              <Ionicons name="chevron-back" size={24} color={colors.green} />
+            </Pressable>
+          )}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <BrandMark size={36} />
+          </View>
+          {showAccount && (
+            <View style={{ flexShrink: 0 }}>
+              <AccountButton />
+            </View>
+          )}
         </View>
-        {multipleShops && (
+        {showShopSwitcher && multipleShops && (
           <View style={{ alignItems: 'flex-start' }}>
             <ShopSwitcher />
           </View>
