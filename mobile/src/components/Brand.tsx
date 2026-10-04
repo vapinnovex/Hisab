@@ -10,7 +10,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Routes } from '../types';
 import { ShopSwitcher } from './ShopSwitcher';
 
-export const logo = require('../../assets/brand/hishob-logo.png');
+export const logo =
+  process.env.EXPO_PUBLIC_APP_ENV === 'development'
+    ? require('../../assets/brand/hishob-dev-logo.png')
+    : require('../../assets/brand/hishob-logo.png');
 export function BrandMark({ size = 46, subtitle }: { size?: number; subtitle?: string }) {
   useLocale();
   return (
