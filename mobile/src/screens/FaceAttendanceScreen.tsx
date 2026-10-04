@@ -115,7 +115,7 @@ function eventName(action: string) {
 
 export function FaceAttendanceScreen() {
   useLocale();
-  const { selected, api } = useAuth();
+  const { selected, api, reload } = useAuth();
   const base = `/shops/${selected!.shop_id}/face`;
   const resource = useResource<Overview>(base, true);
   const action = useAction();
@@ -160,6 +160,7 @@ export function FaceAttendanceScreen() {
           },
           'PUT',
         );
+        await reload();
         setNotice(t('Face settings saved.'));
       } finally {
         await resource.refresh();
@@ -181,6 +182,29 @@ export function FaceAttendanceScreen() {
       {data && (
         <>
           <Card>
+            <Heading
+              title={t('Set up face attendance')}
+              subtitle={t('Complete these steps in order to start scanning.')}
+            />
+            {[
+              { title: t('1. Enable supervised face scanning'), done: data.enabled },
+              { title: t('2. Connect and approve a shop device'), done: !!activeDevice },
+              {
+                title: t('3. Enroll your active employees'),
+                done:
+                  data.members.some((m) => m.active && m.eligible) &&
+                  data.members.filter((m) => m.active && m.eligible).every((m) => m.enrolled),
+              },
+            ].map((step) => (
+              <View key={step.title} style={styles.row}>
+                <Text style={[styles.small, { flex: 1 }]}>{step.title}</Text>
+                <Text style={[styles.small, { color: step.done ? colors.green : colors.muted }]}>
+                  {step.done ? t('Ready') : t('Pending')}
+                </Text>
+              </View>
+            ))}
+          </Card>
+          <Card>
             <Text style={styles.eyebrow}>
               {data.enabled ? t('FACE ATTENDANCE ON') : t('FACE ATTENDANCE OFF')}
             </Text>
@@ -191,7 +215,7 @@ export function FaceAttendanceScreen() {
             </Text>
             <Text style={styles.small}>
               {t(
-                'Manual attendance remains available. Your existing check-in or check-in/out rules still apply.',
+                'In face mode, employees use the shop station. Only the owner can record manual corrections. Workday tracking rules still apply.',
               )}
             </Text>
             {!data.ready && <ErrorText message={data.problem} />}

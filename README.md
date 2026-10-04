@@ -381,3 +381,11 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 - iOS, Android, and web production JavaScript bundles exported successfully.
 - npm audit: 0 vulnerabilities.
 - Native binaries were not built or run on a physical device or simulator in this workspace.
+
+## Optional attendance and support
+
+**Account → Shop settings → Attendance** lets the owner disable attendance for the entire shop, or choose manual recording / face-scan setup. Disabled attendance is enforced in the API and station; saved records and enrollments are preserved. The existing arrival-only / arrival-and-departure choices remain available when attendance is enabled. Manual mode changes take effect immediately; shop settings changes require saving.
+
+**Account → Help & support** provides phone support at **+91 90224 45933**. The proposed email **hishob.support@gmail.com** is marked inactive until created and verified.
+
+See the [production-readiness review](docs/PRODUCTION-READINESS.md) for confirmed repository gaps and release gates.

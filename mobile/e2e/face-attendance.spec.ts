@@ -24,7 +24,7 @@ test('owner pairs a restricted station, confirms enrollment, records and safely 
   });
   expect(added.ok()).toBeTruthy();
   await page.getByRole('button', { name: 'Shop settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Manage face attendance', exact: true }).click();
+  await page.getByRole('button', { name: 'Face scan', exact: true }).click();
   const enable = page.getByRole('switch', { name: 'Enable face attendance', exact: true });
   await expect(enable).toBeDisabled();
   await page

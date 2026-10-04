@@ -22,7 +22,10 @@ import {
 } from '../components/ui';
 
 type Icon = React.ComponentProps<typeof Ionicons>['name'];
-type PermissionKey = Exclude<keyof ShopSettings, 'attendance_mode' | 'hishob_mode'>;
+type PermissionKey = Exclude<
+  keyof ShopSettings,
+  'attendance_enabled' | 'attendance_mode' | 'hishob_mode'
+>;
 type Permission = { key: PermissionKey; title: string; label: string; description: string };
 const groups: { title: string; icon: Icon; description: string; items: Permission[] }[] = localized(
   () => [
@@ -180,11 +183,18 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   useLocale();
   const { selected, api, reload } = useAuth();
-  const [settings, setSettings] = useState(initial);
+  const defaults = { ...initial, attendance_enabled: initial.attendance_enabled ?? true };
+  const [settings, setSettings] = useState(defaults);
+  const face = useResource<{
+    enabled: boolean;
+    revision: number;
+    manager_can_enroll_workers: boolean;
+    allow_manager_attendance: boolean;
+  }>(`/shops/${selected!.shop_id}/face`, true);
   const [name, setName] = useState(selected!.shop.name);
   const [language, setLanguage] = useState(selected!.shop.language || 'en');
   const [baseline, setBaseline] = useState({
-    settings: initial,
+    settings: defaults,
     name: selected!.shop.name,
     language,
   });
@@ -294,47 +304,95 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
         </Card>
         <Card>
           <SectionHeading
-            title={t('Workday tracking')}
+            title={t('Attendance')}
             icon="checkmark-done-outline"
             description={t('Keep attendance as simple as your shop needs.')}
           />
-          <Choice
-            title={t('Check-in only')}
-            icon="log-in-outline"
-            description={t('Record arrival once. Best for a simple daily register.')}
-            selected={settings.attendance_mode === 'CHECK_IN_ONLY'}
-            disabled={action.busy}
-            onPress={() => change({ attendance_mode: 'CHECK_IN_ONLY' })}
-          />
-          <Choice
-            title={t('Check-in and check-out')}
-            icon="swap-horizontal-outline"
-            description={t('Record both arrival and departure.')}
-            selected={settings.attendance_mode === 'CHECK_IN_OUT'}
-            disabled={action.busy}
-            onPress={() => change({ attendance_mode: 'CHECK_IN_OUT' })}
-          />
-          <Text style={styles.small}>
-            {' '}
-            {t('Existing open shifts can still be closed after changing this setting.')}{' '}
-          </Text>
-        </Card>
-        <Card>
-          <SectionHeading
-            title={t('Face attendance')}
-            icon="scan-outline"
-            description={t('Connect an attendance device and manage protected face enrollment.')}
-          />
-          <Button
-            title={t('Manage face attendance')}
-            secondary
-            disabled={dirty}
-            onPress={() => navigation.navigate('FaceAttendance')}
-          />
-          {dirty && (
-            <Text style={styles.small}>
-              {t('Save or discard changes before opening face attendance.')}
-            </Text>
+          <View style={local.permission}>
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={local.optionTitle}>{t('Enable attendance')}</Text>
+              <Text style={styles.small}>
+                {t(
+                  'Turn off attendance across this shop. Existing records and face enrollments are preserved.',
+                )}
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel={t('Enable attendance')}
+              value={settings.attendance_enabled}
+              disabled={action.busy}
+              onValueChange={(attendance_enabled) => change({ attendance_enabled })}
+              trackColor={{ false: '#D4DCD5', true: colors.green }}
+            />
+          </View>
+          {settings.attendance_enabled && (
+            <>
+              <Text style={styles.heading}>{t('Attendance method')}</Text>
+              <ErrorText message={face.error} />
+              <Choice
+                title={t('Manual attendance')}
+                icon="create-outline"
+                description={t(
+                  'Owner or permitted managers record attendance in the app. Switching methods takes effect immediately.',
+                )}
+                selected={!!face.data && !face.data.enabled}
+                disabled={dirty || action.busy || !face.data}
+                onPress={() =>
+                  void action.run(async () => {
+                    if (!face.data || !face.data.enabled) return;
+                    await api(
+                      `/shops/${selected!.shop_id}/face/settings`,
+                      {
+                        revision: face.data.revision,
+                        manager_can_enroll_workers: face.data.manager_can_enroll_workers,
+                        allow_manager_attendance: face.data.allow_manager_attendance,
+                        enabled: false,
+                        supervised_use_acknowledged: true,
+                      },
+                      'PUT',
+                    );
+                    await face.refresh();
+                    await reload();
+                  })
+                }
+              />
+              <Choice
+                title={t('Face scan')}
+                icon="scan-outline"
+                description={t(
+                  'Employees scan at an approved shop station. Open setup to enable scanning, connect a device and enroll your team.',
+                )}
+                selected={!!face.data?.enabled}
+                disabled={dirty || action.busy || !face.data}
+                onPress={() => navigation.navigate('FaceAttendance')}
+              />
+              {dirty && (
+                <Text style={styles.small}>
+                  {t('Save or discard changes before opening face attendance.')}
+                </Text>
+              )}
+              <Text style={styles.heading}>{t('Workday tracking')}</Text>
+              <Choice
+                title={t('Check-in only')}
+                icon="log-in-outline"
+                description={t('Record arrival once. Best for a simple daily register.')}
+                selected={settings.attendance_mode === 'CHECK_IN_ONLY'}
+                disabled={action.busy}
+                onPress={() => change({ attendance_mode: 'CHECK_IN_ONLY' })}
+              />
+              <Choice
+                title={t('Check-in and check-out')}
+                icon="swap-horizontal-outline"
+                description={t('Record both arrival and departure.')}
+                selected={settings.attendance_mode === 'CHECK_IN_OUT'}
+                disabled={action.busy}
+                onPress={() => change({ attendance_mode: 'CHECK_IN_OUT' })}
+              />
+              <Text style={styles.small}>
+                {' '}
+                {t('Existing open shifts can still be closed after changing this setting.')}{' '}
+              </Text>
+            </>
           )}
         </Card>
         <View style={{ gap: 5 }}>
@@ -344,34 +402,40 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
             {t('Applies to this shop only. Changes take effect after saving.')}{' '}
           </Text>
         </View>
-        {groups.map((group) => (
-          <Card key={group.title}>
-            <SectionHeading title={group.title} icon={group.icon} description={group.description} />
-            {group.items.map((item) => {
-              const needsAccess =
-                item.key === 'manager_can_close_hishob' && !settings.manager_can_access_hishob;
-              return (
-                <View key={item.key} style={local.permission}>
-                  <View style={{ flex: 1, gap: 5 }}>
-                    <Text style={local.optionTitle}>{item.title}</Text>
-                    <Text style={styles.small}>
-                      {needsAccess
-                        ? t('Enable Hishob access above to allow managers to close a day.')
-                        : item.description}
-                    </Text>
+        {groups
+          .filter((group) => settings.attendance_enabled || group.icon !== 'calendar-outline')
+          .map((group) => (
+            <Card key={group.title}>
+              <SectionHeading
+                title={group.title}
+                icon={group.icon}
+                description={group.description}
+              />
+              {group.items.map((item) => {
+                const needsAccess =
+                  item.key === 'manager_can_close_hishob' && !settings.manager_can_access_hishob;
+                return (
+                  <View key={item.key} style={local.permission}>
+                    <View style={{ flex: 1, gap: 5 }}>
+                      <Text style={local.optionTitle}>{item.title}</Text>
+                      <Text style={styles.small}>
+                        {needsAccess
+                          ? t('Enable Hishob access above to allow managers to close a day.')
+                          : item.description}
+                      </Text>
+                    </View>
+                    <Switch
+                      accessibilityLabel={item.label}
+                      disabled={action.busy || needsAccess}
+                      value={!needsAccess && settings[item.key]}
+                      onValueChange={(value) => change({ [item.key]: value })}
+                      trackColor={{ false: '#D4DCD5', true: colors.green }}
+                    />
                   </View>
-                  <Switch
-                    accessibilityLabel={item.label}
-                    disabled={action.busy || needsAccess}
-                    value={!needsAccess && settings[item.key]}
-                    onValueChange={(value) => change({ [item.key]: value })}
-                    trackColor={{ false: '#D4DCD5', true: colors.green }}
-                  />
-                </View>
-              );
-            })}
-          </Card>
-        ))}
+                );
+              })}
+            </Card>
+          ))}
         <View style={local.ownerNote}>
           <Ionicons name="shield-checkmark-outline" size={20} color={colors.green} />
           <Text style={[styles.small, { flex: 1 }]}>

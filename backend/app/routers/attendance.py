@@ -14,13 +14,20 @@ from ..security import current_identity, shop_access, staff_in_shop
 from ..shop_policy import (
     attendance_permissions,
     permissions_for,
+    require_attendance_enabled,
     require_attendance_permission,
     require_permission,
     settings_for,
 )
 from .shops import worker_view
 
-router = APIRouter(prefix="/shops/{shop_id}", tags=["Attendance"])
+
+def attendance_access(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
+    _, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN", "WORKER"})
+    require_attendance_enabled(shop)
+
+
+router = APIRouter(prefix="/shops/{shop_id}", tags=["Attendance"], dependencies=[Depends(attendance_access)])
 
 
 def audited_update(db, shop, member, update):

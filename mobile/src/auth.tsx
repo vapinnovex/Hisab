@@ -36,7 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await tokenStorage.remove();
   }, []);
   const apply = useCallback((data: Session, preferredShop?: string) => {
-    setSession(data);
+    setSession({
+      ...data,
+      memberships: data.memberships.map((membership) => ({
+        ...membership,
+        shop: {
+          ...membership.shop,
+          settings: {
+            ...membership.shop.settings,
+            attendance_enabled: membership.shop.settings.attendance_enabled ?? true,
+          },
+        },
+      })),
+    });
     select(
       (old) =>
         data.memberships.find((m) => m.shop_id === preferredShop)?.id ||

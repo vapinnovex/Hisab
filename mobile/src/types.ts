@@ -3,6 +3,7 @@ export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type Language = 'en' | 'hi' | 'mr';
 export type ShopSettings = {
   hishob_mode: 'ENTRIES' | 'COUNTED' | 'BILLING';
+  attendance_enabled: boolean;
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
   manager_can_mark_own_attendance: boolean;
@@ -31,6 +32,7 @@ export type Permissions = {
 
 export type Status = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE' | 'NOT_MARKED';
 export type Shop = {
+  face_attendance_enabled?: boolean;
   id: string;
   name: string;
   timezone: string;
@@ -157,6 +159,7 @@ export type Routes = HishobRoutes & {
   OwnerProfile: undefined;
   ChangeMobile: undefined;
   ChangeEmail: undefined;
+  Support: undefined;
   LanguageSettings: undefined;
   PasswordSecurity: undefined;
   StaffPasswordAccess: { worker: Worker };

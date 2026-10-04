@@ -35,6 +35,7 @@ import {
 import { Routes, TabRoutes } from './src/types';
 import { AttendanceActivityScreen } from './src/screens/AttendanceActivityScreen';
 import { FaceAttendanceScreen } from './src/screens/FaceAttendanceScreen';
+import { SupportScreen } from './src/screens/SupportScreen';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
 import {
@@ -113,9 +114,10 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
           options={{ header: () => <AppHeader /> }}
         />
       )}
-      {session!.role === 'MANAGER' && selected!.permissions.view_hishob && root !== 'Hishob' && (
-        <Stack.Screen name="MyAttendance" component={MyAttendance} />
-      )}
+      {session!.role === 'MANAGER' &&
+        selected!.shop.settings.attendance_enabled &&
+        selected!.permissions.view_hishob &&
+        root !== 'Hishob' && <Stack.Screen name="MyAttendance" component={MyAttendance} />}
       {session!.role !== 'WORKER' && (
         <>
           {root === 'Hishob' && selected!.permissions.view_hishob && (
@@ -134,23 +136,29 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
           )}
-          <Stack.Screen name="FaceAttendance" component={FaceAttendanceScreen} />
-          <Stack.Screen
-            name="AttendanceActivity"
-            component={AttendanceActivityScreen}
-            options={{ title: t('Attendance activity') }}
-          />
+          {selected!.shop.settings.attendance_enabled && (
+            <>
+              <Stack.Screen name="FaceAttendance" component={FaceAttendanceScreen} />
+              <Stack.Screen
+                name="AttendanceActivity"
+                component={AttendanceActivityScreen}
+                options={{ title: t('Attendance activity') }}
+              />
+            </>
+          )}
           <Stack.Screen name="StaffPasswordAccess" component={StaffPasswordAccess} />
           <Stack.Screen
             name="WorkerForm"
             component={WorkerForm}
             options={{ title: t('Team member') }}
           />
-          <Stack.Screen
-            name="WorkerHistory"
-            component={WorkerHistory}
-            options={{ title: t('Attendance history') }}
-          />
+          {selected!.shop.settings.attendance_enabled && (
+            <Stack.Screen
+              name="WorkerHistory"
+              component={WorkerHistory}
+              options={{ title: t('Attendance history') }}
+            />
+          )}
           {session!.role === 'OWNER' && (
             <>
               <Stack.Screen name="ShopSetup" component={ShopSetup} />
@@ -163,6 +171,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
           )}
         </>
       )}
+      <Stack.Screen name="Support" component={SupportScreen} />
       <Stack.Screen name="PasswordSecurity" component={PasswordSecurity} />
       <Stack.Screen name="LanguageSettings" component={LanguageSettings} />
     </Stack.Navigator>
@@ -251,25 +260,26 @@ function MainTabs() {
         component={HomeStack}
         options={{ title: translate(language, 'home') }}
       />
-      {!worker && (
+      {!worker && selected!.shop.settings.attendance_enabled && (
         <Tabs.Screen
           name="TodayAttendance"
           component={RegisterStack}
           options={{ title: translate(language, 'attendance') }}
         />
       )}
-      {(worker || (session!.role === 'MANAGER' && !finance)) && (
-        <Tabs.Screen
-          name="MyAttendance"
-          component={AttendanceStack}
-          options={{
-            title: translate(language, worker ? 'attendance' : 'myAttendance'),
-            ...(!worker
-              ? { tabBarButton: () => null, tabBarItemStyle: { display: 'none' as const } }
-              : {}),
-          }}
-        />
-      )}
+      {selected!.shop.settings.attendance_enabled &&
+        (worker || (session!.role === 'MANAGER' && !finance)) && (
+          <Tabs.Screen
+            name="MyAttendance"
+            component={AttendanceStack}
+            options={{
+              title: translate(language, worker ? 'attendance' : 'myAttendance'),
+              ...(!worker
+                ? { tabBarButton: () => null, tabBarItemStyle: { display: 'none' as const } }
+                : {}),
+            }}
+          />
+        )}
       {finance && (
         <Tabs.Screen name="Hishob" component={HishobStack} options={{ title: t('Hishob') }} />
       )}

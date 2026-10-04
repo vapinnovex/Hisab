@@ -151,7 +151,9 @@ export function WorkerDashboard() {
         <Card>
           <Text style={styles.subtitle}>
             {' '}
-            {t('Your owner has turned off attendance viewing for this shop.')}{' '}
+            {selected!.shop.settings.attendance_enabled
+              ? t('Your owner has turned off attendance viewing for this shop.')
+              : t('Attendance is disabled for this shop.')}{' '}
           </Text>
         </Card>
       )}

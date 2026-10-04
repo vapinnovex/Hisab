@@ -75,3 +75,31 @@ test('shop settings rename, discard, dependent permissions and retry work on a s
     .click();
   await expect(page.getByText('Market Road Store', { exact: true })).toBeVisible();
 });
+
+test('attendance can be disabled and restored, and support contacts are available', async ({
+  page,
+}) => {
+  await login(page, 'Owner', '+9198' + String(Date.now()).slice(-8));
+  await page.getByLabel('Shop name', { exact: true }).fill('Optional attendance shop');
+  await page.getByRole('button', { name: 'Create shop', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Attendance tab' })).toBeVisible();
+  await page.getByRole('button', { name: 'Shop settings', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Manual attendance', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Face scan', exact: true })).toBeVisible();
+  await page.getByRole('switch', { name: 'Enable attendance', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Face scan', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Save shop settings', exact: true }).click();
+  await expect(page.getByText('Shop settings saved.', { exact: true })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Attendance tab' })).toHaveCount(0);
+  await page.getByRole('switch', { name: 'Enable attendance', exact: true }).click();
+  await page.getByRole('button', { name: 'Save shop settings', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'Attendance tab' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open account', exact: true }).click();
+  await page.getByRole('button', { name: 'Help & support', exact: true }).click();
+  await expect(page.getByText('+91 90224 45933', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('Email support is not active yet. Please use the phone number above.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+});

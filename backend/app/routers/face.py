@@ -23,7 +23,7 @@ from ..face_engine import MODEL_VERSION, rank, seal, unseal
 from ..face_store import device_in, enabled, event, mutate, state
 from ..schemas import Input
 from ..security import current_identity, shop_access, staff_in_shop
-from ..shop_policy import settings_for
+from ..shop_policy import require_attendance_enabled, settings_for
 from ..web_session import cookie_secure
 from .attendance import record_arrival, record_departure, shop_today
 from .shops import worker_view
@@ -139,6 +139,7 @@ def active_device(request, db):
     doc, device = device_auth(request, db)
     if request.headers.get("X-Hishob-Shop") != doc["_id"]:
         raise HTTPException(409, "Open the station link for the paired shop before scanning.")
+    require_attendance_enabled(db.shops.find_one({"_id": doc["_id"]}))
     enabled(doc)
     device_in(doc, device["id"])
     return doc, device
@@ -148,6 +149,7 @@ def grant_access(db, grant, doc):
     """Recheck the authorizer's live role and the employee's identity, including after capture."""
     if not grant or grant["expires_at"] <= now():
         raise HTTPException(410, "Enrollment expired. Ask your owner or manager to start again.")
+    require_attendance_enabled(db.shops.find_one({"_id": doc["_id"]}))
     enabled(doc)
     device_in(doc, grant["device_id"])
     target = staff_in_shop(db, doc["_id"], grant["member_id"], active_only=True)
@@ -251,6 +253,7 @@ def update_settings(
 ):
     require_owner(db, shop_id, identity)
     if body.enabled:
+        require_attendance_enabled(db.shops.find_one({"_id": shop_id}))
         if not body.supervised_use_acknowledged:
             raise HTTPException(422, "Confirm supervised use before enabling face attendance.")
         engine(request).ready()
@@ -281,6 +284,7 @@ def update_settings(
 @router.post("/shops/{shop_id}/face/pairing")
 def pairing_code(shop_id: str, identity=Depends(current_identity), db=Depends(get_db)):
     require_owner(db, shop_id, identity)
+    require_attendance_enabled(db.shops.find_one({"_id": shop_id}))
     throttle(db, f"pair-create:{shop_id}", 5)
     code = secrets.token_hex(6).upper()
     expires = now() + timedelta(minutes=5)
@@ -303,6 +307,7 @@ def pair_device(body: Pair, request: Request, response: Response, db=Depends(get
     doc = db.face_shops.find_one({"pairing.code_hash": code_hash})
     if not doc:
         raise HTTPException(400, "Pairing code is invalid or expired.")
+    require_attendance_enabled(db.shops.find_one({"_id": doc["_id"]}))
     expected_shop = request.headers.get("X-Hishob-Shop")
     if expected_shop and expected_shop != doc["_id"]:
         raise HTTPException(
@@ -424,7 +429,8 @@ def rename_device(
 
 @router.post("/shops/{shop_id}/face/enrollments")
 def start_enrollment(shop_id: str, body: Grant, identity=Depends(current_identity), db=Depends(get_db)):
-    actor, _, _ = manager_access(db, shop_id, identity, body.member_id)
+    actor, shop, _ = manager_access(db, shop_id, identity, body.member_id)
+    require_attendance_enabled(shop)
     member = staff_in_shop(db, shop_id, body.member_id, active_only=True)
     grant = {
         "_id": new_id(),
@@ -603,7 +609,7 @@ def station_status(
             path=COOKIE_PATH,
         )
     grant = None
-    if doc["enabled"] and device["status"] == "ACTIVE":
+    if doc["enabled"] and settings_for(shop)["attendance_enabled"] and device["status"] == "ACTIVE":
         candidate = db.face_enrollments.find_one(
             {"_id": device.get("enrollment_id"), "expires_at": {"$gt": now()}}
         )
@@ -628,8 +634,8 @@ def station_status(
         "device_name": device["name"],
         "status": device["status"],
         "confirmation": device["confirmation"],
-        "enabled": doc["enabled"],
-        "enrollment": grant,
+        "enabled": doc["enabled"] and settings_for(shop)["attendance_enabled"],
+        "enrollment": grant if settings_for(shop)["attendance_enabled"] else None,
         "allow_out": settings_for(shop)["attendance_mode"] == "CHECK_IN_OUT" or has_open,
     }
 
