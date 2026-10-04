@@ -4,6 +4,14 @@
   "buildCommand": "npm run build:web",
   "outputDirectory": "dist",
   "rewrites": [
+    {
+      "source": "/api/face-station/",
+      "destination": "https://hishob-anuj.onrender.com/api/face-station/"
+    },
+    {
+      "source": "/api/face-station",
+      "destination": "https://hishob-anuj.onrender.com/api/face-station/"
+    },
     { "source": "/api/:path*", "destination": "https://hishob-anuj.onrender.com/api/:path*" },
     {
       "source": "/((?!api(?:/|$)|_expo/|assets/|icons/|sw\\.js$|manifest\\.webmanifest$|favicon\\.ico$).*)",
