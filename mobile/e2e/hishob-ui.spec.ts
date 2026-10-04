@@ -104,7 +104,8 @@ test('Hishob overview keeps daily actions accessible and shows saved closing cas
     true,
   );
   await page.screenshot({ path: info.outputPath('hishob-large-amounts.png') });
-  await page.unroute(route);
+  // Drain in-flight polling responses before removing this mock.
+  await page.unrouteAll({ behavior: 'wait' });
   const closed = await page.request.post(`${endpoint}/days/${day.id}/close`, {
     headers,
     data: {

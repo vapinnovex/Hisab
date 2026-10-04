@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     otp_expire_seconds: int = Field(default=300, ge=30)
     otp_resend_seconds: int = Field(default=30, ge=0)
     otp_max_attempts: int = Field(default=5, ge=1, le=10)
+    face_encryption_key: str = ""
+    face_models_dir: str = ""
+    face_match_threshold: float = Field(default=0.50, ge=0.363, le=0.95)
+    face_match_margin: float = Field(default=0.08, ge=0.02, le=0.5)
     cors_origins: list[str] = ["http://localhost:8081"]
 
     @model_validator(mode="after")

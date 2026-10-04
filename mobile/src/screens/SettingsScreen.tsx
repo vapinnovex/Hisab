@@ -1,11 +1,13 @@
 import { t, useLocale, localized } from './../i18n';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useUnsavedChanges } from '../pwa';
 import { useAuth } from '../auth';
 import { useAction, useResource } from '../hooks';
-import { ShopSettings } from '../types';
+import { Routes, ShopSettings } from '../types';
 import { LanguagePicker } from '../components/LanguagePicker';
 import {
   Button,
@@ -55,7 +57,7 @@ const groups: { title: string; icon: Icon; description: string; items: Permissio
           title: t('Manage worker attendance'),
           label: t('Managers can record and correct attendance'),
           description: t(
-            'Managers can record arrivals, departures and correct workers’ attendance.',
+            'When face attendance is off, managers can record and correct worker attendance. Face mode requires scans; only the owner can make manual corrections.',
           ),
         },
         {
@@ -63,7 +65,7 @@ const groups: { title: string; icon: Icon; description: string; items: Permissio
           title: t('Manager self-attendance'),
           label: t('Managers can mark their own attendance'),
           description: t(
-            'Managers can mark their own arrival and departure. Corrections require the owner.',
+            'When face attendance is off, managers can mark their own arrival and departure. Face mode always requires the shop station.',
           ),
         },
         {
@@ -175,6 +177,7 @@ function Choice({
 }
 
 function SettingsForm({ initial }: { initial: ShopSettings }) {
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   useLocale();
   const { selected, api, reload } = useAuth();
   const [settings, setSettings] = useState(initial);
@@ -315,6 +318,24 @@ function SettingsForm({ initial }: { initial: ShopSettings }) {
             {' '}
             {t('Existing open shifts can still be closed after changing this setting.')}{' '}
           </Text>
+        </Card>
+        <Card>
+          <SectionHeading
+            title={t('Face attendance')}
+            icon="scan-outline"
+            description={t('Connect an attendance device and manage protected face enrollment.')}
+          />
+          <Button
+            title={t('Manage face attendance')}
+            secondary
+            disabled={dirty}
+            onPress={() => navigation.navigate('FaceAttendance')}
+          />
+          {dirty && (
+            <Text style={styles.small}>
+              {t('Save or discard changes before opening face attendance.')}
+            </Text>
+          )}
         </Card>
         <View style={{ gap: 5 }}>
           <Text style={styles.heading}>{t('Team permissions')}</Text>

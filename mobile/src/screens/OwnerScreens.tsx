@@ -211,6 +211,11 @@ export function OwnerDashboard() {
     onPress: () => void;
   }[] = [
     {
+      title: t('Face attendance'),
+      icon: 'scan-outline',
+      onPress: () => navigation.navigate('FaceAttendance'),
+    },
+    {
       title: t('Manage workers'),
       icon: 'people-outline',
       onPress: () => navigation.navigate('Workers'),
@@ -945,6 +950,7 @@ function AttendanceRegister({
   openCalendar = false,
 }: AttendanceEntry) {
   useLocale();
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { selected } = useAuth();
   const today = dateInZone(selected!.shop.timezone);
   const [chosenDate, setChosenDate] = useState<string | null>(null);
@@ -1001,6 +1007,18 @@ function AttendanceRegister({
           <Ionicons name="information-circle-outline" size={24} color={colors.green} />
         </Pressable>
       </View>
+      <Button
+        title={t('Attendance activity')}
+        secondary
+        onPress={() => navigation.navigate('AttendanceActivity')}
+      />
+      {resource.data?.face_attendance_enabled && (
+        <Text style={styles.small}>
+          {t(
+            'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+          )}
+        </Text>
+      )}
       {helpOpen && (
         <View style={attendanceStyles.help}>
           <Text style={[styles.small, { color: colors.ink }]}>

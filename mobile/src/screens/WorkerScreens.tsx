@@ -49,7 +49,7 @@ export function ManagerSelfAttendance({ onChanged }: { onChanged: () => Promise<
   const resource = useResource<Today>(`/shops/${selected!.shop_id}/me/attendance/today`, true);
   const action = useAction();
   const today = resource.data;
-  const canMark = selected!.permissions.mark_own_attendance;
+  const canMark = !!today && !resource.error && today.permissions?.mark_own_attendance === true;
   const record = (operation: 'check-in' | 'check-out') =>
     void action.run(async () => {
       await api(`/shops/${selected!.shop_id}/me/attendance/${operation}`, undefined, 'POST');
@@ -73,9 +73,13 @@ export function ManagerSelfAttendance({ onChanged }: { onChanged: () => Promise<
       {!canMark ? (
         <Text style={styles.subtitle}>
           {' '}
-          {t(
-            'Your owner records your attendance. They can enable self-marking in Shop settings.',
-          )}{' '}
+          {today?.face_attendance_enabled
+            ? t(
+                'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+              )
+            : t(
+                'Your owner records your attendance. They can enable self-marking in Shop settings.',
+              )}{' '}
         </Text>
       ) : (
         <>

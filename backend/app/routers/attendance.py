@@ -1,5 +1,7 @@
 import calendar
+import re
 from datetime import date, timedelta
+from typing import Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,6 +21,147 @@ from ..shop_policy import (
 from .shops import worker_view
 
 router = APIRouter(prefix="/shops/{shop_id}", tags=["Attendance"])
+
+
+def audited_update(db, shop, member, update):
+    """Pipeline captures the real pre-update state, even with concurrent writers.
+
+    Events live in the same atomic document as attendance and station receipts.
+    Never truncate history. Mongo rejects an oversized write without losing either.
+    """
+    event = update["$push"]["edits"]["$each"][0]
+    actor = db.memberships.find_one({"shop_id": shop["_id"], "user_id": event["by"]})
+    actor_user = db.users.find_one({"_id": event["by"]}, {"name": 1}) if event["role"] != "FACE" else None
+    person = worker_view(db, member)
+    event = {
+        **event,
+        "id": new_id(),
+        "employee_name": person["name"],
+        "employee_mobile": person.get("mobile", ""),
+        "actor_name": (actor or {}).get("name")
+        or (actor_user or {}).get("name")
+        or ("Face station" if event["role"] == "FACE" else event["role"]),
+    }
+    fields = ("status", "check_in", "check_out", "is_open", "source", "note")
+    snapshot = {field: {"$ifNull": [f"${field}", None]} for field in fields}
+    stages = [{"$set": {"_audit_before": snapshot}}]
+    defaults = {
+        field: {"$cond": [{"$eq": [{"$type": f"${field}"}, "missing"]}, {"$literal": value}, f"${field}"]}
+        for field, value in update.get("$setOnInsert", {}).items()
+    }
+    if defaults:
+        stages.append({"$set": defaults})
+    stages.append({"$set": {key: {"$literal": value} for key, value in update["$set"].items()}})
+    appended = {
+        "edits": {
+            "$concatArrays": [
+                {"$ifNull": ["$edits", []]},
+                [{"$mergeObjects": [{"$literal": event}, {"before": "$_audit_before", "after": snapshot}]}],
+            ]
+        }
+    }
+    if "face_receipts" in update["$push"]:
+        appended["face_receipts"] = {
+            "$concatArrays": [
+                {"$ifNull": ["$face_receipts", []]},
+                {"$literal": [update["$push"]["face_receipts"]]},
+            ]
+        }
+    return [*stages, {"$set": appended}, {"$unset": "_audit_before"}]
+
+
+@router.get("/attendance/activity")
+def attendance_activity(
+    shop_id: str,
+    q: str = Query(default="", max_length=100),
+    start: Optional[date] = None,
+    end: Optional[date] = None,
+    source: str = Query(default="ALL", pattern="^(ALL|FACE|MANUAL)$"),
+    offset: int = Query(default=0, ge=0, le=100000),
+    limit: int = Query(default=30, ge=1, le=100),
+    identity=Depends(current_identity),
+    db=Depends(get_db),
+):
+    _, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
+    if start and end and start > end:
+        raise HTTPException(422, "Start date must not be after end date")
+    match = {"shop_id": shop_id}
+    if start or end:
+        match["date"] = {**({"$gte": str(start)} if start else {}), **({"$lte": str(end)} if end else {})}
+    pipeline = [{"$match": match}, {"$unwind": {"path": "$edits", "includeArrayIndex": "event_index"}}]
+    filters = {}
+    if source != "ALL":
+        filters["edits.role"] = "FACE" if source == "FACE" else {"$ne": "FACE"}
+    if q.strip():
+        regex = {"$regex": re.escape(q.strip()), "$options": "i"}
+        members = list(db.memberships.find({"shop_id": shop_id}))
+        staff_ids = [m["_id"] for m in members]
+        profiles = list(db.worker_profiles.find({"membership_id": {"$in": staff_ids}, "name": regex}))
+        users = list(
+            db.users.find(
+                {"_id": {"$in": [m["user_id"] for m in members]}, "$or": [{"mobile": regex}, {"name": regex}]}
+            )
+        )
+        user_ids = [u["_id"] for u in users]
+        matching = [
+            m
+            for m in members
+            if re.search(re.escape(q.strip()), m.get("name", ""), re.I)
+            or m["user_id"] in user_ids
+            or m["_id"] in [p["membership_id"] for p in profiles]
+        ]
+        filters["$or"] = [
+            {"worker_id": {"$in": [m["_id"] for m in matching]}},
+            {"edits.by": {"$in": [m["user_id"] for m in matching]}},
+        ] + [
+            {field: regex}
+            for field in [
+                "date",
+                "worker_id",
+                "edits.employee_name",
+                "edits.employee_mobile",
+                "edits.actor_name",
+                "edits.by",
+                "edits.role",
+                "edits.action",
+                "edits.status",
+                "edits.note",
+                "edits.device_id",
+                "edits.after.status",
+                "edits.after.note",
+            ]
+        ]
+    if filters:
+        pipeline.append({"$match": filters})
+    pipeline.extend(
+        [
+            {"$sort": {"edits.at": -1, "_id": -1, "event_index": -1}},
+            {"$skip": offset},
+            {"$limit": limit + 1},
+            {"$project": {"worker_id": 1, "date": 1, "edits": 1, "event_index": 1}},
+        ]
+    )
+    records = list(db.attendance.aggregate(pipeline))
+    names = {}
+    events = []
+    for record in records[:limit]:
+        worker_id = record["worker_id"]
+        if worker_id not in names:
+            member = db.memberships.find_one({"_id": worker_id, "shop_id": shop_id})
+            names[worker_id] = worker_view(db, member)["name"] if member else "Former employee"
+        event = record["edits"]
+        events.append(
+            {
+                **event,
+                "id": event.get("id", f"{record['_id']}:{record['event_index']}"),
+                "worker_id": worker_id,
+                "employee_name": event.get("employee_name", names[worker_id]),
+                "date": record["date"],
+                "action": event.get("action", "CORRECTION"),
+                "legacy": "before" not in event,
+            }
+        )
+    return {"events": events, "has_more": len(records) > limit, "timezone": shop["timezone"]}
 
 
 def shop_today(shop):
@@ -120,6 +263,7 @@ def register_for_date(shop_id, requested_day, identity, db):
         "today": str(today),
         "timezone": shop["timezone"],
         "rows": rows,
+        "face_attendance_enabled": shop.get("face_attendance_enabled", False),
         "settings": settings_for(shop),
         "permissions": permissions_for(actor, shop),
     }
@@ -174,13 +318,21 @@ def update_attendance(
         changes.update(check_in=None, check_out=None)
     else:
         defaults.update(check_in=None, check_out=None)
-    audit = {"at": now(), "by": identity.user["_id"], "status": body.status.value, "note": body.note}
-    # Keep a bounded edit trail in the same atomic document update.
+    audit = {
+        "at": now(),
+        "by": identity.user["_id"],
+        "role": identity.role,
+        "action": "CORRECTION",
+        "status": body.status.value,
+        "note": body.note,
+    }
+    # The event and both snapshots commit atomically with the attendance change.
     update = {
         "$set": changes,
         "$setOnInsert": defaults,
-        "$push": {"edits": {"$each": [audit], "$slice": -100}},
+        "$push": {"edits": {"$each": [audit]}},
     }
+    update = audited_update(db, shop, member, update)
     try:
         record = db.attendance.find_one_and_update(
             key, update, upsert=True, return_document=ReturnDocument.AFTER
@@ -202,6 +354,8 @@ def my_today(shop_id: str, identity=Depends(current_identity), db=Depends(get_db
         "timezone": shop["timezone"],
         "attendance": public(record) if record else blank(shop_id, member["_id"], day),
         "active_shift": public(active_shift),
+        "permissions": permissions_for(member, shop),
+        "face_attendance_enabled": shop.get("face_attendance_enabled", False),
         "settings": settings_for(shop),
     }
 
@@ -237,7 +391,16 @@ def check_in(shop_id: str, worker_id: str, identity=Depends(current_identity), d
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     member = staff_in_shop(db, shop_id, worker_id, active_only=True)
     require_attendance_permission(actor, shop, member, "can_mark")
+    return record_arrival(db, shop, member, identity.user["_id"], identity.role)
+
+
+def record_arrival(db, shop, member, actor_id, source, receipt=None):
+    shop_id, worker_id = shop["_id"], member["_id"]
     timestamp = now()
+    if receipt:
+        # BSON dates retain milliseconds; return exactly the time that will be stored.
+        timestamp = timestamp.replace(microsecond=(timestamp.microsecond // 1000) * 1000)
+        receipt["result"]["recorded_at"] = timestamp.isoformat()
     mode = settings_for(shop)["attendance_mode"]
     if db.attendance.find_one({"shop_id": shop_id, "worker_id": worker_id, "is_open": True}):
         raise HTTPException(409, "An earlier shift is still open. Record its check-out first.")
@@ -248,23 +411,35 @@ def check_in(shop_id: str, worker_id: str, identity=Depends(current_identity), d
         "check_in": None,
         "status": "NOT_MARKED",
     }
-    audit = {"at": timestamp, "by": identity.user["_id"], "role": identity.role, "action": "CHECK_IN"}
+    if receipt:
+        key["face_receipts.request_id"] = {"$ne": receipt["request_id"]}
+    audit = {"at": timestamp, "by": actor_id, "role": source, "action": "CHECK_IN"}
+    if receipt:
+        audit.update(device_id=receipt["device_id"], request_id=receipt["request_id"])
     try:
         record = db.attendance.find_one_and_update(
             key,
-            {
-                "$set": {
-                    "check_in": timestamp,
-                    "status": "PRESENT",
-                    "is_open": mode == "CHECK_IN_OUT",
-                    "source": identity.role,
-                    "updated_at": timestamp,
-                    "updated_by": identity.user["_id"],
-                    "attendance_mode": mode,
+            audited_update(
+                db,
+                shop,
+                member,
+                {
+                    "$set": {
+                        "check_in": timestamp,
+                        "status": "PRESENT",
+                        "is_open": mode == "CHECK_IN_OUT",
+                        "source": source,
+                        "updated_at": timestamp,
+                        "updated_by": actor_id,
+                        "attendance_mode": mode,
+                    },
+                    "$setOnInsert": {"_id": new_id(), "check_out": None, "note": "", "created_at": timestamp},
+                    "$push": {
+                        "edits": {"$each": [audit]},
+                        **({"face_receipts": receipt} if receipt else {}),
+                    },
                 },
-                "$setOnInsert": {"_id": new_id(), "check_out": None, "note": "", "created_at": timestamp},
-                "$push": {"edits": {"$each": [audit], "$slice": -100}},
-            },
+            ),
             upsert=True,
             return_document=ReturnDocument.AFTER,
         )
@@ -278,7 +453,16 @@ def check_out(shop_id: str, worker_id: str, identity=Depends(current_identity), 
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     member = staff_in_shop(db, shop_id, worker_id)
     require_attendance_permission(actor, shop, member, "can_mark")
+    return record_departure(db, shop, member, identity.user["_id"], identity.role)
+
+
+def record_departure(db, shop, member, actor_id, source, receipt=None):
+    shop_id, worker_id = shop["_id"], member["_id"]
     timestamp = now()
+    if receipt:
+        # BSON dates retain milliseconds; return exactly the time that will be stored.
+        timestamp = timestamp.replace(microsecond=(timestamp.microsecond // 1000) * 1000)
+        receipt["result"]["recorded_at"] = timestamp.isoformat()
     # Existing open shifts retain their original policy when a shop switches to in-only.
     record = db.attendance.find_one_and_update(
         {
@@ -287,29 +471,40 @@ def check_out(shop_id: str, worker_id: str, identity=Depends(current_identity), 
             "is_open": True,
             "check_in": {"$ne": None},
             "check_out": None,
+            **({"face_receipts.request_id": {"$ne": receipt["request_id"]}} if receipt else {}),
         },
-        {
-            "$set": {
-                "check_out": timestamp,
-                "is_open": False,
-                "updated_at": timestamp,
-                "updated_by": identity.user["_id"],
-                "source": identity.role,
+        audited_update(
+            db,
+            shop,
+            member,
+            {
+                "$set": {
+                    "check_out": timestamp,
+                    "is_open": False,
+                    "updated_at": timestamp,
+                    "updated_by": actor_id,
+                    "source": source,
+                },
+                "$push": {
+                    "edits": {
+                        "$each": [
+                            {
+                                "at": timestamp,
+                                "by": actor_id,
+                                "role": source,
+                                "action": "CHECK_OUT",
+                                **(
+                                    {"device_id": receipt["device_id"], "request_id": receipt["request_id"]}
+                                    if receipt
+                                    else {}
+                                ),
+                            }
+                        ],
+                    },
+                    **({"face_receipts": receipt} if receipt else {}),
+                },
             },
-            "$push": {
-                "edits": {
-                    "$each": [
-                        {
-                            "at": timestamp,
-                            "by": identity.user["_id"],
-                            "role": identity.role,
-                            "action": "CHECK_OUT",
-                        }
-                    ],
-                    "$slice": -100,
-                }
-            },
-        },
+        ),
         return_document=ReturnDocument.AFTER,
     )
     if not record:

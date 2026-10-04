@@ -488,3 +488,25 @@ def test_shop_settings_rename_is_atomic_validated_and_owner_only(client, setup_s
     # Older clients can still save settings without sending a name.
     assert client.put(base + "/settings", headers=owner, json=settings).status_code == 200
     assert client.app.state.db.shops.find_one({"_id": shop})["name"] == "Market Road Store"
+
+
+def test_auth_me_ignores_unsupported_persisted_shop_settings(client, setup_shop):
+    owner, shop, _, _ = setup_shop
+    client.app.state.db.shops.update_one(
+        {"_id": shop},
+        {
+            "$set": {
+                "settings.full_day_minutes": 540,
+                "settings.working_weekdays": [0, 1, 2, 3, 4, 5, 6],
+                "settings.face_attendance_enabled": True,
+            }
+        },
+    )
+
+    response = client.get("/api/auth/me", headers=owner)
+
+    assert response.status_code == 200, response.text
+    membership = next(item for item in response.json()["memberships"] if item["shop_id"] == shop)
+    assert "full_day_minutes" not in membership["shop"]["settings"]
+    assert "working_weekdays" not in membership["shop"]["settings"]
+    assert "face_attendance_enabled" not in membership["shop"]["settings"]

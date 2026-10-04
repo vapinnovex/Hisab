@@ -2,6 +2,7 @@
 
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,8 +22,30 @@ settings = Settings(
     otp_resend_seconds=0,
     cors_origins=["http://localhost:8082", "http://localhost:8083"],
 )
+# Only this isolated test server replaces camera inference. Production has no bypass.
+app = create_app(settings)
+real_lifespan = app.router.lifespan_context
+
+
+class TestCamera:
+    def ready(self):
+        pass
+
+    def extract(self, frames):
+        assert len(frames) == 3 and all(len(frame) > 100 for frame in frames)
+        return [[1.0] + [0.0] * 127] * 3
+
+
+@asynccontextmanager
+async def test_lifespan(application):
+    async with real_lifespan(application):
+        application.state.face_engine = TestCamera()
+        yield
+
+
+app.router.lifespan_context = test_lifespan
 try:
-    uvicorn.run(create_app(settings), host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8001)
 finally:
     with MongoClient(settings.mongodb_uri) as client:
         client.drop_database(settings.mongodb_database)

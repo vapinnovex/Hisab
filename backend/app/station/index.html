@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#145c45" />
+    <title>Hishob Attendance Station</title>
+    <link rel="stylesheet" href="/api/face-station/station.css" />
+    <script src="/api/face-station/station.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand">H<span>HISHOB</span></div>
+        <span class="pill" id="connection">Connecting…</span>
+      </header>
+      <section class="intro">
+        <p class="eyebrow">ATTENDANCE STATION</p>
+        <h1 id="title">Your workday starts here.</h1>
+        <p id="subtitle">Connect this device to your shop.</p>
+      </section>
+      <section class="card" id="shop-conflict" hidden>
+        <h2>Different shop connected</h2>
+        <p id="shop-conflict-help"></p>
+        <p>
+          Scanning is blocked. Disconnecting signs this browser out of its
+          current station and cancels any pending enrollment. Pair this shop
+          with its own code and owner approval.
+        </p>
+      </section>
+      <section class="card" id="shop-choice" hidden>
+        <h2>Confirm your attendance shop</h2>
+        <p id="shop-choice-help"></p>
+        <button id="continue-shop">Continue with this shop</button>
+      </section>
+      <section class="card" id="connection-controls" hidden>
+        <button id="disconnect-start" class="secondary">
+          Disconnect station
+        </button>
+        <div id="disconnect-confirm" hidden>
+          <p id="disconnect-help"></p>
+          <button id="disconnect-confirm-button">
+            Disconnect and enter a pairing code
+          </button>
+          <button id="disconnect-cancel" class="secondary">
+            Keep current connection
+          </button>
+        </div>
+      </section>
+      <section class="card" id="pairing" hidden>
+        <h2>Connect your shop</h2>
+        <p>
+          Ask the owner for a code from Shop settings → Face attendance. This
+          device stays connected after approval.
+        </p>
+        <form id="pair-form">
+          <label for="code">Pairing code</label
+          ><input
+            id="code"
+            autocomplete="off"
+            maxlength="24"
+            placeholder="12-character code"
+            required
+          /><label for="device-name">Device name</label
+          ><input
+            id="device-name"
+            maxlength="60"
+            minlength="2"
+            value="Main entrance"
+            required
+          /><button type="submit">Connect device</button>
+        </form>
+      </section>
+      <section class="card" id="pending" hidden>
+        <h2>Waiting for owner approval</h2>
+        <p>
+          Match this number with the request in the owner’s app, then approve
+          that device.
+        </p>
+        <strong class="code" id="confirmation"></strong>
+      </section>
+      <section class="card" id="disabled" hidden>
+        <h2>Face attendance is turned off</h2>
+        <p>Ask your owner to record attendance manually.</p>
+      </section>
+      <section id="station" hidden>
+        <div class="camera">
+          <video id="video" autoplay muted playsinline></video>
+          <div class="guide" aria-hidden="true"></div>
+          <p id="camera-help">Position one face inside the guide</p>
+        </div>
+        <button id="camera-start" class="secondary">Start camera</button>
+        <p id="wake-status" class="small"></p>
+        <section class="card" id="enrollment" hidden>
+          <p class="eyebrow">AUTHORIZED ENROLLMENT</p>
+          <h2 id="enrollment-name"></h2>
+          <p id="enrollment-help">
+            Keep your face centered. We will take three samples. Your owner or
+            manager must confirm them in the main app.
+          </p>
+          <button id="capture">Capture face samples</button>
+        </section>
+        <div class="actions" id="attendance-actions">
+          <button id="check-in">IN · Check in</button
+          ><button id="check-out" class="secondary">OUT · Check out</button>
+        </div>
+        <p class="small">
+          One scan records one action. For corrections, contact your owner.
+        </p>
+      </section>
+      <section id="result-box" class="card" hidden>
+        <p id="result" role="status" aria-live="polite"></p>
+        <button id="retry" hidden>Retry the same attendance request</button
+        ><button id="dismiss" class="secondary" hidden>Clear message</button>
+      </section>
+      <footer>
+        Keep this device powered, online and open during attendance hours. Face
+        matching requires supervision; it does not verify liveness. Camera
+        images are processed for enrollment or attendance and are not retained.
+      </footer>
+    </main>
+  </body>
+</html>

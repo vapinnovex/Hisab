@@ -33,6 +33,8 @@ import {
   LanguageSettings,
 } from './src/screens/AccountScreens';
 import { Routes, TabRoutes } from './src/types';
+import { AttendanceActivityScreen } from './src/screens/AttendanceActivityScreen';
+import { FaceAttendanceScreen } from './src/screens/FaceAttendanceScreen';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
 
 import {
@@ -132,6 +134,12 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
           )}
+          <Stack.Screen name="FaceAttendance" component={FaceAttendanceScreen} />
+          <Stack.Screen
+            name="AttendanceActivity"
+            component={AttendanceActivityScreen}
+            options={{ title: t('Attendance activity') }}
+          />
           <Stack.Screen name="StaffPasswordAccess" component={StaffPasswordAccess} />
           <Stack.Screen
             name="WorkerForm"

@@ -151,6 +151,14 @@ export function Profile() {
             onPress={() => navigation.navigate('MyAttendance')}
           />
         )}
+        {session!.role !== 'WORKER' && (
+          <AccountLink
+            title={t('Face attendance')}
+            detail={t('Devices, enrollment and face attendance access')}
+            icon="scan-outline"
+            onPress={() => navigation.navigate('FaceAttendance')}
+          />
+        )}
         {selected!.permissions.view_hishob && (
           <AccountLink
             title={t('Hishob history')}

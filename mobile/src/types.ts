@@ -77,12 +77,14 @@ export type Attendance = {
   status: Status;
   check_in: string | null;
   check_out: string | null;
-  source: Role | 'SELF' | null;
+  source: Role | 'SELF' | 'FACE' | null;
   attendance_mode?: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   note: string;
   is_open: boolean;
 };
 export type Today = {
+  face_attendance_enabled?: boolean;
+  permissions?: Permissions;
   date: string;
   timezone: string;
   attendance: Attendance;
@@ -90,6 +92,7 @@ export type Today = {
   settings: ShopSettings;
 };
 export type OwnerToday = {
+  face_attendance_enabled?: boolean;
   date: string;
   timezone: string;
   rows: {
@@ -164,6 +167,8 @@ export type Routes = HishobRoutes & {
   Workers: undefined;
   Managers: undefined;
   ShopSettings: undefined;
+  FaceAttendance: undefined;
+  AttendanceActivity: undefined;
   WorkerForm: { worker?: Worker; kind?: 'WORKER' | 'MANAGER' } | undefined;
   TodayAttendance: AttendanceTab;
   WorkerHistory: { worker: Worker; date?: string };

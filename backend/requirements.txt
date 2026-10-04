@@ -7,3 +7,8 @@ phonenumbers==9.0.39
 argon2-cffi==25.1.0
 email-validator==2.3.0
 tzdata==2025.2
+opencv-python-headless==4.13.0.92
+numpy==2.0.2
+cryptography==46.0.7
+pillow==11.3.0
+qrcode==8.2
