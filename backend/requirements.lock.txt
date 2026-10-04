@@ -6,6 +6,7 @@ argon2-cffi-bindings==25.1.0
 certifi==2026.7.22
 cffi==2.0.0
 click==8.1.8
+cryptography==46.0.7
 dnspython==2.7.0
 email-validator==2.3.0
 exceptiongroup==1.3.1
@@ -16,8 +17,11 @@ httptools==0.8.0
 httpx==0.28.1
 idna==3.20
 iniconfig==2.1.0
+numpy==2.0.2
+opencv-python-headless==4.13.0.92
 packaging==26.3
 phonenumbers==9.0.39
+pillow==11.3.0
 pluggy==1.6.0
 pycparser==2.23
 pydantic==2.13.5
@@ -39,3 +43,4 @@ uvicorn==0.39.0
 uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
+qrcode==8.2

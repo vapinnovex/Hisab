@@ -1,6 +1,10 @@
 # Hishob — Phases 1 & 2
 
-A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile-and-password login, owner-managed attendance, and a daily cash register with audited closing. Billing, GST, inventory, payroll and AI features are outside this phase.
+A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile-and-password login, owner-managed attendance, and a daily cash register with audited closing. GST, inventory, payroll and broader AI features are outside this phase. Optional supervised face attendance is described below.
+
+## Face attendance
+
+Optional supervised face attendance adds a separate browser station, owner-approved device pairing, protected employee enrollment, and IN/OUT recording in the existing register. Manage it from **Shop settings → Manage face attendance** or **Account → Face attendance**. Production requires `FACE_ENCRYPTION_KEY`, HTTPS, and the model files. See [setup, permissions, privacy and pilot limitations](docs/FACE-ATTENDANCE.md).
 
 ## Shop settings
 
@@ -90,7 +94,7 @@ Open **Owner dashboard → Shop settings** to configure each shop independently.
 
 **Check-in only is the default**: the owner or manager marks arrival once and the day is present. There is no open shift or required check-out. Owners can choose **Check-in and check-out** for shops that need both times. Settings changes apply to new arrivals, while existing open shifts remain closable and old timestamps remain visible.
 
-Workers never mark or edit attendance. The self-check-in/out endpoints accept only managers whose owner has enabled **Managers can mark their own attendance**. This setting is off by default and independent of permission to manage worker attendance. Only the owner can correct a manager’s attendance, including half-days and leave; managers cannot mark or correct another manager.
+Workers never mark or edit attendance. The self-check-in/out endpoints accept only managers whose owner has enabled **Managers can mark their own attendance**. This setting is off by default and independent of permission to manage worker attendance. When face attendance is enabled, both manager manual permissions are overridden: managers must use the paired station, and only owners can record manual attendance or corrections. Only the owner can correct a manager’s attendance, including half-days and leave; managers cannot mark or correct another manager.
 
 Bottom navigation follows each role:
 
@@ -377,3 +381,11 @@ The npm dependency override pins `xcode`’s transitive `uuid` to 11.1.1, retain
 - iOS, Android, and web production JavaScript bundles exported successfully.
 - npm audit: 0 vulnerabilities.
 - Native binaries were not built or run on a physical device or simulator in this workspace.
+
+## Optional attendance and support
+
+**Account → Shop settings → Attendance** lets the owner disable attendance for the entire shop, or choose manual recording / face-scan setup. Disabled attendance is enforced in the API and station; saved records and enrollments are preserved. The existing arrival-only / arrival-and-departure choices remain available when attendance is enabled. Manual mode changes take effect immediately; shop settings changes require saving.
+
+**Account → Help & support** provides phone support at **+91 90224 45933**. The proposed email **hishob.support@gmail.com** is marked inactive until created and verified.
+
+See the [production-readiness review](docs/PRODUCTION-READINESS.md) for confirmed repository gaps and release gates.

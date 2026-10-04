@@ -13,7 +13,7 @@ from ..otp import code_hash
 from ..passwords import user_view
 from ..security import current_identity
 from ..sessions import legacy_session_ids, session_group, session_limit
-from ..shop_policy import permissions_for, shop_view
+from ..shop_policy import load_attendance_policy, permissions_for, shop_view
 from ..web_session import clear_browser_session
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -227,6 +227,7 @@ def me(identity=Depends(current_identity), db=Depends(get_db)):
     ):
         shop = db.shops.find_one({"_id": membership["shop_id"]})
         if shop:
+            shop = load_attendance_policy(db, shop)
             profile = db.worker_profiles.find_one({"membership_id": membership["_id"]})
             memberships.append(
                 {

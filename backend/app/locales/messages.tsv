@@ -117,3 +117,54 @@ Unexpected field.|यह जानकारी अपेक्षित नह�
 Unexpected server error. Please retry.|सर्वर पर अनपेक्षित त्रुटि हुई। कृपया फिर कोशिश करें।|सर्व्हरवर अनपेक्षित त्रुटी आली. कृपया पुन्हा प्रयत्न करा.
 Your Hishob verification code|आपका हिशोब सत्यापन कोड|तुमचा हिशोब पडताळणी कोड
 Your Hishob code is {code}. It expires in {minutes} minutes. If you did not request this, ignore this email. Never share this code.|आपका हिशोब कोड {code} है। यह {minutes} मिनट में समाप्त होगा। अनुरोध नहीं किया तो ईमेल अनदेखा करें। कोड किसी को न दें।|तुमचा हिशोब कोड {code} आहे. तो {minutes} मिनिटांत संपेल. विनंती केली नसेल तर ईमेल दुर्लक्षित करा. कोड कोणालाही देऊ नका.
+Camera images are too large. Please try again.|कैमरे की तस्वीरें बहुत बड़ी हैं। फिर कोशिश करें।|कॅमेऱ्याचे फोटो खूप मोठे आहेत. पुन्हा प्रयत्न करा.
+Capture the face samples on the station first.|पहले स्टेशन पर चेहरे के नमूने लें।|आधी स्टेशनवर चेहऱ्याचे नमुने घ्या.
+Confirm supervised use before enabling face attendance.|चेहरे से उपस्थिति चालू करने से पहले निगरानी में उपयोग की पुष्टि करें।|चेहऱ्याद्वारे उपस्थिती सुरू करण्यापूर्वी देखरेखीखाली वापराची खात्री करा.
+Connect this attendance device using an owner’s pairing code.|मालिक के पेयरिंग कोड से यह उपस्थिति डिवाइस जोड़ें।|मालकाच्या पेअरिंग कोडने हे उपस्थिती उपकरण जोडा.
+Could not read this face. Try again.|चेहरा पढ़ा नहीं जा सका। फिर कोशिश करें।|चेहरा वाचता आला नाही. पुन्हा प्रयत्न करा.
+Device access has expired or was revoked. Ask the owner to connect it again.|डिवाइस की पहुँच समाप्त या रद्द हो गई है। मालिक से दोबारा जोड़ने को कहें।|उपकरणाचा प्रवेश कालबाह्य किंवा रद्द झाला आहे. मालकाला पुन्हा जोडण्यास सांगा.
+Enrollment access changed. Start again from the main app.|नामांकन की पहुँच बदल गई है। मुख्य ऐप से फिर शुरू करें।|नोंदणीचा प्रवेश बदलला आहे. मुख्य ॲपमधून पुन्हा सुरू करा.
+Enrollment changed. Refresh the station.|नामांकन बदल गया है। स्टेशन रीफ़्रेश करें।|नोंदणी बदलली आहे. स्टेशन रीफ्रेश करा.
+Enrollment expired or was already handled. Refresh the list.|नामांकन समाप्त हो गया है या पहले ही पूरा किया गया है। सूची रीफ़्रेश करें।|नोंदणी कालबाह्य झाली आहे किंवा आधीच हाताळली आहे. यादी रीफ्रेश करा.
+Enrollment expired. Ask your owner or manager to start again.|नामांकन की अवधि समाप्त हो गई है। मालिक या प्रबंधक से फिर शुरू करने को कहें।|नोंदणीची मुदत संपली आहे. मालक किंवा व्यवस्थापकाला पुन्हा सुरू करण्यास सांगा.
+Enrollment permission was removed.|नामांकन की अनुमति हटा दी गई है।|नोंदणीची परवानगी काढली आहे.
+Enrollment was already handled.|नामांकन पहले ही पूरा किया गया है।|नोंदणी आधीच हाताळली आहे.
+Face attendance is turned off. Ask your owner to record attendance.|चेहरे से उपस्थिति बंद है। मालिक से उपस्थिति दर्ज करने को कहें।|चेहऱ्याद्वारे उपस्थिती बंद आहे. मालकाला उपस्थिती नोंदवण्यास सांगा.
+Face data cannot be read. Contact your administrator.|चेहरे का डेटा पढ़ा नहीं जा सका। अपने व्यवस्थापक से संपर्क करें।|चेहऱ्याचा डेटा वाचता येत नाही. तुमच्या प्रशासकाशी संपर्क साधा.
+Face models are missing or have changed. Contact your administrator.|चेहरे के मॉडल उपलब्ध नहीं हैं या बदल गए हैं। अपने व्यवस्थापक से संपर्क करें।|चेहऱ्याचे मॉडेल उपलब्ध नाहीत किंवा बदलले आहेत. तुमच्या प्रशासकाशी संपर्क साधा.
+Face models could not be loaded. Contact your administrator.|चेहरे के मॉडल लोड नहीं हो सके। अपने व्यवस्थापक से संपर्क करें।|चेहऱ्याचे मॉडेल लोड करता आले नाहीत. तुमच्या प्रशासकाशी संपर्क साधा.
+Face not recognized clearly. Try again or ask your owner to record attendance.|चेहरा स्पष्ट रूप से पहचाना नहीं गया। फिर कोशिश करें या मालिक से उपस्थिति दर्ज करने को कहें।|चेहरा स्पष्टपणे ओळखता आला नाही. पुन्हा प्रयत्न करा किंवा मालकाला उपस्थिती नोंदवण्यास सांगा.
+Face settings changed at the same time. Refresh and try again.|उसी समय चेहरे की सेटिंग बदल गईं। रीफ़्रेश करके फिर कोशिश करें।|त्याच वेळी चेहऱ्याच्या सेटिंग्ज बदलल्या. रीफ्रेश करून पुन्हा प्रयत्न करा.
+Face settings changed. Refresh and try again.|चेहरे की सेटिंग बदल गई हैं। रीफ़्रेश करके फिर कोशिश करें।|चेहऱ्याच्या सेटिंग्ज बदलल्या आहेत. रीफ्रेश करून पुन्हा प्रयत्न करा.
+Face settings storage is full. Contact support before adding more data.|चेहरे की सेटिंग का संग्रह भर गया है। अधिक डेटा जोड़ने से पहले सहायता से संपर्क करें।|चेहऱ्याच्या सेटिंग्जचा संचय भरला आहे. अधिक डेटा जोडण्यापूर्वी सहाय्याशी संपर्क साधा.
+Face station is busy. Try again shortly.|चेहरा स्टेशन व्यस्त है। थोड़ी देर में फिर कोशिश करें।|चेहरा स्टेशन व्यस्त आहे. थोड्या वेळाने पुन्हा प्रयत्न करा.
+Face storage is not configured. Ask your administrator to set FACE_ENCRYPTION_KEY.|चेहरे का संग्रह कॉन्फ़िगर नहीं है। व्यवस्थापक से FACE_ENCRYPTION_KEY सेट करने को कहें।|चेहऱ्याचा संचय कॉन्फिगर केलेला नाही. प्रशासकाला FACE_ENCRYPTION_KEY सेट करण्यास सांगा.
+Finish or cancel the current enrollment first.|पहले वर्तमान नामांकन पूरा करें या रद्द करें।|आधी सध्याची नोंदणी पूर्ण करा किंवा रद्द करा.
+Improve the lighting and hold still for a clearer scan.|स्पष्ट स्कैन के लिए रोशनी बढ़ाएँ और स्थिर रहें।|स्पष्ट स्कॅनसाठी उजेड वाढवा आणि स्थिर राहा.
+Keep exactly one face in the camera and try again.|कैमरे में केवल एक चेहरा रखें और फिर कोशिश करें।|कॅमेऱ्यासमोर फक्त एक चेहरा ठेवा आणि पुन्हा प्रयत्न करा.
+Move closer and keep your whole face inside the camera.|पास आएँ और पूरा चेहरा कैमरे में रखें।|जवळ या आणि संपूर्ण चेहरा कॅमेऱ्यात ठेवा.
+Only the approving manager or owner can finish this enrollment.|केवल स्वीकृति देने वाला प्रबंधक या मालिक यह नामांकन पूरा कर सकता है।|फक्त मंजुरी देणारा व्यवस्थापक किंवा मालक ही नोंदणी पूर्ण करू शकतो.
+Only the owner or an authorized manager can enroll this employee.|केवल मालिक या अधिकृत प्रबंधक इस कर्मचारी का नामांकन कर सकता है।|फक्त मालक किंवा अधिकृत व्यवस्थापक या कर्मचाऱ्याची नोंदणी करू शकतो.
+Pairing code is invalid or expired.|पेयरिंग कोड अमान्य है या समाप्त हो गया है।|पेअरिंग कोड अवैध आहे किंवा कालबाह्य झाला आहे.
+Pairing request expired or was already handled.|पेयरिंग अनुरोध समाप्त हो गया है या पहले ही पूरा किया गया है।|पेअरिंग विनंती कालबाह्य झाली आहे किंवा आधीच हाताळली आहे.
+Revoke the existing device before connecting a replacement.|नया डिवाइस जोड़ने से पहले मौजूदा डिवाइस की पहुँच रद्द करें।|नवीन उपकरण जोडण्यापूर्वी सध्याच्या उपकरणाचा प्रवेश रद्द करा.
+Samples do not agree. Keep one person in view and try again.|नमूने मेल नहीं खाते। केवल एक व्यक्ति को सामने रखें और फिर कोशिश करें।|नमुने जुळत नाहीत. समोर फक्त एक व्यक्ती ठेवा आणि पुन्हा प्रयत्न करा.
+Shop no longer available.|दुकान अब उपलब्ध नहीं है।|दुकान आता उपलब्ध नाही.
+Start date must not be after end date|शुरुआती तारीख अंतिम तारीख के बाद नहीं हो सकती।|सुरुवातीची तारीख शेवटच्या तारखेनंतर असू शकत नाही.
+The attendance station needs an HTTPS address.|उपस्थिति स्टेशन के लिए HTTPS पता आवश्यक है।|उपस्थिती स्टेशनसाठी HTTPS पत्ता आवश्यक आहे.
+The owner has not enabled face attendance for managers.|मालिक ने प्रबंधकों के लिए चेहरे से उपस्थिति चालू नहीं की है।|मालकाने व्यवस्थापकांसाठी चेहऱ्याद्वारे उपस्थिती सुरू केलेली नाही.
+This attendance device is not active. Ask the owner to connect it again.|यह उपस्थिति डिवाइस सक्रिय नहीं है। मालिक से इसे दोबारा जोड़ने को कहें।|हे उपस्थिती उपकरण सक्रिय नाही. मालकाला ते पुन्हा जोडण्यास सांगा.
+This enrollment is no longer authorized.|यह नामांकन अब अधिकृत नहीं है।|ही नोंदणी आता अधिकृत नाही.
+This face resembles another enrollment. Review existing employees before continuing.|यह चेहरा दूसरे नामांकन से मिलता है। आगे बढ़ने से पहले मौजूदा कर्मचारियों की जाँच करें।|हा चेहरा दुसऱ्या नोंदणीशी जुळतो. पुढे जाण्यापूर्वी सध्याच्या कर्मचाऱ्यांची तपासणी करा.
+This pilot supports up to 200 enrolled employees per shop.|यह पायलट प्रत्येक दुकान में अधिकतम 200 नामांकित कर्मचारियों का समर्थन करता है।|हा पायलट प्रत्येक दुकानात जास्तीत जास्त 200 नोंदणीकृत कर्मचाऱ्यांना समर्थन देतो.
+This scan request was already used. Start a new scan.|यह स्कैन अनुरोध पहले उपयोग हो चुका है। नया स्कैन शुरू करें।|ही स्कॅन विनंती आधी वापरली आहे. नवीन स्कॅन सुरू करा.
+Too many attempts. Wait a minute and try again.|बहुत अधिक प्रयास हुए हैं। एक मिनट रुककर फिर कोशिश करें।|खूप प्रयत्न झाले आहेत. एक मिनिट थांबून पुन्हा प्रयत्न करा.
+Use a clear camera JPEG between 160 and 1280 pixels.|160 से 1280 पिक्सेल के बीच स्पष्ट कैमरा JPEG का उपयोग करें।|160 ते 1280 पिक्सेलमधील स्पष्ट कॅमेरा JPEG वापरा.
+Use a new request for a different scan.|अलग स्कैन के लिए नया अनुरोध करें।|वेगळ्या स्कॅनसाठी नवीन विनंती वापरा.
+Use a new scan for a different attendance action.|अलग उपस्थिति कार्य के लिए नया स्कैन करें।|वेगळ्या उपस्थिती कृतीसाठी नवीन स्कॅन करा.
+Use the attendance station address from this app.|इस ऐप से उपस्थिति स्टेशन का पता उपयोग करें।|या ॲपमधील उपस्थिती स्टेशनचा पत्ता वापरा.
+Open the station link for the paired shop before scanning.|स्कैन करने से पहले जुड़ी हुई दुकान का स्टेशन लिंक खोलें।|स्कॅन करण्यापूर्वी जोडलेल्या दुकानाची स्टेशन लिंक उघडा.
+This pairing code belongs to another shop. Use the code for the shop you opened.|यह पेयरिंग कोड दूसरी दुकान का है। आपने जो दुकान खोली है उसका कोड उपयोग करें।|हा पेअरिंग कोड दुसऱ्या दुकानाचा आहे. तुम्ही उघडलेल्या दुकानाचा कोड वापरा.
+Disconnect the current station before pairing another shop.|दूसरी दुकान जोड़ने से पहले वर्तमान स्टेशन डिस्कनेक्ट करें।|दुसरे दुकान जोडण्यापूर्वी सध्याचे स्टेशन डिस्कनेक्ट करा.
+The connected station changed. Refresh before disconnecting.|जुड़ा हुआ स्टेशन बदल गया है। डिस्कनेक्ट करने से पहले रीफ़्रेश करें।|जोडलेले स्टेशन बदलले आहे. डिस्कनेक्ट करण्यापूर्वी रीफ्रेश करा.
+Attendance is disabled for this shop.|इस दुकान के लिए उपस्थिति बंद है।|या दुकानासाठी हजेरी बंद आहे.

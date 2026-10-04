@@ -10,8 +10,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings
 from .db import create_indexes
+from .face_engine import FaceEngine
 from .i18n import message, negotiate, validation_message
-from .routers import account, attendance, auth, dues, hishob, password_auth, shops
+from .routers import account, attendance, auth, dues, face, hishob, password_auth, shops
 from .web_session import COOKIE_NAME
 
 
@@ -22,6 +23,7 @@ def create_app(settings: Settings = None):
         client = MongoClient(config.mongodb_uri, tz_aware=True, serverSelectionTimeoutMS=5000)
         app.state.settings = config
         app.state.db = client[config.mongodb_database]
+        app.state.face_engine = FaceEngine(config)
         client.admin.command("ping")
         create_indexes(app.state.db)
         try:
@@ -48,12 +50,32 @@ def create_app(settings: Settings = None):
     @app.middleware("http")
     async def browser_security(request: Request, call_next):
         request.state.language = negotiate(request.headers.get("accept-language", "en"))
+        station = request.url.path.startswith("/api/face-station/")
+        if station and request.method not in {"GET", "HEAD", "OPTIONS"}:
+            origin = request.headers.get("origin")
+            own_origin = str(request.base_url).rstrip("/")
+            if request.headers.get("x-hishob-client") != "web" or origin not in [
+                *config.cors_origins,
+                own_origin,
+            ]:
+                return JSONResponse(
+                    status_code=403, content={"detail": "Open the attendance station from its app address."}
+                )
+            size, chunks = 0, []
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 1_250_000:
+                    return JSONResponse(
+                        status_code=413, content={"detail": "Camera images are too large. Please try again."}
+                    )
+                chunks.append(chunk)
+            request._body = b"".join(chunks)
         web = request.headers.get("x-hishob-client") == "web"
         cookie_auth = COOKIE_NAME in request.cookies and not request.headers.get("authorization")
         if request.url.path.startswith("/api/"):
             # A custom header and exact trusted Origin prevent login and cookie CSRF.
             if request.method not in {"GET", "HEAD", "OPTIONS"} and (web or cookie_auth):
-                if not web or request.headers.get("origin") not in config.cors_origins:
+                if not station and (not web or request.headers.get("origin") not in config.cors_origins):
                     return JSONResponse(
                         status_code=403,
                         content={
@@ -126,4 +148,5 @@ def create_app(settings: Settings = None):
     app.include_router(hishob.router, prefix="/api")
     app.include_router(dues.router, prefix="/api")
     app.include_router(attendance.router, prefix="/api")
+    app.include_router(face.router, prefix="/api")
     return app

@@ -175,7 +175,12 @@ export function OwnerDashboard() {
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { selected, session } = useAuth();
   const shop = selected!.shop;
-  const resource = useResource<OwnerToday>(`/shops/${shop.id}/attendance/today`, true);
+  const attendanceEnabled = shop.settings.attendance_enabled !== false;
+  const resource = useResource<OwnerToday>(
+    `/shops/${shop.id}/attendance/today`,
+    true,
+    attendanceEnabled,
+  );
   const rows = resource.data?.rows.filter((row) => row.worker.active) || [];
   const present = rows.filter((row) => row.attendance.status === 'PRESENT').length;
   const pending = rows.filter((row) => row.attendance.status === 'NOT_MARKED').length;
@@ -210,6 +215,11 @@ export function OwnerDashboard() {
     icon: keyof typeof Ionicons.glyphMap;
     onPress: () => void;
   }[] = [
+    {
+      title: t('Face attendance'),
+      icon: 'scan-outline',
+      onPress: () => navigation.navigate('FaceAttendance'),
+    },
     {
       title: t('Manage workers'),
       icon: 'people-outline',
@@ -246,7 +256,7 @@ export function OwnerDashboard() {
         ]),
   ];
   return (
-    <Page refresh={resource.refresh}>
+    <Page refresh={attendanceEnabled ? resource.refresh : undefined}>
       <View style={{ gap: 6 }}>
         <Text style={styles.small}>
           {new Intl.DateTimeFormat(localeTag(), {
@@ -262,81 +272,87 @@ export function OwnerDashboard() {
           <Text style={[styles.small, { flex: 1 }]}>{shop.name}</Text>
         </View>
       </View>
-      <View style={homeStyles.attendanceCard}>
-        <View style={styles.row}>
-          <Text style={styles.heading}>{t('Today’s attendance')}</Text>
-          <IconButton
-            compact
-            name="calendar-outline"
-            label={t('Open attendance calendar')}
-            onPress={() => openAttendance('ALL', true)}
-          />
-        </View>
-        <View style={homeStyles.stats}>
-          {[
-            { label: t('Team members'), value: rows.length, filter: 'ALL' as const },
-            { label: t('Present'), value: present, filter: 'PRESENT' as const },
-            { label: t('Not marked'), value: pending, filter: 'NOT_MARKED' as const },
-          ].map(({ label, value, filter }, index) => (
-            <Pressable
-              key={label}
-              accessibilityRole="button"
-              accessibilityLabel={t('View attendance: {0}', [label])}
-              onPress={() => openAttendance(filter)}
-              style={({ pressed }) => [
-                homeStyles.stat,
-                index > 0 && homeStyles.statDivider,
-                { opacity: pressed ? 0.65 : 1 },
-              ]}
-            >
-              <Text
-                style={[
-                  homeStyles.statValue,
-                  label === t('Not marked') && pending > 0 && { color: '#8B5A08' },
+      {attendanceEnabled && (
+        <View style={homeStyles.attendanceCard}>
+          <View style={styles.row}>
+            <Text style={styles.heading}>{t('Today’s attendance')}</Text>
+            <IconButton
+              compact
+              name="calendar-outline"
+              label={t('Open attendance calendar')}
+              onPress={() => openAttendance('ALL', true)}
+            />
+          </View>
+          <View style={homeStyles.stats}>
+            {[
+              { label: t('Team members'), value: rows.length, filter: 'ALL' as const },
+              { label: t('Present'), value: present, filter: 'PRESENT' as const },
+              { label: t('Not marked'), value: pending, filter: 'NOT_MARKED' as const },
+            ].map(({ label, value, filter }, index) => (
+              <Pressable
+                key={label}
+                accessibilityRole="button"
+                accessibilityLabel={t('View attendance: {0}', [label])}
+                onPress={() => openAttendance(filter)}
+                style={({ pressed }) => [
+                  homeStyles.stat,
+                  index > 0 && homeStyles.statDivider,
+                  { opacity: pressed ? 0.65 : 1 },
                 ]}
               >
-                {resource.data ? value : '—'}
-              </Text>
-              <Text style={homeStyles.statLabel}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={{ gap: 9 }}>
-          {resource.data && rows.length > 0 && (
-            <View
-              accessibilityRole="progressbar"
-              accessibilityLabel={t('Attendance recorded')}
-              aria-valuemin={0}
-              aria-valuemax={rows.length}
-              aria-valuenow={recorded}
-              aria-valuetext={t('{0} of {1} recorded', [recorded, rows.length])}
-              style={homeStyles.progressTrack}
-            >
+                <Text
+                  style={[
+                    homeStyles.statValue,
+                    label === t('Not marked') && pending > 0 && { color: '#8B5A08' },
+                  ]}
+                >
+                  {resource.data ? value : '—'}
+                </Text>
+                <Text style={homeStyles.statLabel}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={{ gap: 9 }}>
+            {resource.data && rows.length > 0 && (
               <View
-                style={[homeStyles.progressFill, { width: `${(recorded / rows.length) * 100}%` }]}
-              />
-            </View>
+                accessibilityRole="progressbar"
+                accessibilityLabel={t('Attendance recorded')}
+                aria-valuemin={0}
+                aria-valuemax={rows.length}
+                aria-valuenow={recorded}
+                aria-valuetext={t('{0} of {1} recorded', [recorded, rows.length])}
+                style={homeStyles.progressTrack}
+              >
+                <View
+                  style={[homeStyles.progressFill, { width: `${(recorded / rows.length) * 100}%` }]}
+                />
+              </View>
+            )}
+            <Text style={styles.small}>{attendanceMessage}</Text>
+          </View>
+          <ErrorText message={resource.error} />
+          {!!resource.error && (
+            <Button
+              title={t('Retry attendance')}
+              secondary
+              onPress={() => void resource.refresh()}
+            />
           )}
-          <Text style={styles.small}>{attendanceMessage}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Open attendance')}
+            onPress={() => openAttendance()}
+            style={({ pressed }) => [homeStyles.primaryAction, { opacity: pressed ? 0.75 : 1 }]}
+          >
+            <Text style={{ color: colors.white, fontSize: 15, fontWeight: '700' }}>
+              {selected!.permissions.manage_attendance && pending > 0
+                ? t('Mark attendance')
+                : t('View attendance')}
+            </Text>
+            <Ionicons name="arrow-forward" size={19} color={colors.white} />
+          </Pressable>
         </View>
-        <ErrorText message={resource.error} />
-        {!!resource.error && (
-          <Button title={t('Retry attendance')} secondary onPress={() => void resource.refresh()} />
-        )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Open attendance')}
-          onPress={() => openAttendance()}
-          style={({ pressed }) => [homeStyles.primaryAction, { opacity: pressed ? 0.75 : 1 }]}
-        >
-          <Text style={{ color: colors.white, fontSize: 15, fontWeight: '700' }}>
-            {selected!.permissions.manage_attendance && pending > 0
-              ? t('Mark attendance')
-              : t('View attendance')}
-          </Text>
-          <Ionicons name="arrow-forward" size={19} color={colors.white} />
-        </Pressable>
-      </View>
+      )}
       {selected!.permissions.view_hishob && (
         <Pressable
           accessibilityRole="button"
@@ -357,18 +373,24 @@ export function OwnerDashboard() {
       <View style={{ gap: 12 }}>
         <Text style={styles.heading}>{t('Quick actions')}</Text>
         <View style={homeStyles.shortcutGrid}>
-          {shortcuts.map((item) => (
-            <Pressable
-              key={item.title}
-              accessibilityRole="button"
-              accessibilityLabel={item.title}
-              onPress={item.onPress}
-              style={({ pressed }) => [homeStyles.shortcut, { opacity: pressed ? 0.7 : 1 }]}
-            >
-              <Ionicons name={item.icon} color={colors.green} size={21} />
-              <Text style={homeStyles.shortcutLabel}>{item.title}</Text>
-            </Pressable>
-          ))}
+          {shortcuts
+            .filter(
+              (item) =>
+                attendanceEnabled ||
+                ![t('Face attendance'), t('My attendance')].includes(item.title),
+            )
+            .map((item) => (
+              <Pressable
+                key={item.title}
+                accessibilityRole="button"
+                accessibilityLabel={item.title}
+                onPress={item.onPress}
+                style={({ pressed }) => [homeStyles.shortcut, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                <Ionicons name={item.icon} color={colors.green} size={21} />
+                <Text style={homeStyles.shortcutLabel}>{item.title}</Text>
+              </Pressable>
+            ))}
         </View>
       </View>
     </Page>
@@ -638,15 +660,17 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                 </View>
               )}
               <View style={teamStyles.memberActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('Attendance · {0}', [person.name])}
-                  onPress={() => navigation.navigate('WorkerHistory', { worker: person })}
-                  style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
-                >
-                  <Ionicons name="calendar-outline" size={17} color={colors.green} />
-                  <Text style={teamStyles.actionLabel}>{t('Attendance')}</Text>
-                </Pressable>
+                {selected!.shop.settings.attendance_enabled && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('Attendance · {0}', [person.name])}
+                    onPress={() => navigation.navigate('WorkerHistory', { worker: person })}
+                    style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
+                  >
+                    <Ionicons name="calendar-outline" size={17} color={colors.green} />
+                    <Text style={teamStyles.actionLabel}>{t('Attendance')}</Text>
+                  </Pressable>
+                )}
                 {(selected!.permissions.manage_managers ||
                   (!manager &&
                     (selected!.permissions.reset_worker_passwords ||
@@ -945,6 +969,7 @@ function AttendanceRegister({
   openCalendar = false,
 }: AttendanceEntry) {
   useLocale();
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const { selected } = useAuth();
   const today = dateInZone(selected!.shop.timezone);
   const [chosenDate, setChosenDate] = useState<string | null>(null);
@@ -1001,6 +1026,18 @@ function AttendanceRegister({
           <Ionicons name="information-circle-outline" size={24} color={colors.green} />
         </Pressable>
       </View>
+      <Button
+        title={t('Attendance activity')}
+        secondary
+        onPress={() => navigation.navigate('AttendanceActivity')}
+      />
+      {resource.data?.face_attendance_enabled && (
+        <Text style={styles.small}>
+          {t(
+            'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+          )}
+        </Text>
+      )}
       {helpOpen && (
         <View style={attendanceStyles.help}>
           <Text style={[styles.small, { color: colors.ink }]}>

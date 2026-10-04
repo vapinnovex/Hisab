@@ -134,6 +134,14 @@ export function Profile() {
           onPress={() => navigation.navigate('PasswordSecurity')}
         />
       </Card>
+      <Card>
+        <AccountLink
+          title={t('Help & support')}
+          detail={t('Contact Hishob support')}
+          icon="help-circle-outline"
+          onPress={() => navigation.navigate('Support')}
+        />
+      </Card>
       <Text style={styles.eyebrow}>{t('CURRENT SHOP')}</Text>
       <Card>
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -143,12 +151,20 @@ export function Profile() {
             <Text style={styles.small}>{selected?.shop.timezone}</Text>
           </View>
         </View>
-        {session!.role === 'MANAGER' && (
+        {session!.role === 'MANAGER' && selected!.permissions.view_own_attendance && (
           <AccountLink
             title={t('My attendance')}
             detail={t('Your workday and monthly attendance')}
             icon="checkmark-circle-outline"
             onPress={() => navigation.navigate('MyAttendance')}
+          />
+        )}
+        {session!.role !== 'WORKER' && selected!.shop.settings.attendance_enabled && (
+          <AccountLink
+            title={t('Face attendance')}
+            detail={t('Devices, enrollment and face attendance access')}
+            icon="scan-outline"
+            onPress={() => navigation.navigate('FaceAttendance')}
           />
         )}
         {selected!.permissions.view_hishob && (
@@ -184,7 +200,7 @@ export function Profile() {
           </>
         )}
       </Card>
-      {session!.role === 'MANAGER' && (
+      {session!.role === 'MANAGER' && selected!.permissions.view_own_attendance && (
         <Card>
           <Text style={styles.heading}>{t('Your permissions')}</Text>
           {[

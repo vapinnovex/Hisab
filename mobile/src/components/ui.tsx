@@ -478,6 +478,9 @@ export function AttendanceCard({
           : ''}
       </Text>
       {item.note ? <Text style={styles.small}>{item.note}</Text> : null}
+      {item.source === 'FACE' && (
+        <Text style={styles.small}>{t('Recorded by face attendance')}</Text>
+      )}
       {(item.source === 'OWNER' || item.source === 'MANAGER') && (
         <Text style={styles.small}>
           {' '}

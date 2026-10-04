@@ -114,6 +114,8 @@ class HishobMode(str, Enum):
 
 class ShopSettings(Input):
     hishob_mode: HishobMode = HishobMode.ENTRIES
+    # Attendance is opt-out; new and legacy shops start with manual recording.
+    attendance_enabled: bool = True
     attendance_mode: AttendanceMode = AttendanceMode.CHECK_IN_ONLY
     manager_can_manage_attendance: bool = True
     manager_can_mark_own_attendance: bool = False

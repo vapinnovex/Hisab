@@ -4,7 +4,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { onReconnect } from './connection';
 import { useAuth } from './auth';
 
-export function useResource<T>(path: string, poll = false) {
+export function useResource<T>(path: string, poll = false, enabled = true) {
   const { api } = useAuth();
   const focused = useIsFocused();
   const [result, setResult] = useState<{ path: string; data: T | null; error: string } | null>(
@@ -35,7 +35,7 @@ export function useResource<T>(path: string, poll = false) {
     }
   }, [api, path, sequence]);
   useEffect(() => {
-    if (!focused) return;
+    if (!focused || !enabled) return;
     void refresh();
     const reconnect = onReconnect(() => {
       if (!sequence.pending) void refresh();
@@ -55,7 +55,7 @@ export function useResource<T>(path: string, poll = false) {
       sequence.value++;
       sequence.pending = false;
     };
-  }, [focused, refresh, poll, sequence]);
+  }, [focused, refresh, poll, sequence, enabled]);
   return {
     data: result?.path === path ? result.data : null,
     error: result?.path === path ? result.error : '',

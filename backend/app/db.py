@@ -24,6 +24,12 @@ def get_db(request: Request):
 
 
 def create_indexes(db):
+    db.face_shops.create_index("devices.token_hash", sparse=True)
+    db.face_shops.create_index("pairing.code_hash", sparse=True)
+    db.face_enrollments.create_index("expires_at", expireAfterSeconds=0)
+    db.face_enrollments.create_index([("shop_id", 1), ("device_id", 1)])
+    db.face_limits.create_index("expires_at", expireAfterSeconds=0)
+    db.attendance.create_index("face_receipts.request_id", sparse=True, unique=True)
     db.hishob_days.create_index("due_receipt_keys", unique=True, sparse=True)
     db.hishob_days.create_index([("shop_id", 1), ("transactions.type", 1), ("date", -1)])
     db.hishob_days.create_index([("shop_id", 1), ("due_keys", 1)])

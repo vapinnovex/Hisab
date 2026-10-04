@@ -3,6 +3,7 @@ export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type Language = 'en' | 'hi' | 'mr';
 export type ShopSettings = {
   hishob_mode: 'ENTRIES' | 'COUNTED' | 'BILLING';
+  attendance_enabled: boolean;
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
   manager_can_mark_own_attendance: boolean;
@@ -31,6 +32,7 @@ export type Permissions = {
 
 export type Status = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE' | 'NOT_MARKED';
 export type Shop = {
+  face_attendance_enabled?: boolean;
   id: string;
   name: string;
   timezone: string;
@@ -77,12 +79,14 @@ export type Attendance = {
   status: Status;
   check_in: string | null;
   check_out: string | null;
-  source: Role | 'SELF' | null;
+  source: Role | 'SELF' | 'FACE' | null;
   attendance_mode?: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   note: string;
   is_open: boolean;
 };
 export type Today = {
+  face_attendance_enabled?: boolean;
+  permissions?: Permissions;
   date: string;
   timezone: string;
   attendance: Attendance;
@@ -90,6 +94,7 @@ export type Today = {
   settings: ShopSettings;
 };
 export type OwnerToday = {
+  face_attendance_enabled?: boolean;
   date: string;
   timezone: string;
   rows: {
@@ -154,6 +159,7 @@ export type Routes = HishobRoutes & {
   OwnerProfile: undefined;
   ChangeMobile: undefined;
   ChangeEmail: undefined;
+  Support: undefined;
   LanguageSettings: undefined;
   PasswordSecurity: undefined;
   StaffPasswordAccess: { worker: Worker };
@@ -164,6 +170,8 @@ export type Routes = HishobRoutes & {
   Workers: undefined;
   Managers: undefined;
   ShopSettings: undefined;
+  FaceAttendance: undefined;
+  AttendanceActivity: undefined;
   WorkerForm: { worker?: Worker; kind?: 'WORKER' | 'MANAGER' } | undefined;
   TodayAttendance: AttendanceTab;
   WorkerHistory: { worker: Worker; date?: string };

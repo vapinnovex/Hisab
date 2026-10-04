@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .db import get_db, now
 from .sessions import legacy_session_ids, session_group
+from .shop_policy import load_attendance_policy
 from .web_session import COOKIE_NAME
 
 bearer = HTTPBearer(auto_error=False)
@@ -92,7 +93,7 @@ def shop_access(shop_id: str, db, identity: Identity, roles: set[str]):
     shop = db.shops.find_one({"_id": shop_id})
     if not shop:
         raise HTTPException(404, "Shop not found")
-    return membership, shop
+    return membership, load_attendance_policy(db, shop)
 
 
 def worker_in_shop(db, shop_id, worker_id, active_only=False):
