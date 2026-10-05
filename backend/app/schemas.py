@@ -118,6 +118,7 @@ class ShopSettings(Input):
     attendance_enabled: bool = True
     attendance_mode: AttendanceMode = AttendanceMode.CHECK_IN_ONLY
     manager_can_manage_attendance: bool = True
+    manager_can_correct_face_attendance: bool = False
     manager_can_mark_own_attendance: bool = False
     manager_can_reset_worker_passwords: bool = False
     manager_can_add_workers: bool = False

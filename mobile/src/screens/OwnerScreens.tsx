@@ -1034,7 +1034,7 @@ function AttendanceRegister({
       {resource.data?.face_attendance_enabled && (
         <Text style={styles.small}>
           {t(
-            'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+            'Face attendance is enabled. Use the shop station to scan IN or OUT. The owner and authorized managers can make manual worker attendance corrections.',
           )}
         </Text>
       )}

@@ -94,6 +94,8 @@ export function PasswordSecurity() {
             <PasswordField label={t('Current password')} value={current} onChange={setCurrent} />
           )}
           <NewPasswordFields
+            mobile={session!.user.mobile}
+            email={email}
             password={password}
             confirm={confirm}
             setPassword={setPassword}
@@ -102,7 +104,10 @@ export function PasswordSecurity() {
           <Button
             title={enroll ? t('Finish password setup') : t('Change password')}
             busy={action.busy}
-            disabled={!passwordsMatch(password, confirm) || (enroll ? code.length !== 6 : !current)}
+            disabled={
+              !passwordsMatch(password, confirm, session!.user.mobile, email) ||
+              (enroll ? code.length !== 6 : !current)
+            }
             onPress={() =>
               void action.run(async () => {
                 const result = await api<{ access_token?: string }>(

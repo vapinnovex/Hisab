@@ -337,6 +337,8 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
               autoComplete="one-time-code"
             />
             <NewPasswordFields
+              mobile={mobile}
+              email={email}
               password={password}
               confirm={confirm}
               setPassword={setPassword}
@@ -348,7 +350,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
               step === 'REGISTER_CONFIRM' ? t('Create account') : t('Reset password & sign in')
             }
             busy={action.busy}
-            disabled={code.length !== 6 || !passwordsMatch(password, confirm)}
+            disabled={code.length !== 6 || !passwordsMatch(password, confirm, mobile, email)}
             onPress={() =>
               void action.run(() =>
                 finish(
@@ -391,6 +393,8 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
               maxLength={100}
             />
             <NewPasswordFields
+              mobile={mobile}
+              email={email}
               password={password}
               confirm={confirm}
               setPassword={setPassword}
@@ -400,7 +404,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
           <Button
             title={t('Set password & sign in')}
             busy={action.busy}
-            disabled={code.trim().length < 8 || !passwordsMatch(password, confirm)}
+            disabled={code.trim().length < 8 || !passwordsMatch(password, confirm, mobile, email)}
             onPress={() =>
               void action.run(() =>
                 finish('/auth/staff/password/setup', {

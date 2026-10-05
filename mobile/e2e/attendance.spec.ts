@@ -110,6 +110,24 @@ test('attendance date controls, compact filters and arrival/departure work on sm
     page.getByRole('button', { name: 'Attendance filter: Everyone, 3', exact: true }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Choose attendance date', exact: true }).click();
+  const todayCell = page.getByRole('button', { name: new RegExp(`^Team attendance ${data.date}`) });
+  await expect(todayCell).toContainText('× 1');
+  await expect(todayCell).toHaveCSS('background-color', 'rgb(252, 226, 222)');
+  await expect(todayCell).toHaveAttribute('aria-label', /Not marked: 1/);
+  await page.screenshot({ path: info.outputPath('attendance-calendar-320.png') });
+  for (const person of people) {
+    expect(
+      (
+        await page.request.put(`${endpoint}/workers/${person}/attendance`, {
+          headers,
+          data: { date: data.date, status: 'PRESENT' },
+        })
+      ).ok(),
+    ).toBeTruthy();
+  }
+  await expect(todayCell).toContainText('✓');
+  await expect(todayCell).toHaveCSS('background-color', 'rgb(220, 240, 226)');
+  await page.screenshot({ path: info.outputPath('attendance-calendar-all-present-320.png') });
   const future = page.getByRole('button', { name: /^Team attendance / });
   for (const cell of await future.all()) {
     const label = await cell.getAttribute('aria-label');

@@ -229,6 +229,44 @@ def today_attendance(shop_id: str, identity=Depends(current_identity), db=Depend
     return register_for_date(shop_id, None, identity, db)
 
 
+@router.get("/attendance/calendar")
+def attendance_calendar(
+    shop_id: str,
+    month: str = Query(pattern=r"^\d{4}-\d{2}$"),
+    identity=Depends(current_identity),
+    db=Depends(get_db),
+):
+    _, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
+    try:
+        first = date.fromisoformat(f"{month}-01")
+    except ValueError:
+        raise HTTPException(422, "Month must be YYYY-MM")
+    last = min(
+        first + timedelta(days=calendar.monthrange(first.year, first.month)[1] - 1),
+        shop_today(shop),
+    )
+    members = list(db.memberships.find({"shop_id": shop_id, "role": {"$in": ["WORKER", "MANAGER", "ADMIN"]}}))
+    joined = {m["_id"]: m["created_at"].astimezone(ZoneInfo(shop["timezone"])).date() for m in members}
+    records = {
+        (r["date"], r["worker_id"]): r["status"]
+        for r in db.attendance.find(
+            {"shop_id": shop_id, "date": {"$gte": str(first), "$lte": str(last)}},
+            {"date": 1, "worker_id": 1, "status": 1},
+        )
+    }
+    days = []
+    while first <= last:
+        counts = {status.value: 0 for status in AttendanceStatus}
+        for member in members:
+            recorded = records.get((str(first), member["_id"]))
+            # Match the daily register, including historical entries for inactive staff.
+            if recorded is not None or (member["active"] and joined[member["_id"]] <= first):
+                counts[recorded or "NOT_MARKED"] += 1
+        days.append({"date": str(first), "counts": counts, "total": sum(counts.values())})
+        first += timedelta(days=1)
+    return {"month": month, "days": days}
+
+
 @router.get("/attendance/register")
 def attendance_register(
     shop_id: str,

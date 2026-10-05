@@ -60,7 +60,15 @@ const groups: { title: string; icon: Icon; description: string; items: Permissio
           title: t('Manage worker attendance'),
           label: t('Managers can record and correct attendance'),
           description: t(
-            'When face attendance is off, managers can record and correct worker attendance. Face mode requires scans; only the owner can make manual corrections.',
+            'When face attendance is off, managers can record and correct worker attendance.',
+          ),
+        },
+        {
+          key: 'manager_can_correct_face_attendance',
+          title: t('Manual corrections in face mode'),
+          label: t('Managers can correct worker face attendance'),
+          description: t(
+            'Allow managers to manually record and correct worker attendance when face scans fail. This does not allow corrections for themselves or other managers.',
           ),
         },
         {

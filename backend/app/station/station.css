@@ -25,15 +25,31 @@ header {
   gap: 16px;
 }
 .brand {
-  font-weight: 800;
-  font-size: 32px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
+  min-width: 0;
 }
-.brand span {
-  font-size: 14px;
-  letter-spacing: 3px;
+.brand img {
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.brand-name {
+  display: block;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+.brand-dot {
+  color: #e9a015;
+}
+.brand-caption {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  color: #64766c;
 }
 .pill {
   padding: 8px 12px;
@@ -198,5 +214,80 @@ input {
   }
   .card {
     padding: 20px;
+  }
+}
+
+/* Shared Hishob cream, forest green and gold palette. */
+body {
+  border-top: 4px solid #e9a015;
+  min-height: 100vh;
+}
+header {
+  padding-bottom: 22px;
+  border-bottom: 1px solid #eaece3;
+  flex-wrap: wrap;
+}
+.pill {
+  border: 1px solid #d4e2d6;
+  font-weight: 600;
+}
+.intro {
+  padding-top: 28px;
+}
+.intro .eyebrow {
+  display: inline-block;
+  background: #fff1d6;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+.card {
+  box-shadow: 0 6px 24px #123c3106;
+}
+.camera {
+  border: 1px solid #145c45;
+  box-shadow: 0 8px 28px #123c3112;
+}
+.guide {
+  border-color: #e9a015;
+}
+input {
+  background: #faf8f2;
+  color: #123c31;
+  width: 100%;
+  min-height: 52px;
+}
+input:focus {
+  border-color: #145c45;
+}
+#pair-form button {
+  margin-top: 8px;
+}
+#connection-controls {
+  background: #e8f0e8;
+}
+#connection-controls button {
+  margin: 4px 4px 4px 0;
+}
+#pending .code {
+  color: #145c45;
+  background: #fff1d6;
+  padding: 16px;
+  border-radius: 14px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 450px) {
+  .brand img {
+    width: 48px;
+    height: 48px;
+  }
+  .brand-name {
+    font-size: 26px;
+  }
+  .pill {
+    font-size: 12px;
+  }
+  .code {
+    font-size: 28px;
+    letter-spacing: 4px;
   }
 }
