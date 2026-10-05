@@ -94,7 +94,7 @@ Open **Owner dashboard → Shop settings** to configure each shop independently.
 
 **Check-in only is the default**: the owner or manager marks arrival once and the day is present. There is no open shift or required check-out. Owners can choose **Check-in and check-out** for shops that need both times. Settings changes apply to new arrivals, while existing open shifts remain closable and old timestamps remain visible.
 
-Workers never mark or edit attendance. The self-check-in/out endpoints accept only managers whose owner has enabled **Managers can mark their own attendance**. This setting is off by default and independent of permission to manage worker attendance. When face attendance is enabled, both manager manual permissions are overridden: managers must use the paired station, and only owners can record manual attendance or corrections. Only the owner can correct a manager’s attendance, including half-days and leave; managers cannot mark or correct another manager.
+Workers never mark or edit attendance. The self-check-in/out endpoints accept only managers whose owner has enabled **Managers can mark their own attendance**. This setting is off by default and independent of permission to manage worker attendance. When face attendance is enabled, managers must use the paired station for their own attendance. Owners can enable **Managers can correct worker face attendance** in Shop settings to allow manual worker attendance and corrections when scans fail. This separate permission is off by default. Only the owner can correct a manager’s attendance, including half-days and leave; managers cannot mark or correct another manager.
 
 Bottom navigation follows each role:
 

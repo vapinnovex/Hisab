@@ -23,6 +23,32 @@ test('owner pairs a restricted station, confirms enrollment, records and safely 
     data: { name: 'Asha', mobile: '+9197' + String(Date.now()).slice(-8) },
   });
   expect(added.ok()).toBeTruthy();
+  const inactive = await page.request.post(`${api}/workers`, {
+    headers,
+    data: { name: 'Inactive employee', mobile: '+9196' + String(Date.now()).slice(-8) },
+  });
+  expect(inactive.ok()).toBeTruthy();
+  const inactiveMember = await inactive.json();
+  expect(
+    (
+      await page.request.patch(`${api}/workers/${inactiveMember.id}`, {
+        headers,
+        data: { name: 'Inactive employee', mobile: inactiveMember.mobile, active: false },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.route('**/face', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.events = Array.from({ length: 12 }, (_, index) => ({
+      at: new Date(Date.now() - index * 1000).toISOString(),
+      by: 'test',
+      action: 'FACE_ENROLLED',
+      actor_name: `Log actor ${index + 1}`,
+    }));
+    await route.fulfill({ response, json: body });
+  });
+
   await page.getByRole('button', { name: 'Shop settings', exact: true }).click();
   await page.getByRole('button', { name: 'Face scan', exact: true }).click();
   const enable = page.getByRole('switch', { name: 'Enable face attendance', exact: true });
@@ -32,6 +58,20 @@ test('owner pairs a restricted station, confirms enrollment, records and safely 
     .click();
   await enable.click();
   await expect(page.getByText('FACE ATTENDANCE ON', { exact: true })).toBeVisible();
+  await expect(page.getByText('Inactive employee', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Log actor', { exact: false })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Show logs', exact: true }).click();
+  await expect(page.getByText('Log actor', { exact: false })).toHaveCount(5);
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  await expect(page.getByText('Log actor', { exact: false })).toHaveCount(10);
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  await expect(page.getByText('Log actor', { exact: false })).toHaveCount(12);
+  await expect(page.getByRole('button', { name: 'Load more', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Hide logs', exact: true }).click();
+  await page.getByRole('button', { name: 'Show logs', exact: true }).click();
+  await expect(page.getByText('Log actor', { exact: false })).toHaveCount(5);
+  await page.getByRole('button', { name: 'Hide logs', exact: true }).click();
+
   await page.screenshot({ path: info.outputPath('face-settings.png'), fullPage: true });
   await expect(page.getByLabel('Attendance station QR code')).toHaveCount(0);
   await page.getByRole('button', { name: 'Show station QR', exact: true }).click();
@@ -94,7 +134,7 @@ test('owner pairs a restricted station, confirms enrollment, records and safely 
     station.getByRole('button', { name: 'Retry the same attendance request' }),
   ).toBeVisible();
   await station.getByRole('button', { name: 'Retry the same attendance request' }).click();
-  await expect(station.getByRole('status')).toContainText('Asha · Check-in recorded');
+  await expect(station.locator('#result')).toContainText('Asha · Check-in recorded');
   const register = await (await page.request.get(`${api}/attendance/today`)).json();
   expect(register.rows[0].attendance.source).toBe('FACE');
   expect(register.rows[0].attendance.face_receipts).toHaveLength(1);
@@ -266,7 +306,7 @@ test('manager home exposes face attendance with owner-controlled enrollment perm
   await managerPage.getByRole('button', { name: 'My attendance', exact: true }).click();
   await expect(
     managerPage.getByText(
-      'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+      'Face attendance is enabled. Use the shop station to scan IN or OUT. The owner and authorized managers can make manual worker attendance corrections.',
       { exact: true },
     ),
   ).toBeVisible();

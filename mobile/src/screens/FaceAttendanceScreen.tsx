@@ -134,13 +134,21 @@ export function FaceAttendanceScreen() {
   const [enrolling, setEnrolling] = useState<Member | null>(null);
   const [informed, setInformed] = useState(false);
   const [search, setSearch] = useState('');
+  const [showLogs, setShowLogs] = useState(false);
+  const [visibleLogs, setVisibleLogs] = useState(5);
   const [rename, setRename] = useState<Device | null>(null);
   const [deviceName, setDeviceName] = useState('');
   const [notice, setNotice] = useState('');
   const stationUrl = `${API_URL || (Platform.OS === 'web' ? window.location.origin : '')}/api/face-station/?shop=${encodeURIComponent(selected!.shop_id)}`;
   const filteredMembers =
-    data?.members.filter((member) =>
-      member.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+    data?.members.filter(
+      (member) =>
+        member.active &&
+        member.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+    ) || [];
+  const activeEnrollments =
+    data?.enrollments.filter((grant) =>
+      data.members.some((member) => member.id === grant.member_id && member.active),
     ) || [];
   const localStation = new URL(stationUrl).protocol !== 'https:';
   const activeDevice = data?.devices.find((device) => device.status === 'ACTIVE');
@@ -215,7 +223,7 @@ export function FaceAttendanceScreen() {
             </Text>
             <Text style={styles.small}>
               {t(
-                'In face mode, employees use the shop station. Only the owner can record manual corrections. Workday tracking rules still apply.',
+                'In face mode, employees use the shop station. The owner can allow managers to make manual worker attendance corrections in Shop settings. Workday tracking rules still apply.',
               )}
             </Text>
             {!data.ready && <ErrorText message={data.problem} />}
@@ -256,7 +264,7 @@ export function FaceAttendanceScreen() {
           {data.enabled && (
             <Text style={styles.small}>
               {t(
-                'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+                'Face attendance is enabled. Use the shop station to scan IN or OUT. The owner and authorized managers can make manual worker attendance corrections.',
               )}
             </Text>
           )}
@@ -505,7 +513,7 @@ export function FaceAttendanceScreen() {
               </View>
             )}
           </Card>
-          {data.enrollments.map((grant) => (
+          {activeEnrollments.map((grant) => (
             <Card key={grant.id}>
               <Heading
                 title={t('Enrollment: {0}', [
@@ -612,9 +620,11 @@ export function FaceAttendanceScreen() {
               value={search}
               onChange={setSearch}
             />
-            {!!search.trim() && filteredMembers.length === 0 && data.members.length > 0 && (
-              <Text style={styles.small}>{t('No employees match your search.')}</Text>
-            )}
+            {!!search.trim() &&
+              filteredMembers.length === 0 &&
+              data.members.some((member) => member.active) && (
+                <Text style={styles.small}>{t('No employees match your search.')}</Text>
+              )}
             {filteredMembers.map((member) => (
               <View
                 key={member.id}
@@ -641,7 +651,7 @@ export function FaceAttendanceScreen() {
                     title={member.enrolled ? t('Replace face enrollment') : t('Enroll face')}
                     secondary
                     disabled={
-                      !data.enabled || !activeDevice || !!data.enrollments.length || action.busy
+                      !data.enabled || !activeDevice || !!activeEnrollments.length || action.busy
                     }
                     onPress={() => {
                       setEnrolling(member);
@@ -667,7 +677,7 @@ export function FaceAttendanceScreen() {
                 )}
               </View>
             ))}
-            {data.members.length === 0 && (
+            {!data.members.some((member) => member.active) && (
               <Text style={styles.small}>
                 {t('Add employees from Team before enrolling their faces.')}
               </Text>
@@ -695,19 +705,38 @@ export function FaceAttendanceScreen() {
                 'Latest 50 setup events. Face attendance appears in the attendance register.',
               )}
             />
-            {data.events.map((event, index) => (
-              <View key={`${event.at}-${index}`} style={{ gap: 3 }}>
-                <Text style={styles.heading}>{eventName(event.action)}</Text>
-                <Text style={styles.small}>
-                  {new Date(event.at).toLocaleString()}
-                  {event.actor_name ? ` · ${event.actor_name}` : ''}
-                  {event.device_name ? ` · ${event.device_name}` : ''}
-                  {event.member_id
-                    ? ` · ${data.members.find((member) => member.id === event.member_id)?.name || t('Team member')}`
-                    : ''}
-                </Text>
-              </View>
-            ))}
+            <Button
+              title={showLogs ? t('Hide logs') : t('Show logs')}
+              secondary
+              onPress={() => {
+                setShowLogs(!showLogs);
+                setVisibleLogs(5);
+              }}
+            />
+            {showLogs && data.events.length === 0 && (
+              <Text style={styles.small}>{t('No recent face activity.')}</Text>
+            )}
+            {showLogs &&
+              data.events.slice(0, visibleLogs).map((event, index) => (
+                <View key={`${event.at}-${index}`} style={{ gap: 3 }}>
+                  <Text style={styles.heading}>{eventName(event.action)}</Text>
+                  <Text style={styles.small}>
+                    {new Date(event.at).toLocaleString()}
+                    {event.actor_name ? ` · ${event.actor_name}` : ''}
+                    {event.device_name ? ` · ${event.device_name}` : ''}
+                    {event.member_id
+                      ? ` · ${data.members.find((member) => member.id === event.member_id)?.name || t('Team member')}`
+                      : ''}
+                  </Text>
+                </View>
+              ))}
+            {showLogs && visibleLogs < data.events.length && (
+              <Button
+                title={t('Load more')}
+                secondary
+                onPress={() => setVisibleLogs((count) => count + 5)}
+              />
+            )}
           </Card>
         </>
       )}

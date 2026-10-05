@@ -4,6 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#145c45" />
+    <link
+      rel="icon"
+      type="image/png"
+      href="/api/face-station/hishob-logo.png"
+    />
     <title>Hishob Attendance Station</title>
     <link rel="stylesheet" href="/api/face-station/station.css" />
     <script src="/api/face-station/station.js" defer></script>
@@ -11,8 +16,22 @@
   <body>
     <main>
       <header>
-        <div class="brand">H<span>HISHOB</span></div>
-        <span class="pill" id="connection">Connecting…</span>
+        <div class="brand">
+          <img
+            src="/api/face-station/hishob-logo.png"
+            alt="Hishob logo"
+            width="60"
+            height="60"
+          />
+          <div>
+            <span class="brand-name"
+              >Hishob<span class="brand-dot">.</span></span
+            ><span class="brand-caption">ATTENDANCE STATION</span>
+          </div>
+        </div>
+        <span class="pill" id="connection" role="status" aria-live="polite"
+          >Connecting…</span
+        >
       </header>
       <section class="intro">
         <p class="eyebrow">ATTENDANCE STATION</p>

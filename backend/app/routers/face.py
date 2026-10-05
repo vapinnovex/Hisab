@@ -799,3 +799,8 @@ def station_qr(
     output = io.BytesIO()
     image.save(output, format="PNG")
     return {"image": "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()}
+
+
+@router.get("/face-station/hishob-logo.png")
+def station_logo():
+    return FileResponse(STATIC / "hishob-logo.png", media_type="image/png")

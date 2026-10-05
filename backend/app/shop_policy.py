@@ -48,8 +48,11 @@ def permissions_for(membership, shop):
             owner
             or (
                 manager
-                and config["manager_can_manage_attendance"]
-                and not shop.get("face_attendance_enabled")
+                and (
+                    config["manager_can_correct_face_attendance"]
+                    if shop.get("face_attendance_enabled")
+                    else config["manager_can_manage_attendance"]
+                )
             )
         ),
         "reset_worker_passwords": owner or (manager and config["manager_can_reset_worker_passwords"]),

@@ -6,6 +6,7 @@ export type ShopSettings = {
   attendance_enabled: boolean;
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
   manager_can_manage_attendance: boolean;
+  manager_can_correct_face_attendance: boolean;
   manager_can_mark_own_attendance: boolean;
   manager_can_reset_worker_passwords: boolean;
   manager_can_add_workers: boolean;

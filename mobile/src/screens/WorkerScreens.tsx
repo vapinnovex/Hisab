@@ -75,7 +75,7 @@ export function ManagerSelfAttendance({ onChanged }: { onChanged: () => Promise<
           {' '}
           {today?.face_attendance_enabled
             ? t(
-                'Face attendance is enabled. Use the shop station to scan IN or OUT. Only the owner can make manual corrections.',
+                'Face attendance is enabled. Use the shop station to scan IN or OUT. The owner and authorized managers can make manual worker attendance corrections.',
               )
             : t(
                 'Your owner records your attendance. They can enable self-marking in Shop settings.',
