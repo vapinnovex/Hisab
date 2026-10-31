@@ -37,6 +37,12 @@ import { AttendanceActivityScreen } from './src/screens/AttendanceActivityScreen
 import { FaceAttendanceScreen } from './src/screens/FaceAttendanceScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
 import { ShopSettingsScreen } from './src/screens/SettingsScreen';
+import {
+  StaffDetailsScreen,
+  StaffPaymentScreen,
+  StaffNoteScreen,
+  StaffReferenceScreen,
+} from './src/staff/screens';
 
 import {
   HishobToday,
@@ -172,6 +178,30 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
         </>
       )}
       <Stack.Screen name="Support" component={SupportScreen} />
+      <Stack.Screen
+        name="StaffDetails"
+        component={StaffDetailsScreen}
+        options={{ title: t('Staff record') }}
+      />
+      {session!.role !== 'WORKER' && (
+        <>
+          <Stack.Screen
+            name="StaffReference"
+            component={StaffReferenceScreen}
+            options={{ title: t('Reference salary') }}
+          />
+          <Stack.Screen
+            name="StaffPayment"
+            component={StaffPaymentScreen}
+            options={{ title: t('Staff payment') }}
+          />
+          <Stack.Screen
+            name="StaffNote"
+            component={StaffNoteScreen}
+            options={{ title: t('Dated note') }}
+          />
+        </>
+      )}
       <Stack.Screen name="PasswordSecurity" component={PasswordSecurity} />
       <Stack.Screen name="LanguageSettings" component={LanguageSettings} />
     </Stack.Navigator>

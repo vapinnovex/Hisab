@@ -168,3 +168,27 @@ This pairing code belongs to another shop. Use the code for the shop you opened.
 Disconnect the current station before pairing another shop.|दूसरी दुकान जोड़ने से पहले वर्तमान स्टेशन डिस्कनेक्ट करें।|दुसरे दुकान जोडण्यापूर्वी सध्याचे स्टेशन डिस्कनेक्ट करा.
 The connected station changed. Refresh before disconnecting.|जुड़ा हुआ स्टेशन बदल गया है। डिस्कनेक्ट करने से पहले रीफ़्रेश करें।|जोडलेले स्टेशन बदलले आहे. डिस्कनेक्ट करण्यापूर्वी रीफ्रेश करा.
 Attendance is disabled for this shop.|इस दुकान के लिए उपस्थिति बंद है।|या दुकानासाठी हजेरी बंद आहे.
+Last working date cannot be before salary starts.|काम का आखिरी दिन वेतन शुरू होने से पहले नहीं हो सकता।|कामाचा शेवटचा दिवस पगार सुरू होण्याआधी असू शकत नाही.
+Salary changes cannot precede the latest salary effective date.|वेतन बदलाव की तारीख पिछले बदलाव से पहले नहीं हो सकती।|पगार बदलाची तारीख मागील बदलापूर्वी असू शकत नाही.
+Enable attendance before choosing attendance-based salary or daily wages.|हाज़िरी आधारित वेतन या दिहाड़ी चुनने से पहले हाज़िरी चालू करें।|हजेरीनुसार पगार किंवा रोजंदारी निवडण्याआधी हजेरी सुरू करा.
+Salary dates must be between 2000 and 2100.|वेतन की तारीखें 2000 और 2100 के बीच होनी चाहिए।|पगाराच्या तारखा 2000 ते 2100 दरम्यान असाव्यात.
+Salary amount must be greater than zero.|वेतन की रकम शून्य से अधिक होनी चाहिए।|पगाराची रक्कम शून्यापेक्षा जास्त असावी.
+Choose each weekly holiday only once.|हर साप्ताहिक छुट्टी सिर्फ एक बार चुनें।|आठवड्याची प्रत्येक सुट्टी एकदाच निवडा.
+Payment days must be different numbers between 1 and 31.|भुगतान के दिन 1 से 31 के बीच अलग-अलग होने चाहिए।|पेमेंटचे दिवस 1 ते 31 मधील वेगवेगळे अंक असावेत.
+You do not have permission to access this salary book.|आपको यह वेतन हिसाब देखने की अनुमति नहीं है।|तुम्हाला हा पगार हिशोब पाहण्याची परवानगी नाही.
+Salary book changed. Refresh and review before saving again.|वेतन हिसाब बदल गया है। फिर सेव करने से पहले रीफ़्रेश करके जाँचें।|पगार हिशोब बदलला आहे. पुन्हा जतन करण्याआधी रीफ्रेश करून तपासा.
+This salary request was already used with different details.|यह वेतन अनुरोध पहले अलग विवरण के साथ इस्तेमाल हो चुका है।|ही पगार विनंती आधी वेगळ्या तपशिलासह वापरली आहे.
+Choose a salary calculation date between 2000 and today.|वेतन हिसाब के लिए 2000 से आज तक की तारीख चुनें।|पगाराच्या हिशोबासाठी 2000 ते आजदरम्यानची तारीख निवडा.
+Set up salary before recording money.|पैसे दर्ज करने से पहले वेतन तय करें।|पैसे नोंदवण्याआधी पगार नोंदवा.
+Choose a salary payment date between 2000 and today.|वेतन भुगतान के लिए 2000 से आज तक की तारीख चुनें।|पगार पेमेंटसाठी 2000 ते आजदरम्यानची तारीख निवडा.
+Add a reason for extra pay or a deduction.|अतिरिक्त वेतन या कटौती का कारण लिखें।|अतिरिक्त पगार किंवा कपातीचे कारण लिहा.
+Salary entry not found.|वेतन नोंद नहीं मिली।|पगार नोंद सापडली नाही.
+Use the salary book to change salary settings.|वेतन सेटिंग्स बदलने के लिए वेतन हिसाब खोलें।|पगार सेटिंग्ज बदलण्यासाठी पगार हिशोब उघडा.
+An unpaid purchase has no payment method. Leave it as cash.|उधार खरीद में भुगतान का तरीका नहीं होता। इसे नकद रहने दें।|उधार खरेदीला पैसे भरण्याची पद्धत नसते. रोख तसेच ठेवा.
+Cancel this staff entry and record a new one to correct it.|सुधार के लिए यह कर्मचारी प्रविष्टि रद्द करें और नई दर्ज करें।|दुरुस्तीसाठी ही कर्मचारी नोंद रद्द करून नवीन नोंद करा.
+Choose a note date between 2000 and today.|टिप्पणी की तारीख 2000 से आज के बीच चुनें।|टिपेची तारीख 2000 ते आज यादरम्यान निवडा.
+Staff note not found.|कर्मचारी टिप्पणी नहीं मिली।|कर्मचाऱ्याची टीप सापडली नाही.
+This staff record changed. Refresh before saving again.|यह कर्मचारी रिकॉर्ड बदल गया। फिर सहेजने से पहले रिफ्रेश करें।|ही कर्मचारी नोंद बदलली. पुन्हा जतन करण्यापूर्वी रिफ्रेश करा.
+This staff record has reached its storage limit. Contact support.|इस कर्मचारी रिकॉर्ड की संग्रह सीमा पूरी हो गई। सहायता से संपर्क करें।|या कर्मचारी नोंदीची साठवण मर्यादा पूर्ण झाली. मदत विभागाशी संपर्क साधा.
+Use the staff page to change reference salary.|संदर्भ वेतन बदलने के लिए कर्मचारी पेज खोलें।|संदर्भ पगार बदलण्यासाठी कर्मचारी पान वापरा.
+You do not have permission to access this staff record.|आपको इस कर्मचारी रिकॉर्ड की अनुमति नहीं है।|तुम्हाला या कर्मचारी नोंदीची परवानगी नाही.

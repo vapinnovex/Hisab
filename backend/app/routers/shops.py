@@ -6,6 +6,7 @@ from ..db import get_db, new_id, now
 from ..schemas import ShopCreate, ShopSettings, ShopSettingsUpdate, WorkerCreate, WorkerUpdate
 from ..security import current_identity, require_owner, shop_access, worker_in_shop
 from ..shop_policy import require_permission, settings_for, shop_view
+from ..staff import initial_reference
 
 router = APIRouter(prefix="/shops", tags=["Shops and workers"])
 
@@ -87,6 +88,12 @@ def list_team(shop_id: str, identity=Depends(current_identity), db=Depends(get_d
 def add_worker(shop_id: str, body: WorkerCreate, identity=Depends(current_identity), db=Depends(get_db)):
     membership, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     require_permission(membership, shop, "add_workers")
+    salary = None
+    if body.salary:
+        require_permission(membership, shop, "manage_staff_payments")
+        if identity.role != "OWNER" and body.mobile == identity.user["mobile"]:
+            raise HTTPException(403, "You do not have permission to access this staff record.")
+        salary = initial_reference(body.salary)
     user = ensure_user(db, body.mobile)
     membership_id = new_id()
     membership = {
@@ -98,6 +105,8 @@ def add_worker(shop_id: str, body: WorkerCreate, identity=Depends(current_identi
         "created_at": now(),
     }
     # Publish membership only after its profile exists.
+    if salary:
+        membership["pay_reference"] = salary
     db.worker_profiles.insert_one(
         {"_id": membership_id, "membership_id": membership_id, "name": body.name, "created_at": now()}
     )
@@ -115,6 +124,8 @@ def edit_worker(
 ):
     member, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     require_permission(member, shop, "edit_workers")
+    if body.salary is not None:
+        raise HTTPException(422, "Use the staff page to change reference salary.")
     worker_in_shop(db, shop_id, worker_id)
     user = ensure_user(db, body.mobile)
     try:
@@ -172,7 +183,8 @@ def list_managers(shop_id: str, identity=Depends(current_identity), db=Depends(g
 
 @router.post("/{shop_id}/managers", status_code=201)
 def add_manager(shop_id: str, body: WorkerCreate, identity=Depends(current_identity), db=Depends(get_db)):
-    shop_access(shop_id, db, identity, {"OWNER"})
+    _, shop = shop_access(shop_id, db, identity, {"OWNER"})
+    salary = initial_reference(body.salary) if body.salary else None
     user = ensure_user(db, body.mobile)
     if db.memberships.find_one(
         {"shop_id": shop_id, "user_id": user["_id"], "role": {"$in": ["MANAGER", "ADMIN"]}}
@@ -187,6 +199,8 @@ def add_manager(shop_id: str, body: WorkerCreate, identity=Depends(current_ident
         "active": True,
         "created_at": now(),
     }
+    if salary:
+        member["pay_reference"] = salary
     try:
         db.memberships.insert_one(member)
     except DuplicateKeyError:
@@ -199,6 +213,8 @@ def edit_manager(
     shop_id: str, manager_id: str, body: WorkerUpdate, identity=Depends(current_identity), db=Depends(get_db)
 ):
     shop_access(shop_id, db, identity, {"OWNER"})
+    if body.salary is not None:
+        raise HTTPException(422, "Use the staff page to change reference salary.")
     query = {"_id": manager_id, "shop_id": shop_id, "role": {"$in": ["MANAGER", "ADMIN"]}}
     if not db.memberships.find_one(query):
         raise HTTPException(404, "Manager not found in this shop")

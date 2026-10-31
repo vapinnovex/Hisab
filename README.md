@@ -1,6 +1,12 @@
 # Hishob — Phases 1 & 2
 
-A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile-and-password login, owner-managed attendance, and a daily cash register with audited closing. GST, inventory, payroll and broader AI features are outside this phase. Optional supervised face attendance is described below.
+A working Expo / React Native / TypeScript app and FastAPI / MongoDB API for shop onboarding, Owner/Manager/Worker access, mobile-and-password login, owner-managed attendance, staff payment books, and a daily cash register with audited closing. GST, inventory, statutory payroll and broader AI features are outside this phase. Optional supervised face attendance is described below.
+
+## Staff payment book
+
+Open **Team → Open profile** for a worker or manager's payments, dated notes, attendance, password access and profile editing. Record salary paid, advances, other money given, money received, or unpaid shop purchases. Each financial entry is stored once in Hishob and appears in the person's history and the closing review. Notes do not move money. Workers can open their own record from Home.
+
+Agreed monthly or daily salary is optional and informational only. There are no salary calculations, automatic attendance deductions, payment schedules or calculated salary balances. Owners can give managers permission to manage worker payment books; recording money also requires Hishob access. See [staff payment rules and permissions](docs/STAFF-PAYMENTS.md).
 
 ## Face attendance
 

@@ -179,6 +179,12 @@ def collect_due(
         "updated_at": now(),
         "deleted": False,
     }
+    if credit.get("staff_id"):
+        entry.update(
+            staff_id=credit["staff_id"],
+            staff_name=credit.get("staff_name", ""),
+            staff_kind="PURCHASE_PAYMENT",
+        )
     day["transactions"].append(entry)
     calculate(day)
     audit(day, "COLLECT_DUE", who, None, entry)

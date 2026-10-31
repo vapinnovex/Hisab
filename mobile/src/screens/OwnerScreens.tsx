@@ -32,6 +32,7 @@ import { AttendanceEntry, OwnerToday, Routes, Shop, Status, Worker } from '../ty
 import { matchesPerson, SearchField } from '../components/ListControls';
 import { PhoneField } from '../components/PhoneField';
 import { LanguagePicker } from '../components/LanguagePicker';
+import { newSalary, SalaryFields, validSalary } from '../staff/fields';
 
 export function ShopSetup() {
   useLocale();
@@ -215,6 +216,15 @@ export function OwnerDashboard() {
     icon: keyof typeof Ionicons.glyphMap;
     onPress: () => void;
   }[] = [
+    ...(session!.role === 'MANAGER'
+      ? [
+          {
+            title: t('My payment book'),
+            icon: 'cash-outline' as const,
+            onPress: () => navigation.navigate('StaffDetails'),
+          },
+        ]
+      : []),
     {
       title: t('Face attendance'),
       icon: 'scan-outline',
@@ -616,9 +626,6 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
       <View style={{ gap: 12 }}>
         {visible.map((person) => {
           const manager = person.role === 'MANAGER';
-          const canEdit = manager
-            ? selected!.permissions.manage_managers
-            : selected!.permissions.edit_workers;
           return (
             <View key={person.id} style={teamStyles.memberCard}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -639,16 +646,6 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                   </View>
                   <Text style={styles.small}>{person.mobile}</Text>
                 </View>
-                {canEdit && (
-                  <IconButton
-                    compact
-                    name="create-outline"
-                    label={t('Edit {0}', [person.name])}
-                    onPress={() =>
-                      navigation.navigate('WorkerForm', { worker: person, kind: person.role })
-                    }
-                  />
-                )}
               </View>
               {person.password_reset_requested && (
                 <View style={teamStyles.notice}>
@@ -659,33 +656,11 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                   </Text>
                 </View>
               )}
-              <View style={teamStyles.memberActions}>
-                {selected!.shop.settings.attendance_enabled && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('Attendance · {0}', [person.name])}
-                    onPress={() => navigation.navigate('WorkerHistory', { worker: person })}
-                    style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
-                  >
-                    <Ionicons name="calendar-outline" size={17} color={colors.green} />
-                    <Text style={teamStyles.actionLabel}>{t('Attendance')}</Text>
-                  </Pressable>
-                )}
-                {(selected!.permissions.manage_managers ||
-                  (!manager &&
-                    (selected!.permissions.reset_worker_passwords ||
-                      (!person.password_ready && selected!.permissions.add_workers)))) && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('Password access · {0}', [person.name])}
-                    onPress={() => navigation.navigate('StaffPasswordAccess', { worker: person })}
-                    style={({ pressed }) => [teamStyles.textAction, { opacity: pressed ? 0.6 : 1 }]}
-                  >
-                    <Ionicons name="key-outline" size={16} color={colors.green} />
-                    <Text style={teamStyles.actionLabel}>{t('Password access')}</Text>
-                  </Pressable>
-                )}
-              </View>
+              <Button
+                secondary
+                title={t('Open profile · {0}', [person.name])}
+                onPress={() => navigation.navigate('StaffDetails', { staffId: person.id })}
+              />
             </View>
           );
         })}
@@ -732,7 +707,7 @@ const teamStyles = StyleSheet.create({
   },
   memberCard: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingVertical: 16,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.line,
@@ -778,10 +753,13 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
   const [name, setName] = useState(worker?.name || '');
   const [mobile, setMobile] = useState(worker?.mobile || '+91');
   const [active, setActive] = useState(worker?.active ?? true);
+  const [addSalary, setAddSalary] = useState(false);
+  const [salary, setSalary] = useState(() => newSalary());
   useUnsavedChanges(
     name !== (worker?.name || '') ||
       mobile !== (worker?.mobile || '+91') ||
-      active !== (worker?.active ?? true),
+      active !== (worker?.active ?? true) ||
+      addSalary,
   );
   const action = useAction();
   return (
@@ -833,16 +811,37 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
           )}
         </Card>
       )}
+      {!worker && selected!.permissions.manage_staff_payments && (
+        <>
+          <View style={styles.row}>
+            <Text style={styles.label}>{t('Add salary now (optional)')}</Text>
+            <Switch
+              accessibilityLabel={t('Add salary now (optional)')}
+              value={addSalary}
+              onValueChange={setAddSalary}
+              trackColor={{ true: colors.green }}
+            />
+          </View>
+          {addSalary && <SalaryFields value={salary} onChange={setSalary} />}
+        </>
+      )}
       <ErrorText message={action.error} />
       <Button
         title={`${worker ? t('Save') : t('Add')} ${label}`}
         busy={action.busy}
-        disabled={name.trim().length < 2 || !!phoneError(mobile)}
+        disabled={
+          name.trim().length < 2 || !!phoneError(mobile) || (addSalary && !validSalary(salary))
+        }
         onPress={() =>
           void action.run(async () => {
             await api(
               `/shops/${selected!.shop_id}/${manager ? 'managers' : 'workers'}${worker ? '/' + worker.id : ''}`,
-              { name, mobile, ...(worker ? { active } : {}) },
+              {
+                name,
+                mobile,
+                ...(worker ? { active } : {}),
+                ...(!worker && addSalary ? { salary } : {}),
+              },
               worker ? 'PATCH' : 'POST',
             );
             navigation.goBack();

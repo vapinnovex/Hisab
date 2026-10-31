@@ -462,8 +462,12 @@ export function HishobToday({ navigation }: NativeStackScreenProps<Routes, 'Hish
                       </Text>
                     </View>
                     <Text style={styles.small}>
-                      {transactionTypes.find((type) => type.type === entry.type)?.label}
-                      {['EXPENSE', 'SUPPLIER_PAYMENT', 'DUE_COLLECTION'].includes(entry.type)
+                      {entry.staff_kind === 'RECEIVED'
+                        ? t('Money received')
+                        : transactionTypes.find((type) => type.type === entry.type)?.label}
+                      {['EXPENSE', 'SUPPLIER_PAYMENT', 'DUE_COLLECTION', 'OTHER_CASH_IN'].includes(
+                        entry.type,
+                      )
                         ? ` · ${entry.payment_method === 'DIGITAL' ? t('Digital') : t('Cash')}`
                         : ''}
                     </Text>

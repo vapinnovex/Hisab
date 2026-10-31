@@ -102,7 +102,7 @@ test('owner-managed attendance, manager permissions, and worker monthly calendar
   await manager.getByRole('button', { name: 'Manage workers', exact: true }).click();
   await expect(manager.getByRole('button', { name: 'Add worker', exact: true })).toHaveCount(0);
   await expect(
-    manager.getByRole('button', { name: 'Attendance · Ravi', exact: true }),
+    manager.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
   ).toBeVisible();
   await expect(manager.getByRole('button', { name: 'Edit Ravi', exact: true })).toHaveCount(0);
   await tab(owner, 'Account');
@@ -234,24 +234,40 @@ test('team search, attendance filters and header shop switching', async ({ page 
   await addPerson(page, 'manager', 'Ravi', '+9191' + suffix);
   await back(page);
   await tab(page, 'Team');
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Asha', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Team role: Managers', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open profile · Asha', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Team role: Everyone', exact: true }).click();
   await page.getByRole('textbox', { name: 'Search team', exact: true }).fill('aSH');
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Asha', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open profile · Ravi', exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole('textbox', { name: 'Search team', exact: true }).fill('+91 91' + suffix);
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open profile · Asha', exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole('button', { name: 'Clear search team', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('team-directory.png') });
   // Keep directory actions usable on small phones and wider screens.
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 844 });
-    for (const name of ['Add worker', 'Attendance · Asha', 'Password access · Asha']) {
+    for (const name of ['Add worker', 'Open profile · Asha']) {
       const action = page.getByRole('button', { name, exact: true });
       await action.scrollIntoViewIfNeeded();
       const bounds = await action.boundingBox();
@@ -271,7 +287,9 @@ test('team search, attendance filters and header shop switching', async ({ page 
   await page.getByRole('textbox', { name: 'Search team', exact: true }).fill('Nobody matches');
   await expect(page.getByText('No matching team members', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reset team filters', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Asha', exact: true }),
+  ).toBeVisible();
   await tab(page, 'Attendance');
   await expect(
     page.getByRole('button', { name: 'Attendance filter: Not marked, 2', exact: true }),
@@ -305,18 +323,28 @@ test('team search, attendance filters and header shop switching', async ({ page 
   await page.getByRole('button', { name: 'Reset register filters', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('attendance-register.png') });
   await tab(page, 'Team');
-  await page.getByRole('button', { name: 'Edit Asha', exact: true }).click();
+  await page.getByRole('button', { name: 'Open profile · Asha', exact: true }).click();
+  await page.getByRole('button', { name: 'Edit profile', exact: true }).click();
   await page.getByRole('switch', { name: 'Active worker', exact: true }).click();
   await page.getByRole('button', { name: 'Save worker', exact: true }).click();
+  await back(page);
   await expect(
     page.getByRole('button', { name: 'Team status: Active, 1', exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open profile · Asha', exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole('button', { name: 'Team status: Inactive, 1', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Asha', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open profile · Ravi', exact: true })).toHaveCount(
+    0,
+  );
   await page.getByRole('button', { name: 'Team status: All, 2', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
+  ).toBeVisible();
   await tab(page, 'Account');
   await page.getByRole('button', { name: 'Create another shop', exact: true }).click();
   await page.getByRole('textbox', { name: 'Shop name', exact: true }).fill('Station Road');
@@ -339,8 +367,12 @@ test('team search, attendance filters and header shop switching', async ({ page 
   await expect(
     page.getByRole('button', { name: 'Team status: Active, 1', exact: true }),
   ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Ravi', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Attendance · Asha', exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole('button', { name: 'Open profile · Ravi', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Open profile · Asha', exact: true })).toHaveCount(
+    0,
+  );
   await page.setViewportSize({ width: 320, height: 740 });
   await page.screenshot({ path: testInfo.outputPath('compact-header.png') });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(

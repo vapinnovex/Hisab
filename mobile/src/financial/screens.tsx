@@ -253,10 +253,13 @@ export function EntryCard({
         <Text style={styles.heading}>{money(entry.amount)}</Text>
       </View>
       <Text style={styles.small}>
-        {transactionTypes.find((type) => type.type === entry.type)?.label}
+        {entry.staff_kind === 'RECEIVED'
+          ? t('Money received')
+          : transactionTypes.find((type) => type.type === entry.type)?.label}
         {entry.type === 'EXPENSE' ||
         entry.type === 'SUPPLIER_PAYMENT' ||
-        entry.type === 'DUE_COLLECTION'
+        entry.type === 'DUE_COLLECTION' ||
+        entry.type === 'OTHER_CASH_IN'
           ? ` · ${entry.payment_method === 'DIGITAL' ? t('Digital') : t('Cash')}`
           : ''}
         {entry.category ? ` · ${entry.category}` : ''}
@@ -428,7 +431,7 @@ export function HishobTransactions({
                 : undefined
             }
             edit={
-              editable && !entry.deleted && entry.type !== 'DUE_COLLECTION'
+              editable && !entry.deleted && !entry.staff_id && entry.type !== 'DUE_COLLECTION'
                 ? () =>
                     navigation.navigate('HishobTransaction', {
                       dayId: route.params.dayId,
