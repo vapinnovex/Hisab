@@ -231,7 +231,13 @@ def me(identity=Depends(current_identity), db=Depends(get_db)):
             profile = db.worker_profiles.find_one({"membership_id": membership["_id"]})
             memberships.append(
                 {
-                    **public(membership),
+                    **public(
+                        {
+                            key: value
+                            for key, value in membership.items()
+                            if key not in {"salary", "pay_reference"}
+                        }
+                    ),
                     "role": "MANAGER" if membership["role"] == "ADMIN" else membership["role"],
                     "shop": shop_view(shop),
                     "permissions": permissions_for(membership, shop),

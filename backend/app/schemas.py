@@ -6,6 +6,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import phonenumbers
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .staff_schemas import ReferenceSalary
+
 
 class Role(str, Enum):
     OWNER = "OWNER"
@@ -89,6 +91,7 @@ class ShopCreate(Input):
 
 class WorkerCreate(MobileInput):
     name: str = Field(min_length=2, max_length=100)
+    salary: Optional[ReferenceSalary] = None
 
 
 class WorkerUpdate(WorkerCreate):
@@ -113,6 +116,7 @@ class HishobMode(str, Enum):
 
 
 class ShopSettings(Input):
+    manager_can_manage_staff_payments: bool = False
     hishob_mode: HishobMode = HishobMode.ENTRIES
     # Attendance is opt-out; new and legacy shops start with manual recording.
     attendance_enabled: bool = True

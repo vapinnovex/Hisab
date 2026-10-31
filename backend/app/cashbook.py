@@ -16,6 +16,7 @@ TOTALS = {
 SALE_TYPES = {"CASH_SALE", "DIGITAL_SALE", "CREDIT_SALE"}
 MONEY_KEYS = {
     *TOTALS.values(),
+    "digital_other_in",
     "opening_cash",
     "amount",
     "expected_closing_cash",
@@ -96,8 +97,12 @@ def calculate(day):
         day[field] = 0
     for field in ["cash_expenses", "digital_expenses", "cash_supplier_payments", "digital_supplier_payments"]:
         day[field] = 0
+    day["digital_other_in"] = 0
     for entry in day["transactions"]:
         if entry["deleted"]:
+            continue
+        if entry["type"] == "OTHER_CASH_IN" and entry.get("payment_method") == "DIGITAL":
+            day["digital_other_in"] += entry["amount"]
             continue
         day[TOTALS[entry["type"]]] += entry["amount"]
         if entry["type"] in {"EXPENSE", "SUPPLIER_PAYMENT"}:

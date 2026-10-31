@@ -12,7 +12,7 @@ from .config import Settings, get_settings
 from .db import create_indexes
 from .face_engine import FaceEngine
 from .i18n import message, negotiate, validation_message
-from .routers import account, attendance, auth, dues, face, hishob, password_auth, shops
+from .routers import account, attendance, auth, dues, face, hishob, password_auth, shops, staff
 from .web_session import COOKIE_NAME
 
 
@@ -145,6 +145,7 @@ def create_app(settings: Settings = None):
     app.include_router(password_auth.router, prefix="/api")
     app.include_router(account.router, prefix="/api")
     app.include_router(shops.router, prefix="/api")
+    app.include_router(staff.router, prefix="/api")
     app.include_router(hishob.router, prefix="/api")
     app.include_router(dues.router, prefix="/api")
     app.include_router(attendance.router, prefix="/api")

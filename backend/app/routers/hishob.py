@@ -321,7 +321,12 @@ def search_transactions(
         ]
     incoming = {
         "$or": [
-            {"$in": ["$transactions.type", ["CASH_SALE", "OTHER_CASH_IN"]]},
+            {
+                "$and": [
+                    {"$in": ["$transactions.type", ["CASH_SALE", "OTHER_CASH_IN"]]},
+                    {"$ne": ["$transactions.payment_method", "DIGITAL"]},
+                ]
+            },
             {
                 "$and": [
                     {"$eq": ["$transactions.type", "DUE_COLLECTION"]},
@@ -498,6 +503,8 @@ def edit_transaction(
     entry = next((t for t in day["transactions"] if t["id"] == transaction_id and not t["deleted"]), None)
     if not entry:
         raise HTTPException(404, "Active transaction not found.")
+    if entry.get("staff_id"):
+        raise HTTPException(422, "Cancel this staff entry and record a new one to correct it.")
     before = deepcopy(entry)
     values = transaction_values(body, day)
     protect_credit_change(db, day, entry, values)
@@ -524,7 +531,13 @@ def delete_transaction(
         raise HTTPException(404, "Active transaction not found.")
     before = deepcopy(entry)
     protect_credit_change(db, day, entry, None)
-    entry.update(deleted=True, deleted_at=now(), deleted_by=actor(identity, member), updated_at=now())
+    entry.update(
+        deleted=True,
+        deleted_at=now(),
+        deleted_by=actor(identity, member),
+        updated_at=now(),
+        cancellation={"reason": body.reason, "actor": actor(identity, member), "at": now()},
+    )
     calculate(day)
     audit(day, "DELETE_TRANSACTION", actor(identity, member), before, entry, body.reason)
     return save(db, day, body.revision)

@@ -18,6 +18,9 @@ export const modeLabels: Record<HishobMode, string> = localized(() => ({
   BILLING: t('Use billing totals'),
 }));
 export type Entry = {
+  staff_id?: string;
+  staff_name?: string;
+  staff_kind?: string;
   customer_name?: string;
   due_date?: string;
   note?: string;

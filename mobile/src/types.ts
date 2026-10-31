@@ -2,6 +2,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 export type Role = 'OWNER' | 'MANAGER' | 'WORKER';
 export type Language = 'en' | 'hi' | 'mr';
 export type ShopSettings = {
+  manager_can_manage_staff_payments: boolean;
   hishob_mode: 'ENTRIES' | 'COUNTED' | 'BILLING';
   attendance_enabled: boolean;
   attendance_mode: 'CHECK_IN_ONLY' | 'CHECK_IN_OUT';
@@ -16,6 +17,7 @@ export type ShopSettings = {
   manager_can_close_hishob: boolean;
 };
 export type Permissions = {
+  manage_staff_payments: boolean;
   view_hishob: boolean;
   add_hishob_transactions: boolean;
   edit_hishob_transactions: boolean;
@@ -150,6 +152,14 @@ export type TabRoutes = {
   Profile: undefined;
 };
 export type Routes = HishobRoutes & {
+  StaffDetails: { staffId: string } | undefined;
+  StaffReference: { staffId: string };
+  StaffNote: { staffId: string; name: string };
+  StaffPayment: {
+    staffId: string;
+    name: string;
+    purchase?: { sourceDayId: string; entryId: string; remaining: string };
+  };
   Hishob: NavigatorScreenParams<HishobRoutes> | undefined;
   DashboardRoot: undefined;
   TodayAttendanceRoot: AttendanceEntry | undefined;

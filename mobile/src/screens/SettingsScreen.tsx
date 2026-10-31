@@ -95,6 +95,14 @@ const groups: { title: string; icon: Icon; description: string; items: Permissio
       description: t('Delegate everyday worker administration.'),
       items: [
         {
+          key: 'manager_can_manage_staff_payments',
+          title: t('Worker payment books'),
+          label: t('Managers can manage worker payments'),
+          description: t(
+            'View worker payments, add notes and set reference salary. Recording money also requires Hishob access. Managers cannot manage their own or other managers’ payment books.',
+          ),
+        },
+        {
           key: 'manager_can_add_workers',
           title: t('Add workers'),
           label: t('Managers can add workers'),

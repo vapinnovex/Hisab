@@ -132,6 +132,11 @@ export function WorkerDashboard() {
         </Text>
         <Text style={{ color: '#DCE8DE', fontSize: 14 }}>{selected!.shop.name}</Text>
       </View>
+      <Card>
+        <Text style={styles.heading}>{t('My payment book')}</Text>
+        <Text style={styles.small}>{t('See your payments, shop purchases and dated notes.')}</Text>
+        <Button title={t('Open my record')} onPress={() => navigation.navigate('StaffDetails')} />
+      </Card>
       {selected!.permissions.view_own_attendance ? (
         <>
           <TodayPreview />

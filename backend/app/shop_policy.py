@@ -37,6 +37,7 @@ def permissions_for(membership, shop):
     manager = membership["role"] in {"MANAGER", "ADMIN"}
     config = settings_for(shop)
     return {
+        "manage_staff_payments": owner or (manager and config["manager_can_manage_staff_payments"]),
         "view_hishob": owner or (manager and config["manager_can_access_hishob"]),
         "add_hishob_transactions": owner or (manager and config["manager_can_access_hishob"]),
         "edit_hishob_transactions": owner,

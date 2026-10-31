@@ -4,7 +4,7 @@ import { SaveRecovery } from './SaveRecovery';
 import { Calculator } from './Calculator';
 import { HelpButton as Button, FinancialHelp } from './help';
 import React, { useState } from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { useAuth } from '../auth';
 import { useAction } from '../hooks';
 import { useUnsavedChanges } from '../pwa';
@@ -134,6 +134,34 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
   return (
     <>
       <Calculator />
+      {initial.transactions.some((entry) => entry.staff_id && !entry.deleted) && (
+        <Card>
+          <Text style={styles.heading}>{t('Staff payments today')}</Text>
+          <Text style={styles.small}>
+            {t('Already included in this day. Do not enter these amounts again.')}
+          </Text>
+          {initial.transactions
+            .filter((entry) => entry.staff_id && !entry.deleted)
+            .map((entry) => (
+              <View key={entry.id} style={{ gap: 4 }}>
+                <Text style={styles.label}>
+                  {entry.staff_name} · {money(entry.amount)}
+                </Text>
+                <Text style={styles.small}>
+                  {entry.type === 'CREDIT_SALE'
+                    ? t('Shop purchase · unpaid')
+                    : entry.type === 'EXPENSE'
+                      ? t('Money given')
+                      : t('Money received')}
+                  {entry.type !== 'CREDIT_SALE'
+                    ? ` · ${entry.payment_method === 'DIGITAL' ? t('UPI / bank') : t('Cash')}`
+                    : ''}
+                </Text>
+                <Text style={styles.small}>{entry.note}</Text>
+              </View>
+            ))}
+        </Card>
+      )}
       <Card>
         <Text style={styles.heading}>{modeLabels[mode]}</Text>
         <Text style={styles.subtitle}>

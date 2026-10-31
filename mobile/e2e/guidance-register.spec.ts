@@ -55,7 +55,8 @@ test('team register browses past dates, filters and returns to today', async ({ 
   const previous = new Date(`${today.slice(0, 7)}-01T12:00:00Z`);
   previous.setUTCDate(0);
   const date = previous.toISOString().slice(0, 10);
-  await page.getByRole('button', { name: `Team attendance ${date}`, exact: true }).click();
+  // Calendar labels also include the day's attendance summary for screen readers.
+  await page.getByRole('button', { name: new RegExp(`^Team attendance ${date},`) }).click();
   await expect(
     page.getByText('No eligible team members or recorded attendance for this date.', {
       exact: true,

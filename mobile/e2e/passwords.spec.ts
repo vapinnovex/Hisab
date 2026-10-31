@@ -17,7 +17,8 @@ test('owner issues staff setup, approves forgotten password, and recovers by ema
   await owner.getByRole('textbox', { name: 'Mobile number', exact: true }).fill(workerMobile);
   await owner.getByRole('button', { name: 'Add worker', exact: true }).click();
   await owner.getByLabel('Team tab', { exact: true }).click();
-  await owner.getByRole('button', { name: 'Password access · Asha', exact: true }).click();
+  await owner.getByRole('button', { name: 'Open profile · Asha', exact: true }).click();
+  await owner.getByRole('button', { name: 'Password access', exact: true }).click();
   let issued = owner.waitForResponse('**/password-access');
   await owner.getByRole('button', { name: 'Generate setup code', exact: true }).click();
   const firstCode = (await (await issued).json()).setup_code;
