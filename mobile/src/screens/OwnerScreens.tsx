@@ -3,7 +3,7 @@ import { phoneError } from '../phone';
 import { RegisterCalendar } from '../components/RegisterCalendar';
 import { dateInZone } from '../financial/calendar';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -166,7 +166,7 @@ export function ShopSetup() {
         <Text style={styles.small}>{t('Next up: add your workers and managers.')}</Text>
       </View>
       {!selected && (
-        <Button secondary title={t('Sign out')} onPress={() => void action.run(signOut)} />
+        <Button danger title={t('Sign out')} onPress={() => void action.run(signOut)} />
       )}
     </Page>
   );
@@ -796,7 +796,12 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
               accessibilityLabel={t('Active {0}', [label])}
               value={active}
               onValueChange={setActive}
-              trackColor={{ true: colors.green }}
+              trackColor={{ false: '#B9C4BF', true: colors.green }}
+              thumbColor={colors.white}
+              {...(Platform.OS === 'web'
+                ? { activeThumbColor: colors.white, activeTrackColor: colors.green }
+                : {})}
+              ios_backgroundColor="#B9C4BF"
             />
           </View>
           <Text style={styles.small}>
@@ -816,12 +821,19 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
       {!worker && selected!.permissions.manage_staff_payments && (
         <>
           <View style={styles.row}>
-            <Text style={styles.label}>{t('Add salary now (optional)')}</Text>
+            <Text style={[styles.label, { flex: 1, marginBottom: 0 }]}>
+              {t('Add salary now (optional)')}
+            </Text>
             <Switch
               accessibilityLabel={t('Add salary now (optional)')}
               value={addSalary}
               onValueChange={setAddSalary}
-              trackColor={{ true: colors.green }}
+              trackColor={{ false: '#B9C4BF', true: colors.green }}
+              thumbColor={colors.white}
+              {...(Platform.OS === 'web'
+                ? { activeThumbColor: colors.white, activeTrackColor: colors.green }
+                : {})}
+              ios_backgroundColor="#B9C4BF"
             />
           </View>
           {addSalary && <SalaryFields value={salary} onChange={setSalary} />}

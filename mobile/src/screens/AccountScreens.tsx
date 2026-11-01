@@ -235,8 +235,8 @@ export function Profile() {
       <ErrorText message={action.error} />
       <InstallHelp />
       <Button
+        danger
         title={t('Sign out')}
-        secondary
         busy={action.busy}
         onPress={() => void action.run(signOut)}
       />

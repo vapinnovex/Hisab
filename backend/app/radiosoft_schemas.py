@@ -85,10 +85,17 @@ class Allocation(Contract):
 class CollectionAction(Contract):
     request_id: str = Field(min_length=8, max_length=100, pattern=r"^[a-zA-Z0-9_-]+$")
     revision: int = Field(ge=1)
-    action: Literal["RECEIVE", "MARK_PAID", "RECLASSIFY", "REVERSE"]
+    action: Literal[
+        "RECEIVE", "MARK_PAID", "RECLASSIFY", "REVERSE", "WAIVE", "REVERSE_WAIVER", "SETTLE", "NOTE"
+    ]
     allocations: list[Allocation] = Field(default_factory=list, max_length=4)
     collection_id: Optional[str] = Field(default=None, max_length=100)
     reason: str = Field(default="", max_length=500)
+    amount_paise: Optional[int] = Field(default=None, strict=True, gt=0, le=1_000_000_000_000)
+    adjustment_id: Optional[str] = Field(default=None, max_length=100)
+    remainder: Optional[Literal["PENDING", "CREDIT", "DISCOUNT"]] = None
+    customer_name: str = Field(default="", max_length=100)
+    note: str = Field(default="", max_length=500)
 
     @model_validator(mode="after")
     def shape(self):
@@ -97,8 +104,22 @@ class CollectionAction(Contract):
             raise ValueError("Corrections must identify an existing collection")
         if correction and len(self.reason.strip()) < 2:
             raise ValueError("An audit reason is required")
-        if (self.action in {"RECEIVE", "RECLASSIFY"}) != bool(self.allocations):
+        if (self.action == "WAIVE") != (self.amount_paise is not None):
+            raise ValueError("Provide an adjustment amount only for a waiver")
+        if (self.action == "REVERSE_WAIVER") != bool(self.adjustment_id):
+            raise ValueError("Waiver reversal must identify an existing adjustment")
+        if self.action in {"WAIVE", "REVERSE_WAIVER"} and len(self.reason.strip()) < 2:
+            raise ValueError("An audit reason is required")
+        if self.action != "SETTLE" and (self.action in {"RECEIVE", "RECLASSIFY"}) != bool(self.allocations):
             raise ValueError("Provide allocations only for a receipt or reclassification")
+        if (self.action == "SETTLE") != (self.remainder is not None):
+            raise ValueError("A settlement must specify how to handle the remainder")
+        if self.action not in {"SETTLE", "NOTE"} and (self.customer_name or self.note):
+            raise ValueError("Customer details and notes belong to settlements or notes")
+        if self.remainder == "CREDIT" and len(self.customer_name.strip()) < 2:
+            raise ValueError("Customer credit requires a customer name or reference")
+        if self.action == "NOTE" and len(self.note.strip()) < 2:
+            raise ValueError("Enter a note of at least two characters")
         if len({a.method for a in self.allocations}) != len(self.allocations):
             raise ValueError("Combine allocations for the same method")
         if self.action == "RECLASSIFY" and any(a.method == "UNSPECIFIED" for a in self.allocations):

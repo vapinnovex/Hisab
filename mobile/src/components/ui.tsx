@@ -1,3 +1,4 @@
+import { MoneyTone, moneyTones } from './moneyTone';
 import { localeTag, t, useLocale, original } from './../i18n';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { InfoHelp } from './InfoHelp';
@@ -105,10 +106,12 @@ export function Page({
   children,
   refresh,
   topInset = false,
+  wide = false,
 }: {
   children: React.ReactNode;
   refresh?: () => Promise<void>;
   topInset?: boolean;
+  wide?: boolean;
 }) {
   useLocale();
   const [refreshing, setRefreshing] = React.useState(false);
@@ -145,6 +148,7 @@ export function Page({
             automaticallyAdjustKeyboardInsets
             contentContainerStyle={[
               styles.content,
+              wide && { maxWidth: 1600 },
               { paddingBottom: Math.max(28, insets.bottom + 16) },
             ]}
             keyboardShouldPersistTaps="handled"
@@ -190,6 +194,7 @@ export function Button({
   disabled,
   busy,
   danger,
+  tone,
   accessibilityLabel,
   validationMessage,
 }: {
@@ -199,10 +204,12 @@ export function Button({
   disabled?: boolean;
   busy?: boolean;
   danger?: boolean;
+  tone?: MoneyTone;
   accessibilityLabel?: string;
   validationMessage?: string;
 }) {
   useLocale();
+  const palette = moneyTones[danger ? 'out' : tone || 'in'];
   const form = React.useContext(FormContext);
   const [attempted, setAttempted] = React.useState(false);
   const submit =
@@ -260,7 +267,7 @@ export function Button({
           onPress();
         }}
         style={({ pressed }) => ({
-          backgroundColor: secondary ? colors.mint : danger ? colors.red : colors.green,
+          backgroundColor: secondary ? palette.soft : palette.ink,
           borderRadius: 14,
           paddingVertical: 15,
           paddingHorizontal: 18,
@@ -269,11 +276,11 @@ export function Button({
         })}
       >
         {busy ? (
-          <ActivityIndicator color={secondary ? colors.green : colors.white} />
+          <ActivityIndicator color={secondary ? palette.ink : colors.white} />
         ) : (
           <Text
             style={{
-              color: secondary ? colors.green : colors.white,
+              color: secondary ? palette.ink : colors.white,
               fontSize: 15,
               fontWeight: '600',
             }}

@@ -1,3 +1,5 @@
+import { moneyTones, transactionTone } from '../components/moneyTone';
+import { MoneyFlow } from '../components/MoneyFlow';
 import React, { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -232,12 +234,20 @@ export function StaffDetailsScreen({
               </Text>
               {entry.amount !== undefined && (
                 <Text
-                  style={[styles.heading, entry.deleted && { textDecorationLine: 'line-through' }]}
+                  style={[
+                    styles.heading,
+                    {
+                      color:
+                        moneyTones[entry.deleted ? 'neutral' : transactionTone(entry.kind)].ink,
+                    },
+                    entry.deleted && { textDecorationLine: 'line-through' },
+                  ]}
                 >
-                  {money(entry.amount)}
+                  {moneyTones[transactionTone(entry.kind)].sign} {money(entry.amount)}
                 </Text>
               )}
             </View>
+            {!entry.deleted && <MoneyFlow tone={transactionTone(entry.kind)} />}
             <Text style={styles.subtitle}>{entry.note}</Text>
             <Text style={styles.small}>
               {t('Recorded by {0}', [entry.actor_name])}
@@ -502,13 +512,19 @@ function PaymentEditor({
           onChange={setKind}
           options={(
             ['SALARY', 'ADVANCE', 'OTHER_GIVEN', 'RECEIVED', 'PURCHASE'] as PaymentKind[]
-          ).map((value) => ({ value, label: labels[value] }))}
+          ).map((value) => ({ value, label: labels[value], tone: transactionTone(value) }))}
         />
       )}
       {purchase && (
         <Text style={styles.label}>{t('Purchase due: {0}', [money(purchase.remaining)])}</Text>
       )}
-      <MoneyField label={t('Amount (₹)')} value={amount} onChange={setAmount} />
+      <MoneyFlow tone={transactionTone(purchase ? 'PURCHASE_PAYMENT' : kind)} />
+      <MoneyField
+        tone={transactionTone(purchase ? 'PURCHASE_PAYMENT' : kind)}
+        label={t('Amount (₹)')}
+        value={amount}
+        onChange={setAmount}
+      />
       {kind !== 'PURCHASE' && (
         <FilterChips
           label={t('Payment method')}
@@ -563,6 +579,7 @@ function PaymentEditor({
         </>
       )}
       <Button
+        tone={transactionTone(purchase ? 'PURCHASE_PAYMENT' : kind)}
         title={attempted && action.error ? t('Retry original save') : t('Save payment')}
         busy={action.busy}
         disabled={!attempted && !ready}
@@ -651,6 +668,7 @@ export function StaffNoteScreen({
         />
       )}
       <Button
+        tone="neutral"
         title={attempted && action.error ? t('Retry original save') : t('Save note')}
         busy={action.busy}
         disabled={
@@ -746,6 +764,7 @@ function ReferenceEditor({
         />
       )}
       <Button
+        tone="neutral"
         title={attempted && action.error ? t('Retry original save') : t('Save reference salary')}
         busy={action.busy}
         disabled={!attempted && ((!remove && !validSalary(value)) || reason.trim().length < 2)}

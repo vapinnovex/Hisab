@@ -41,7 +41,9 @@ def bill_id(config, key):
 def effective_collections(bill):
     receipts = {}
     for event in bill["events"]:
-        if event["action"] in {"RECEIVE", "MARK_PAID"}:
+        if event["action"] in {"RECEIVE", "MARK_PAID"} or (
+            event["action"] == "SETTLE" and event["allocations"]
+        ):
             receipts[event["id"]] = {**event, "reversed": False}
         elif event["action"] == "RECLASSIFY":
             receipts[event["collection_id"]]["allocations"] = event["allocations"]
@@ -65,7 +67,21 @@ def bill_view(bill, config, detail=False):
     )
     payable = None if unresolved else to_paise(amounts["net_amt"])
     collected = sum(totals.values())
-    outstanding = None if payable is None else payable - collected
+    waivers = {
+        event["id"]: {**event, "reversed": False} for event in bill["events"] if event["action"] == "WAIVE"
+    }
+    for event in bill["events"]:
+        if event.get("settlement_waived_paise", 0):
+            waivers[event["id"]] = {
+                **event,
+                "amount_paise": event["settlement_waived_paise"],
+                "reversed": False,
+            }
+    for event in bill["events"]:
+        if event["action"] == "REVERSE_WAIVER":
+            waivers[event["adjustment_id"]]["reversed"] = True
+    waived = sum(event["amount_paise"] for event in waivers.values() if not event["reversed"])
+    outstanding = None if payable is None else payable - collected - waived
     historical = snapshot["business_date"] < config["tracking_from"]
     status = (
         "HISTORICAL_REVIEW"
@@ -77,7 +93,7 @@ def bill_view(bill, config, detail=False):
         else "PAID"
         if outstanding == 0
         else "PARTIAL"
-        if collected
+        if collected or waived
         else "AWAITING_COLLECTION"
     )
     view = {
@@ -90,6 +106,20 @@ def bill_view(bill, config, detail=False):
         "collection_status": status,
         "payable_paise": payable,
         "collected_paise": collected,
+        "waived_paise": waived,
+        "customer_name": next(
+            (event["customer_name"] for event in reversed(bill["events"]) if event.get("customer_name")), ""
+        ),
+        "credit": bool(
+            outstanding
+            and outstanding > 0
+            and any(event.get("remainder") == "CREDIT" for event in bill["events"])
+        ),
+        "notes": [
+            {"id": event["id"], "text": event["note"], "at": event["at"]}
+            for event in bill["events"]
+            if event.get("note")
+        ],
         "outstanding_paise": outstanding,
         "method_totals": totals,
         "last_observed_at": bill["observed_at"],
@@ -104,7 +134,13 @@ def bill_view(bill, config, detail=False):
         "bank_verified": False,
     }
     if detail:
-        view.update(snapshot=snapshot, versions=bill["versions"], events=bill["events"], collections=receipts)
+        view.update(
+            snapshot=snapshot,
+            versions=bill["versions"],
+            events=bill["events"],
+            collections=receipts,
+            waivers=list(waivers.values()),
+        )
     return view
 
 
@@ -178,7 +214,11 @@ def ingest(db, config, body):
 
 
 def apply_collection(db, bill, config, body, identity, business_date):
-    fingerprint = digest(body.model_dump(mode="json"))
+    # Excluding absent new adjustment fields preserves retry digests from v1 receipts.
+    excluded = set() if body.action in {"SETTLE", "NOTE"} else {"remainder", "customer_name", "note"}
+    if body.action not in {"WAIVE", "REVERSE_WAIVER", "SETTLE", "NOTE"}:
+        excluded |= {"amount_paise", "adjustment_id"}
+    fingerprint = digest(body.model_dump(mode="json", exclude=excluded))
     for event in bill["events"]:
         if event["request_id"] == body.request_id:
             if event["request_digest"] != fingerprint or event["actor_id"] != identity.user["_id"]:
@@ -188,6 +228,7 @@ def apply_collection(db, bill, config, body, identity, business_date):
         raise HTTPException(409, "Bill changed. Refresh and review the outstanding amount.")
     view = bill_view(bill, config)
     allocations = [a.model_dump() for a in body.allocations]
+    settlement_waived = 0
     if body.action in {"RECEIVE", "MARK_PAID"}:
         if view["review_required"]:
             raise HTTPException(409, "This bill needs source/history review before collection")
@@ -197,6 +238,29 @@ def apply_collection(db, bill, config, body, identity, business_date):
         amount = sum(a["amount_paise"] for a in allocations)
         if amount <= 0 or amount > outstanding:
             raise HTTPException(409, "Collection must not exceed the current outstanding amount")
+    elif body.action == "SETTLE":
+        if view["review_required"] or view["outstanding_paise"] <= 0:
+            raise HTTPException(409, "This bill has no eligible pending balance")
+        received = sum(a["amount_paise"] for a in allocations)
+        remainder = view["outstanding_paise"] - received
+        if remainder < 0 or (received == 0 and body.remainder == "PENDING"):
+            raise HTTPException(409, "Enter an amount within the pending balance, or choose credit/discount")
+        if body.remainder in {"CREDIT", "DISCOUNT"} and remainder == 0:
+            raise HTTPException(409, "There is no remaining balance for credit or discount")
+        if body.remainder == "DISCOUNT":
+            settlement_waived = remainder
+    elif body.action == "NOTE":
+        pass
+    elif body.action == "WAIVE":
+        if view["review_required"] or body.amount_paise > view["outstanding_paise"]:
+            raise HTTPException(409, "Waiver must not exceed an eligible bill's pending balance")
+    elif body.action == "REVERSE_WAIVER":
+        waiver = next(
+            (item for item in bill_view(bill, config, True)["waivers"] if item["id"] == body.adjustment_id),
+            None,
+        )
+        if not waiver or waiver["reversed"]:
+            raise HTTPException(409, "Waiver not found or already reversed")
     else:
         receipt = next((r for r in effective_collections(bill) if r["id"] == body.collection_id), None)
         if not receipt or receipt["reversed"]:
@@ -218,6 +282,7 @@ def apply_collection(db, bill, config, body, identity, business_date):
         "at": now(),
         "business_date": business_date,
         "source_sequence": bill["sequence"],
+        **({"settlement_waived_paise": settlement_waived} if body.action == "SETTLE" else {}),
     }
     bill["events"].append(event)
     bill["revision"] += 1

@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+const apiUrl = `http://localhost:${process.env.HISHOB_E2E_API_PORT || '8001'}`;
 export default defineConfig({
   testDir: './e2e',
   testIgnore: '**/pwa.spec.ts',
@@ -13,8 +14,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `"${process.platform === 'win32' ? '..\\backend\\.venv\\Scripts\\python.exe' : '../backend/.venv/bin/python'}" ../backend/tests/serve_e2e.py`,
-      url: 'http://localhost:8001/health',
+      command: `"${process.env.HISHOB_BACKEND_PYTHON || (process.platform === 'win32' ? '..\\backend\\.venv\\Scripts\\python.exe' : '../backend/.venv/bin/python')}" ../backend/tests/serve_e2e.py`,
+      url: `${apiUrl}/health`,
       reuseExistingServer: false,
       timeout: 30000,
     },
@@ -24,8 +25,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120000,
       env: {
-        EXPO_PUBLIC_API_URL: 'http://localhost:8001',
-        EXPO_PUBLIC_WEB_API_URL: 'http://localhost:8001',
+        EXPO_PUBLIC_API_URL: apiUrl,
+        EXPO_PUBLIC_WEB_API_URL: apiUrl,
         CI: '1',
         BROWSER: 'none',
         EXPO_OFFLINE: '1',

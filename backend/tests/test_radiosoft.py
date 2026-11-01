@@ -550,3 +550,353 @@ def test_demo_helper_refuses_remote_addresses():
     ]:
         with pytest.raises(argparse.ArgumentTypeError):
             local_api(address)
+
+
+def test_cash_counter_search_queues_rollups_and_stable_order(client, pilot):
+    p = pilot
+    first = send(client, p).json()["bill_id"]
+    second = send(
+        client, p, key={**p["observation"]["key"], "invoice_no": "2002"}, amounts={"net_amt": "750"}
+    ).json()["bill_id"]
+    third = send(
+        client, p, key={**p["observation"]["key"], "invoice_no": "3003"}, amounts={"net_amt": "500"}
+    ).json()["bill_id"]
+
+    def listing(**params):
+        result = client.get(p["base"] + "/bills", params=params, headers=p["owner"])
+        assert result.status_code == 200, result.text
+        return result.json()
+
+    assert [row["id"] for row in listing()["bills"]] == [third, second, first]
+    assert send(client, p, 2).status_code == 200
+    assert [row["id"] for row in listing()["bills"]] == [third, second, first]
+    page = listing(limit=1, status="PENDING")
+    assert page["summary"]["billed_paise"] == 225000
+    assert page["next_cursor"] == third
+    assert collect(client, p, third).status_code == 200
+    assert listing(limit=1, status="PENDING", after=third)["bills"][0]["id"] == second
+    assert listing(status="PENDING")["counts"] == {
+        "ALL": 3,
+        "PENDING": 2,
+        "CREDIT": 0,
+        "PAID": 1,
+        "REVIEW": 0,
+    }
+    assert listing(status="PAID")["bills"][0]["id"] == third
+    assert listing(search="002")["bills"][0]["id"] == second
+    assert len(listing(search="999")["bills"]) == 0
+    assert listing(business_date="2026-11-02")["summary"]["billed_paise"] == 0
+    assert client.get(p["base"] + "/bills?search=.*", headers=p["owner"]).status_code == 422
+    # Multi-worker attribution never multiplies the header sale or its receipts.
+    lines = deepcopy(p["observation"]["lines"])
+    lines[0].update(salesperson_ref="w1", salesperson_name="Worker One")
+    lines.append({**lines[0], "salesperson_ref": "w2", "salesperson_name": "Worker Two"})
+    assert send(client, p, 3, lines=lines).status_code == 200
+    assert listing(worker="w2")["summary"]["billed_paise"] == 100000
+    assert listing(worker="w1")["bills"][0]["salespeople"] == ["Worker One", "Worker Two"]
+    assert (
+        send(client, p, 4, source_status="CANCELLED", lifecycle_evidence="Synthetic cancellation").status_code
+        == 200
+    )
+    reviewed = listing(status="REVIEW")
+    assert reviewed["bills"][0]["id"] == first
+    assert reviewed["summary"]["billed_paise"] == 125000
+    assert reviewed["summary"]["excluded_bills"] == 1
+
+
+def test_waiver_is_audited_reversible_and_never_money(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    assert collect(client, p, bill_id, "RECEIVE", [allocation("CASH", 90000)]).status_code == 200
+    assert collect(client, p, bill_id, "WAIVE", amount_paise=10000).status_code == 422
+    assert collect(client, p, bill_id, "WAIVE", amount_paise=10001, reason="Too much").status_code == 409
+    body = dict(
+        revision=2,
+        request_id="waiver-retry-key",
+        action="WAIVE",
+        amount_paise=10000,
+        reason="Approved goodwill discount",
+    )
+    url = p["base"] + f"/bills/{bill_id}/collections"
+    for _ in range(2):
+        result = client.post(url, headers=p["owner"], json=body)
+        assert result.status_code == 200, result.text
+        row = result.json()
+        assert (
+            row["payable_paise"],
+            row["collected_paise"],
+            row["waived_paise"],
+            row["outstanding_paise"],
+        ) == (100000, 90000, 10000, 0)
+        assert len(row["collections"]) == 1 and len(row["waivers"]) == 1
+    totals = client.get(p["base"] + "/bills", headers=p["owner"]).json()["summary"]
+    assert totals["collected_paise"] == 90000 and totals["waived_paise"] == 10000
+    assert collect(client, p, bill_id, "MARK_PAID").status_code == 409
+    assert send(client, p, 2, amounts={"net_amt": "950"}).status_code == 200
+    changed = get_bill(client, p, bill_id)
+    assert changed["review_required"] and changed["outstanding_paise"] == -5000
+    reversed_waiver = collect(
+        client, p, bill_id, "REVERSE_WAIVER", adjustment_id="waiver-retry-key", reason="Source bill corrected"
+    )
+    assert reversed_waiver.status_code == 200, reversed_waiver.text
+    assert reversed_waiver.json()["outstanding_paise"] == 5000
+    assert reversed_waiver.json()["waived_paise"] == 0
+    assert reversed_waiver.json()["collected_paise"] == 90000
+    assert (
+        collect(
+            client, p, bill_id, "REVERSE_WAIVER", adjustment_id="waiver-retry-key", reason="Again"
+        ).status_code
+        == 409
+    )
+
+
+def test_waiver_permissions_and_concurrent_payment(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    client.post(
+        f"/api/shops/{p['shop']}/managers",
+        headers=p["owner"],
+        json={"name": "Manager", "mobile": "+919876500009"},
+    )
+    manager = login(client, "+919876500009", "MANAGER")
+    status = client.get(p["base"] + "/status", headers=p["owner"]).json()
+    client.put(
+        p["base"] + "/settings",
+        headers=p["owner"],
+        json={
+            "revision": status["revision"],
+            "mode": "PREVIEW",
+            "manager_view": True,
+            "manager_collect": True,
+        },
+    )
+    body = dict(
+        revision=1,
+        request_id="waiver-manager-test",
+        action="WAIVE",
+        amount_paise=100000,
+        reason="Test discount",
+    )
+    url = p["base"] + f"/bills/{bill_id}/collections"
+    assert client.post(url, headers=manager, json=body).status_code == 403
+    assert client.post(url, headers=p["worker"], json=body).status_code == 403
+    payment = dict(revision=1, request_id="cashier-racing-waiver", action="MARK_PAID")
+    with ThreadPoolExecutor(2) as pool:
+        outcomes = list(
+            pool.map(
+                lambda payload: client.post(url, headers=p["owner"], json=payload).status_code,
+                [body, payment],
+            )
+        )
+    assert sorted(outcomes) == [200, 409]
+    result = get_bill(client, p, bill_id)
+    assert result["collected_paise"] + result["waived_paise"] == 100000
+
+
+def test_demo_auto_sync_and_outage_pause(client, pilot, monkeypatch):
+    from scripts import radiosoft_demo
+
+    p = pilot
+    code = client.post(p["base"] + "/pairing", headers=p["owner"]).json()["code"]
+    monkeypatch.setattr(radiosoft_demo.getpass, "getpass", lambda _: code)
+    # Drive timer expirations without sleeping or reading terminal input.
+    commands = iter([None, "h", None, "r", "q"])
+
+    class TimerQueue:
+        def get(self, timeout):
+            value = next(commands)
+            if value is None:
+                raise radiosoft_demo.queue.Empty
+            return value
+
+    class NoReader:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(radiosoft_demo.queue, "Queue", TimerQueue)
+    monkeypatch.setattr(radiosoft_demo.threading, "Thread", NoReader)
+    statuses = []
+    observations = []
+
+    def local_post(api, path, body, credential=None):
+        if path == "health":
+            statuses.append(body["status"])
+        if path == "observations":
+            observations.append(deepcopy(body))
+        response = client.post(
+            CONNECTOR + "/" + path,
+            json=body,
+            headers={"Authorization": "Bearer " + credential} if credential else {},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    monkeypatch.setattr(radiosoft_demo, "post", local_post)
+    radiosoft_demo.demo("http://localhost:8001")
+    assert statuses == ["OK", "OK", "SOURCE_UNAVAILABLE", "OK"]
+    assert len(observations) == 9
+    assert len({item["sequence"] for item in observations}) == 9
+    assert observations[3]["observed_at"] >= observations[0]["observed_at"]
+
+
+def test_atomic_settlement_discount_retry_and_independent_reversal(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    url = p["base"] + f"/bills/{bill_id}/collections"
+    body = dict(
+        request_id="counter-settle-001",
+        revision=1,
+        action="SETTLE",
+        allocations=[allocation("CASH", 90000)],
+        remainder="DISCOUNT",
+        note="Paid at counter",
+    )
+    for _ in range(2):
+        response = client.post(url, headers=p["owner"], json=body)
+        assert response.status_code == 200, response.text
+        result = response.json()
+        assert (result["collected_paise"], result["waived_paise"], result["outstanding_paise"]) == (
+            90000,
+            10000,
+            0,
+        )
+        assert len(result["events"]) == len(result["collections"]) == len(result["waivers"]) == 1
+    assert client.post(url, headers=p["owner"], json={**body, "note": "Changed retry"}).status_code == 409
+    assert (
+        collect(
+            client,
+            p,
+            bill_id,
+            "REVERSE",
+            collection_id="counter-settle-001",
+            reason="Payment entered in error",
+        ).status_code
+        == 200
+    )
+    result = get_bill(client, p, bill_id)
+    assert (result["collected_paise"], result["waived_paise"], result["outstanding_paise"]) == (
+        0,
+        10000,
+        90000,
+    )
+    assert (
+        collect(
+            client,
+            p,
+            bill_id,
+            "REVERSE_WAIVER",
+            adjustment_id="counter-settle-001",
+            reason="Undo agreed discount",
+        ).status_code
+        == 200
+    )
+    assert get_bill(client, p, bill_id)["outstanding_paise"] == 100000
+
+
+def test_customer_credit_notes_search_and_later_collection(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    response = collect(
+        client,
+        p,
+        bill_id,
+        "SETTLE",
+        [],
+        remainder="CREDIT",
+        customer_name="Demo Customer",
+        note="Pay after Friday [family]",
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["credit"] and response.json()["collected_paise"] == 0
+
+    def listing(**params):
+        return client.get(p["base"] + "/bills", headers=p["owner"], params=params).json()
+
+    assert listing(status="PENDING")["bills"] == []
+    credit = listing(status="CREDIT", q="demo customer")
+    assert len(credit["bills"]) == 1 and credit["summary"]["credit_paise"] == 100000
+    assert len(listing(q="[family]")["bills"]) == 1
+    assert listing(q=".*")["bills"] == []  # literal text, not executable regex
+    assert collect(client, p, bill_id, "NOTE", note="Follow up Monday").status_code == 200
+    assert len(listing(q="monday")["bills"]) == 1
+    partial = collect(
+        client, p, bill_id, "SETTLE", [allocation("UPI", 40000)], remainder="PENDING", note="Part paid"
+    )
+    assert partial.status_code == 200 and partial.json()["credit"]
+    assert partial.json()["customer_name"] == "Demo Customer"
+    assert listing(status="CREDIT")["summary"]["credit_paise"] == 60000
+    final = collect(client, p, bill_id, "SETTLE", [allocation("CASH", 60000)], remainder="PENDING")
+    assert final.status_code == 200 and not final.json()["credit"]
+    assert final.json()["collected_paise"] == 100000 and final.json()["waived_paise"] == 0
+    assert listing(status="CREDIT")["bills"] == []
+    assert len(listing(status="PAID", q="Friday")["bills"]) == 1
+    assert len(final.json()["collections"]) == 2
+
+
+def test_settlement_permissions_shape_and_source_concurrency(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    url = p["base"] + f"/bills/{bill_id}/collections"
+    for changes, expected in [
+        ({"allocations": [], "remainder": "PENDING"}, 409),
+        ({"allocations": [], "remainder": "CREDIT"}, 422),
+        ({"allocations": [allocation("CASH", 100001)], "remainder": "PENDING"}, 409),
+    ]:
+        response = client.post(
+            url,
+            headers=p["owner"],
+            json={"request_id": secrets.token_hex(16), "revision": 1, "action": "SETTLE", **changes},
+        )
+        assert response.status_code == expected, response.text
+    assert len(get_bill(client, p, bill_id)["events"]) == 0
+    client.post(
+        f"/api/shops/{p['shop']}/managers",
+        headers=p["owner"],
+        json={"name": "Manager", "mobile": "+919876500018"},
+    )
+    manager = login(client, "+919876500018", "MANAGER")
+    status = client.get(p["base"] + "/status", headers=p["owner"]).json()
+    client.put(
+        p["base"] + "/settings",
+        headers=p["owner"],
+        json={
+            "revision": status["revision"],
+            "mode": "PREVIEW",
+            "manager_view": True,
+            "manager_collect": True,
+        },
+    )
+    body = dict(
+        request_id="manager-settle-001",
+        revision=1,
+        action="SETTLE",
+        allocations=[allocation("CASH", 90000)],
+        remainder="DISCOUNT",
+        reason="Discount",
+    )
+    assert client.post(url, headers=manager, json=body).status_code == 403
+    assert not get_bill(client, p, bill_id)["events"]  # even the receipt was not committed
+    assert send(client, p, 2, amounts={"net_amt": "1200"}).status_code == 200
+    assert client.post(url, headers=p["owner"], json=body).status_code == 409
+    assert not get_bill(client, p, bill_id)["events"]
+    assert (
+        send(
+            client, p, 3, source_status="MISSING_REVIEW", lifecycle_evidence="Synthetic missing bill"
+        ).status_code
+        == 200
+    )
+    body["revision"] = 3
+    assert client.post(url, headers=p["owner"], json=body).status_code == 409
+
+
+def test_counter_discount_and_payment_note_are_optional(client, pilot):
+    p = pilot
+    bill_id = send(client, p).json()["bill_id"]
+    response = collect(client, p, bill_id, "SETTLE", [allocation("CASH", 90000)], remainder="DISCOUNT")
+    assert response.status_code == 200, response.text
+    row = response.json()
+    assert (row["collected_paise"], row["waived_paise"], row["outstanding_paise"]) == (90000, 10000, 0)
+    assert row["events"][0]["reason"] == "" and row["notes"] == []

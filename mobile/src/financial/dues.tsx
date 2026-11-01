@@ -1,3 +1,5 @@
+import { moneyTones } from '../components/moneyTone';
+import { MoneyFlow } from '../components/MoneyFlow';
 import { t, useLocale } from './../i18n';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
@@ -68,7 +70,8 @@ function ReceivePayment({
           '. Record only money actually received. Partial payments leave the remaining balance open. Check the amount and method: saved receipts cannot be edited or deleted.',
         )}{' '}
       </Text>
-      <MoneyField label={t('Payment received (₹)')} value={amount} onChange={setAmount} />
+      <MoneyFlow tone="in" />
+      <MoneyField tone="in" label={t('Payment received (₹)')} value={amount} onChange={setAmount} />
       <FilterChips
         label={t('Received by')}
         value={payment}
@@ -236,7 +239,9 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
         <Card>
           <Text style={styles.heading}>
             {' '}
-            {t('Remaining ·')} {money(resource.data.summary.remaining_amount)}
+            <Text style={{ color: moneyTones.pending.ink }}>
+              {t('Remaining ·')} {money(resource.data.summary.remaining_amount)}
+            </Text>
           </Text>
           <Text style={styles.small}>
             {resource.data.summary.total} {t('matching entries · Original')}{' '}
@@ -276,7 +281,9 @@ export function CustomerDues({ navigation }: NativeStackScreenProps<Routes, 'Cus
               {due.date} · {due.description}
             </Text>
             <Text style={styles.heading}>
-              {t('Due')} {money(due.remaining_amount)}
+              <Text style={{ color: moneyTones.pending.ink }}>
+                {t('Due')} {money(due.remaining_amount)}
+              </Text>
             </Text>
             <Text style={styles.small}>
               {' '}

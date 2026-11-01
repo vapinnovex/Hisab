@@ -147,9 +147,7 @@ export function PasswordSecurity() {
         </Text>
       )}
       <ErrorText message={action.error} />
-      {enroll && (
-        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
-      )}
+      {enroll && <Button danger title={t('Sign out')} onPress={() => void action.run(signOut)} />}
       {!enroll && !session!.user.password_ready && (
         <Text style={styles.small}>
           {' '}

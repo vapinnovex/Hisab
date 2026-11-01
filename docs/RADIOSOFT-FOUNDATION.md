@@ -108,7 +108,7 @@ The connector must persist snapshot/outbox/sequence before HTTP, persist acknowl
 
 ## Collections, audit and comparison evidence
 
-`GET …/bills?after=<cursor>&limit=50` is bounded to 100 rows, ordered by stable bill ID; returns next cursor, permission flags and freshness. `GET …/bills/{id}` returns versions, original events and effective receipts. All reads use the bound source/shop scope. There is no preview export or accounting-report integration.
+`GET …/bills?after=<cursor>&limit=50` is bounded to 100 rows, ordered by bill date and first received time, with stable bill ID as a tie-breaker; returns next cursor, permission flags and freshness. `GET …/bills/{id}` returns versions, original events and effective receipts. All reads use the bound source/shop scope. There is no preview export or accounting-report integration.
 
 `POST …/bills/{id}/collections` accepts:
 
@@ -148,7 +148,7 @@ Run backend `pytest -q`, backend Ruff check/format, mobile typecheck/lint/format
 
 Tests cover default-off/production guard, ownership/tenants, source/generation/firm tampering, worker/manager grants, pairing expiry/one-use/lost response/revocation, duplicate/conflicting/out-of-order observations, API restart, concurrent cashiers and source edits, money rounding, split/partial/unspecified receipts, same-receipt classification/reversal, amount increases/reductions, synthetic cancellation/missing/reappearance, exchange non-duplication, full keys and line multisets, historical gating, queue-age freshness, evidence without double counting, and preservation of closed manual BILLING records through OFF/rollback. Real Windows crash recovery, network faults at SQL boundaries, complete edit/delete coverage and actual-shop correctness remain unvalidated.
 
-Before live use, resolve `Hishob-RadioSoft-Updated-Handoff-2026-10-29/OPEN-QUESTIONS.md`: exact owner/shop/installation/firm mapping, collection start/opening policy, saved-header/complete-lines boundary, amount exceptions and return semantics, lifecycle/tombstone support and same-key reuse. Obtain approved non-production lifecycle examples, SELECT-only identity tests and source-load measurements. Do not turn inspection observations into guarantees.
+Before live use, resolve [source inspection open questions](radiosoft-source-evidence-2026-10-29/OPEN-QUESTIONS.md): exact owner/shop/installation/firm mapping, collection start/opening policy, saved-header/complete-lines boundary, amount exceptions and return semantics, lifecycle/tombstone support and same-key reuse. Obtain approved non-production lifecycle examples, SELECT-only identity tests and source-load measurements. Do not turn inspection observations into guarantees.
 
 ### Completed verification — 1 November 2026
 
@@ -164,3 +164,63 @@ Before live use, resolve `Hishob-RadioSoft-Updated-Handoff-2026-10-29/OPEN-QUEST
 | Supplied evidence integrity | All five evidence files match SHA-256 values in the supplied manifest |
 
 The tests used temporary isolated Mongo databases on loopback port 27018. No SQL Server, actual RadioSoft source, Windows service, live pairing or production accounting was tested or activated. The temporary Mongo process started for this task was stopped after verification. The existing README edit and handoff directory were not modified.
+
+### UI refinement — 1 November 2026
+
+Bills now use compact cards with a prominent outstanding balance, payment status, and a direct Mark paid action. Mark paid still records an unspecified-method collection; expand a bill for cash, UPI, card, split payments, history, and corrections. The page retains ten-second polling and manual/pull-to-refresh, with stale and source-health warnings. Daily payment-app evidence and advanced connection settings are expandable. Pairing uses a smaller selectable code display; credential length and expiry are unchanged.
+
+The supplied inspection package is preserved under [`radiosoft-source-evidence-2026-10-29/`](radiosoft-source-evidence-2026-10-29/). It is reference evidence for the future live connector, not unused application code. These UI changes do not enable live SQL extraction or production accounting.
+
+### Cash-counter workflow and adjustments — 1 November 2026
+
+The default queue is **Pending**, with separate Settled, Needs review and All bills tabs. Search matches all or part of a numeric bill number on the backend; optional bill date and source worker reference filters apply before pagination. A bill involving several workers appears once in each matching query. Cards show source salesperson names/references; details show attribution per item. These are not automatically linked Hishob memberships and do not establish staff commission totals. Source evidence identifies `InvoiceDetails.SLNo` as item attribution; header `UserID` is the billing operator, not the salesperson.
+
+Ordering is business date descending, then first received time descending, then stable bill ID descending. Existing records use their first retained version's receipt time. Refreshing an unchanged snapshot or recording a payment does not move an old bill to the top. Source creation-time ordering within a date remains unvalidated; first receipt order is only a display fallback. Cursor IDs are resolved in that ordering, even if the cursor bill has since been paid. Newer arrivals appear on the first page. Missing cursor scope returns 409; return to First page.
+
+`GET …/bills` adds `search` (up to 18 digits), `status=ALL|PENDING|PAID|REVIEW` (API default ALL, UI default PENDING), `business_date=YYYY-MM-DD`, and `worker` (exact source reference). Response adds mutually exclusive `counts`, source `workers`, and `summary`. Review takes precedence over paid/pending. Counts and summary cover all search/date/worker matches, independently of queue and page. This pilot computes rollups from scoped ledger documents on each request. This has **not been load-tested for production volume**; materialized rollups/indexing and measured limits are a live-rollout gate.
+
+The summary is an **observed bill cohort**, not a daily cashbook report: `billed_paise`, `collected_paise`, `waived_paise`, `pending_paise` and `excess_paise`. It counts each currently mapped, non-historical, CURRENT bill once. Cancelled/missing, historical and unresolved-amount bills are excluded, with `excluded_bills` and `excluded_collected_paise` disclosed separately. Collections follow the selected bills' dates, not receipt dates; use daily comparison evidence for receipt-date methods. Positive balances and negative balances are accumulated separately; excess on one bill does not cancel another's pending debt. Totals update after backend ingestion and cashier actions, through existing ten-second foreground polling. They do not assert that all RadioSoft bills/changes have been observed. No manual BILLING row, galla, customer due, closed day, or production financial report is modified.
+
+Cards support direct Receiving now entry, cash/UPI/card, split payments, and an explicit Use full balance shortcut. Amount means money retained for this receipt, excluding change returned. The UI previews the remaining balance. Unspecified Mark paid remains in details. A pending request stays mounted even when polling removes its bill from the Pending queue; filters are locked until its outcome is resolved, allowing the identical request to be retried after a lost response.
+
+**Discounts/waivers are separate audited adjustments, never receipts.** The collection action endpoint now accepts:
+
+```json
+{"request_id":"waiver-example-001","revision":2,"action":"WAIVE","amount_paise":10000,"reason":"Approved goodwill discount"}
+```
+
+It requires owner or `manager_correct` permission **and** view permission, a nonblank reason (minimum two characters), a positive integer paise amount no greater than the current eligible outstanding balance, and the same revision/idempotency protections as collection events. It cannot be applied to missing/cancelled/historical/unmapped bills. `payable_paise` stays the RadioSoft amount. `collected_paise` and payment-method totals stay actual receipt amounts. `outstanding_paise = payable_paise - collected_paise - waived_paise`. Zero pending with a waiver is shown as Settled with waiver, not proof of full payment. A source reduction can cause an excess/adjustment review; nothing is silently refunded or written back to RadioSoft.
+
+To undo an adjustment, send `action:REVERSE_WAIVER`, the original `adjustment_id`, a new request ID, current revision and reason. No amount or collection ID is accepted for reversal. It restores pending balance and retains both audit events. An already reversed adjustment cannot be reversed again. Details return `waivers` with reasons and reversal flags; original `events` retain actor/time/revision evidence. Reversals may correct a bill already under source review. Existing pre-adjustment receipt request hashes remain retry-compatible. Schema v1 observations are unchanged; source discount/payment fields still do not create Hishob receipts or waivers.
+
+The local synthetic helper now submits fresh observations and health every 30 seconds while it runs. `p` pauses automatic sync; `h` reports a source failure and pauses; `r` refreshes and resumes; `q` exits. All HTTP writes and sequence changes occur on one main thread; terminal input only queues commands. Contact age over 120 seconds still shows offline and stale data remains visible. The page does not fake connectivity. This helper remains a terminal-based local simulation, not the deferred Windows service.
+
+Counter workflow validation: **34 RadioSoft backend tests passed**, including search/pagination/cohort totals, multi-worker counting, waiver authorization/reason/amount validation, identical retries, source reductions, reversal, competing cashier operations and automatic-demo outage pause/resume. The updated **Playwright counter workflow passed** against a separate synthetic database/API, including direct/split collection, waiver, lost-response retry after leaving Pending, reversal, search, worker filters, automatic arrivals, stale errors and revocation. Mobile typecheck, lint, formatting and Hindi/Marathi coverage (1,373 messages), plus backend Ruff checks, passed. Layout checked at 320, 390 and 1280 pixel widths. These are synthetic foundation checks, not live RadioSoft or production-accounting validation.
+
+### Counter settlement, customer credit and notes — 2 November 2026
+
+The card no longer has a standalone Discount action. After entering a short payment, choose **Keep pending**, **Customer credit**, or **Discount remainder**. Pending is the default; the application never infers a discount from missing money. Discount is calculated from the current outstanding balance less the money being recorded, requires correction permission and an explicit Discount remainder choice, and is shown before saving. The counter discount reason is optional; legacy standalone WAIVE and reversals still require reasons. Entering zero permits explicit full credit or full discount, but never an empty normal receipt.
+
+The new `SETTLE` action accepts allocations (possibly empty), `remainder:PENDING|CREDIT|DISCOUNT`, optional `customer_name` and `note`, and an optional discount `reason`. It requires collect and view permission; discount additionally requires correct permission. Example:
+
+```json
+{"request_id":"counter-settlement-001","revision":1,"action":"SETTLE","allocations":[{"method":"CASH","amount_paise":90000}],"remainder":"DISCOUNT","reason":"Agreed final price","note":"Collected at counter"}
+```
+
+The backend computes the remainder and commits one audited event containing both receipt allocations and `settlement_waived_paise` under the existing bill revision compare-and-swap. Retry hashes preserve the entire decision. Neither part can succeed independently. A positive receipt appears in effective collections; a positive discount appears in effective waivers using the same event ID. They can subsequently be reversed independently, with the existing permission/reason checks. A zero-money credit/discount event never appears as money received. Existing RECEIVE/WAIVE and other legacy retry digests remain compatible.
+
+Customer credit requires a customer name/reference. It remains credit through later partial collections, disappears from the credit queue when settled, and retains customer/notes/history. Source changes can reopen a balance or move it to review without deleting receipts or notes. These records are **preview credit only**, not duplicate CREDIT_SALE transactions in the production customer-dues ledger. RadioSoft still owns the sale. There is no new sale when a later payment arrives.
+
+`NOTE` adds an audited `note` to an existing bill without changing money. It uses collect/view permissions, current revision, request ID and a 2–500-character note. Notes are append-only. Summaries expose customer name, credit flag and note timestamps/text; event details retain actors and source sequence. `GET …/bills?q=…` searches literal, case-insensitive text across invoice number, customer references and all saved notes inside the authorized source/shop scope. `status=CREDIT` adds a separate queue; review still takes precedence, and zero-pending bills belong to Settled. `summary.credit_paise` is a disclosed subset of `pending_paise`, not another sale or receipt. The old numeric `search` query remains supported.
+
+Open bill shows items, attribution, notes and receipts without always displaying three payment amount fields. **Assign payment method** opens a specific unspecified receipt's correction controls; a single method uses that receipt's existing amount, and split fields appear only when Split payment is explicitly selected. No second receipt is created by this correction.
+
+### Responsive counter layout and runtime compatibility
+
+Bills & Collections opts into a wide page container (up to 1,600 pixels). Its grid measures actual available content width: one column below 720 pixels, two at 720–1,119 pixels, and three from 1,120 pixels. Cards retain ordering left-to-right then top-to-bottom; stable bill keys preserve in-progress state when the width changes. Other forms keep their readable narrow width, while the shared header accommodates wide screens. Summary tiles use a single row where space permits.
+
+Use full balance is now an inline action beside Receiving now; it preserves a 44-pixel touch target without occupying its own row. The empty amount field shows 0.00, not a misleading prefilled-looking balance. Optional notes and counter discount reason do not gate payment. Customer credit requires a clearly labelled customer reference; blank normal receipts are still rejected.
+
+When deploying or restarting development, update the backend before loading the new frontend. Old backends reject SETTLE/NOTE fields and the CREDIT filter with enum/extra-field validation errors. The local API on port 8001 was restarted and its running OpenAPI schema checked for these additions. This is a version mismatch, not a reason to re-enter payments repeatedly. Refresh and check recorded history after any uncertain response.
+
+Final verification for the 2 November counter/credit/responsive update: **38 RadioSoft backend tests passed**; **16 Playwright tests passed** covering the RadioSoft settlement/credit/notes flow, 1/2/3-column layout, existing cashbook and customer dues, staff payments, salary switch, header alignment and red sign out. Typecheck, lint, formatting, backend Ruff and translation coverage (**1,396 Hindi/Marathi messages**) passed. Visual review covered phone, tablet and desktop grids and the web salary switch. The working local backend was verified healthy on 8001 and its active schema includes SETTLE, NOTE and CREDIT. Testing used isolated synthetic databases; production accounting remains disabled.

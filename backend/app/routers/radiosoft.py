@@ -1,7 +1,9 @@
 """Synthetic RadioSoft preview only. Production ingestion/accounting have no activation path."""
 
+import re
 import secrets
 from datetime import date, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -310,15 +312,92 @@ def bills(
     request: Request,
     after: str = Query(default="", max_length=64),
     limit: int = Query(default=50, ge=1, le=100),
+    search: str = Query(default="", max_length=18, pattern=r"^[0-9]*$"),
+    status: Literal["ALL", "PENDING", "CREDIT", "PAID", "REVIEW"] = "ALL",
+    q: str = Query(default="", max_length=100),
+    business_date: str = Query(default="", pattern=r"^(\d{4}-\d{2}-\d{2})?$"),
+    worker: str = Query(default="", max_length=100),
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
     _, _, _, config, grants = access(request, db, shop_id, identity, "view")
-    query = {**bill_scope(config), "_id": {"$gt": after}}
-    rows = list(db.radiosoft_bills.find(query).sort("_id", 1).limit(limit + 1))
+    query = bill_scope(config)
+    if search:
+        query["snapshot.key.invoice_no"] = {"$regex": search}
+    if q.strip():
+        query["$or"] = [
+            {field: {"$regex": re.escape(q.strip()), "$options": "i"}}
+            for field in ("snapshot.key.invoice_no", "events.customer_name", "events.note")
+        ]
+    if business_date:
+        query["snapshot.business_date"] = business_date
+    if worker:
+        query["snapshot.lines.salesperson_ref"] = worker
+    # Pilot-only rollup from the authoritative ledger, not the displayed page.
+    # First receipt breaks date ties; unchanged scans and payments never reorder bills.
+    rows = list(db.radiosoft_bills.find(query))
+    rows.sort(
+        key=lambda row: (row["snapshot"]["business_date"], row["versions"][0]["received_at"], row["_id"]),
+        reverse=True,
+    )
+    views = [bill_view(row, config) for row in rows]
+    counts = {"ALL": len(views), "PENDING": 0, "CREDIT": 0, "PAID": 0, "REVIEW": 0}
+    summary = dict(
+        billed_paise=0,
+        collected_paise=0,
+        waived_paise=0,
+        pending_paise=0,
+        credit_paise=0,
+        excess_paise=0,
+        excluded_bills=0,
+        excluded_collected_paise=0,
+    )
+    workers = {}
+    for row, view in zip(rows, views):
+        bucket = (
+            "REVIEW"
+            if view["review_required"]
+            else "PAID"
+            if view["collection_status"] == "PAID"
+            else "CREDIT"
+            if view["credit"]
+            else "PENDING"
+        )
+        view["queue"] = bucket
+        counts[bucket] += 1
+        for line in row["snapshot"]["lines"]:
+            if line["salesperson_ref"]:
+                workers[line["salesperson_ref"]] = line["salesperson_name"] or line["salesperson_ref"]
+        if (
+            view["payable_paise"] is None
+            or view["source_status"] != "CURRENT"
+            or view["business_date"] < config["tracking_from"]
+        ):
+            summary["excluded_bills"] += 1
+            summary["excluded_collected_paise"] += view["collected_paise"]
+            continue
+        summary["billed_paise"] += view["payable_paise"]
+        summary["collected_paise"] += view["collected_paise"]
+        summary["waived_paise"] += view["waived_paise"]
+        summary["pending_paise"] += max(view["outstanding_paise"], 0)
+        if view["credit"]:
+            summary["credit_paise"] += max(view["outstanding_paise"], 0)
+        summary["excess_paise"] += max(-view["outstanding_paise"], 0)
+    filtered = [view for view in views if status == "ALL" or view["queue"] == status]
+    # Resolve the cursor against the unfiltered stable ordering, including a bill
+    # that has since left Pending after payment on another till.
+    if after:
+        ids = [view["id"] for view in views]
+        if after not in ids:
+            raise HTTPException(409, "Bill list changed. Return to the first page.")
+        remaining = set(ids[ids.index(after) + 1 :])
+        filtered = [view for view in filtered if view["id"] in remaining]
     return {
-        "bills": [bill_view(row, config) for row in rows[:limit]],
-        "next_cursor": rows[limit - 1]["_id"] if len(rows) > limit else None,
+        "bills": filtered[:limit],
+        "next_cursor": filtered[limit - 1]["id"] if len(filtered) > limit else None,
+        "counts": counts,
+        "summary": summary,
+        "workers": [{"ref": ref, "name": name} for ref, name in sorted(workers.items())],
         "permissions": grants,
         "mode": "PREVIEW",
         **connection_status(db, config),
@@ -342,10 +421,14 @@ def collection(
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
-    permission = "correct" if body.action in {"RECLASSIFY", "REVERSE"} else "collect"
+    permission = (
+        "correct" if body.action in {"RECLASSIFY", "REVERSE", "WAIVE", "REVERSE_WAIVER"} else "collect"
+    )
     _, shop, _, config, _ = access(request, db, shop_id, identity, permission)
     # Reading the obligation is required even when collection/correction is delegated.
     access(request, db, shop_id, identity, "view")
+    if body.action == "SETTLE" and body.remainder == "DISCOUNT":
+        access(request, db, shop_id, identity, "correct")
     today = now().astimezone(ZoneInfo(shop["timezone"])).date().isoformat()
     return apply_collection(db, load_bill(db, config, bill_id), config, body, identity, today)
 

@@ -21,7 +21,10 @@ test('staff page, payments, purchases, notes, closing and private worker history
   await owner.getByRole('button', { name: 'Add worker', exact: true }).click();
   await owner.getByLabel('Worker name', { exact: true }).fill('Payment Asha');
   await owner.getByLabel('Mobile number', { exact: true }).fill(workerMobile);
+  await expect(owner.getByRole('switch', { name: 'Add salary now (optional)' })).not.toBeChecked();
   await owner.getByRole('switch', { name: 'Add salary now (optional)' }).check();
+  await expect(owner.getByRole('switch', { name: 'Add salary now (optional)' })).toBeChecked();
+  await owner.screenshot({ path: info.outputPath('salary-toggle.png'), fullPage: true });
   await owner.getByLabel('Reference salary (₹)', { exact: true }).fill('15000');
   await expect(owner.getByLabel('Salary starts / joining date', { exact: true })).toHaveCount(0);
   const added = owner.waitForResponse(
@@ -66,6 +69,17 @@ test('staff page, payments, purchases, notes, closing and private worker history
     if (method)
       await owner.getByRole('button', { name: `Payment method: ${method}`, exact: true }).click();
     await owner.getByLabel('What was this for?', { exact: true }).fill(note);
+    const flowColor =
+      kind === 'Money received'
+        ? 'rgb(20, 92, 69)'
+        : kind === 'Shop purchase · unpaid'
+          ? 'rgb(121, 86, 17)'
+          : 'rgb(165, 53, 53)';
+    await expect(owner.getByRole('button', { name: 'Save payment', exact: true })).toHaveCSS(
+      'background-color',
+      flowColor,
+    );
+    await expect(owner.getByLabel('Amount (₹)', { exact: true })).toHaveCSS('color', flowColor);
     await owner.getByRole('button', { name: 'Save payment', exact: true }).click();
     await expect(owner.getByText(note, { exact: true })).toBeVisible();
   }

@@ -66,7 +66,7 @@ async def test_lifespan(application):
 
 app.router.lifespan_context = test_lifespan
 try:
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=int(os.getenv("HISHOB_E2E_API_PORT", "8001")))
 finally:
     with MongoClient(settings.mongodb_uri) as client:
         client.drop_database(settings.mongodb_database)

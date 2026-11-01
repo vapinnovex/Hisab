@@ -3,8 +3,10 @@
 import argparse
 import getpass
 import json
+import queue
 import secrets
 import sys
+import threading
 import time
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -30,7 +32,7 @@ def local_api(value):
         or parsed.query
         or parsed.fragment
     ):
-        raise argparse.ArgumentTypeError("Use a loopback API address, e.g. http://localhost:8000")
+        raise argparse.ArgumentTypeError("Use a loopback API address, e.g. http://localhost:8001")
     return value.rstrip("/")
 
 
@@ -102,12 +104,27 @@ def make_bills(scope):
         )
         bill["key"].update(invoice_no=str(int(prefix) + offset), firm_code=scope["firm_codes"][0])
         bill["amounts"]["net_amt"] = amount
-        bill["lines"][0].update(description=f"Synthetic item {offset + 1}", amount=amount)
+        bill["lines"][0].update(
+            description=f"Synthetic item {offset + 1}",
+            amount=amount,
+            salesperson_ref=f"SYN-STAFF-{offset % 2 + 1}",
+            salesperson_name=f"Demo Worker {offset % 2 + 1}",
+        )
+        if offset == 2:
+            bill["lines"][0]["amount"] = "750.00"
+            bill["lines"].append(
+                {
+                    **bill["lines"][0],
+                    "description": "Synthetic second item",
+                    "salesperson_ref": "SYN-STAFF-2",
+                    "salesperson_name": "Demo Worker 2",
+                }
+            )
         bills.append(bill)
     return bills
 
 
-def demo(api):
+def demo(api, interval=30):
     print("Synthetic local demo only. No RadioSoft/SQL access; no accounting activation.")
     code = getpass.getpass("Paste the five-minute pairing code (input hidden): ").strip()
     credential = secrets.token_urlsafe(32)
@@ -131,24 +148,50 @@ def demo(api):
     for bill in bills:
         print(f"  {bill['key']['invoice_no']}: Rs {bill['amounts']['net_amt']}")
     print("\nOpen Bills & Collections. Try partial, split and unspecified payments.")
-    print("This helper sends only when you choose an action; idle data becomes stale after two minutes.")
+    print("Automatic synthetic sync every 30 seconds while this helper runs. p pauses it; r resumes.")
+    actions = queue.Queue()
+
+    def read_actions():
+        while True:
+            try:
+                action = (
+                    input(
+                        "\nr=refresh/resume, p=pause, +=1200, -=800, m=missing, c=cancelled, u=restore, h=source outage, q=quit: "
+                    )
+                    .strip()
+                    .lower()
+                )
+            except (EOFError, KeyboardInterrupt):
+                action = "q"
+            actions.put(action)
+            if action == "q":
+                return
+
+    threading.Thread(target=read_actions, daemon=True).start()
+    automatic = True
     while True:
-        action = (
-            input(
-                "\nr=refresh, +=first bill 1200, -=first bill 800, m=missing, c=cancelled, u=restore, h=source outage, q=quit: "
-            )
-            .strip()
-            .lower()
-        )
+        try:
+            action = actions.get(timeout=interval)
+        except queue.Empty:
+            if automatic:
+                sync()
+            continue
         if action == "q":
             print(
                 "Demo stopped. Credentials were held only in memory. Revoke the connector in setup when finished."
             )
             return
         if action == "h":
+            automatic = False
             post(api, "health", {"status": "SOURCE_UNAVAILABLE", "pending_observations": 0}, credential)
             print("Source outage reported; existing bills and collections remain.")
             continue
+        if action == "p":
+            automatic = False
+            print("Auto-sync paused. After 2 minutes the page will warn offline/stale. r resumes.")
+            continue
+        if action == "r":
+            automatic = True
         if action in {"+", "-"}:
             bills[0]["amounts"]["net_amt"] = "1200.00" if action == "+" else "800.00"
             bills[0]["lines"][0]["amount"] = bills[0]["amounts"]["net_amt"]
@@ -164,7 +207,7 @@ def demo(api):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["ids", "demo"])
-    parser.add_argument("--api", default="http://localhost:8000", type=local_api)
+    parser.add_argument("--api", default="http://localhost:8001", type=local_api)
     args = parser.parse_args()
     try:
         print_ids() if args.command == "ids" else demo(args.api)

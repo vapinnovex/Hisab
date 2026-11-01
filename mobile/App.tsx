@@ -385,7 +385,7 @@ function Navigation() {
           busy={action.busy}
           onPress={() => void action.run(reload)}
         />
-        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
+        <Button danger title={t('Sign out')} onPress={() => void action.run(signOut)} />
       </Page>
     );
   return (

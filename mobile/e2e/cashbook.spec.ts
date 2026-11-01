@@ -32,6 +32,10 @@ async function expense(
   await page.getByRole('textbox', { name: 'Amount (₹)', exact: true }).fill(amount);
   await page.getByRole('textbox', { name: 'Description', exact: true }).fill('Shop supplies');
   await page.getByRole('textbox', { name: 'Category (optional)', exact: true }).fill('Supplies');
+  await expect(page.getByRole('button', { name: 'Save transaction', exact: true })).toHaveCSS(
+    'background-color',
+    'rgb(165, 53, 53)',
+  );
   await page.getByRole('button', { name: 'Save transaction', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Add transaction', exact: true })).toBeVisible();
 }

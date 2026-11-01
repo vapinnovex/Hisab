@@ -25,5 +25,9 @@ for (const width of [320, 390, 1440]) {
     await expect(page.getByRole('button', { name: 'Add worker', exact: true })).toBeVisible();
     await account.click();
     await expect(page.getByRole('button', { name: 'Language', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toHaveCSS(
+      'background-color',
+      'rgb(165, 53, 53)',
+    );
   });
 }
