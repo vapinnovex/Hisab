@@ -3,8 +3,9 @@ import { AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { onReconnect } from './connection';
 import { useAuth } from './auth';
+import { ApiError } from './api';
 
-export function useResource<T>(path: string, poll = false, enabled = true) {
+export function useResource<T>(path: string, poll: boolean | number = false, enabled = true) {
   const { api } = useAuth();
   const focused = useIsFocused();
   const [result, setResult] = useState<{ path: string; data: T | null; error: string } | null>(
@@ -24,7 +25,12 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
       if (sequence.value === current)
         setResult((old) => ({
           path,
-          data: old?.path === path ? old.data : null,
+          data:
+            e instanceof ApiError && (e.status === 401 || e.status === 403)
+              ? null
+              : old?.path === path
+                ? old.data
+                : null,
           error: (e as Error).message,
         }));
     } finally {
@@ -44,9 +50,17 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
       if (state === 'active' && !sequence.pending) void refresh();
     });
     const timer = poll
-      ? setInterval(() => {
-          if (AppState.currentState === 'active' && !sequence.pending) void refresh();
-        }, 5000)
+      ? setInterval(
+          () => {
+            if (
+              AppState.currentState === 'active' &&
+              (typeof document === 'undefined' || document.visibilityState !== 'hidden') &&
+              !sequence.pending
+            )
+              void refresh();
+          },
+          typeof poll === 'number' ? poll : 5000,
+        )
       : undefined;
     return () => {
       reconnect();

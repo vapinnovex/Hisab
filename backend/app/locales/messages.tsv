@@ -192,3 +192,33 @@ This staff record changed. Refresh before saving again.|यह कर्मच�
 This staff record has reached its storage limit. Contact support.|इस कर्मचारी रिकॉर्ड की संग्रह सीमा पूरी हो गई। सहायता से संपर्क करें।|या कर्मचारी नोंदीची साठवण मर्यादा पूर्ण झाली. मदत विभागाशी संपर्क साधा.
 Use the staff page to change reference salary.|संदर्भ वेतन बदलने के लिए कर्मचारी पेज खोलें।|संदर्भ पगार बदलण्यासाठी कर्मचारी पान वापरा.
 You do not have permission to access this staff record.|आपको इस कर्मचारी रिकॉर्ड की अनुमति नहीं है।|तुम्हाला या कर्मचारी नोंदीची परवानगी नाही.
+Bill changed concurrently. Refresh before retrying.|बिल उसी समय बदल गया। फिर कोशिश से पहले रीफ़्रेश करें।|बिल त्याच वेळी बदलले. पुन्हा प्रयत्न करण्यापूर्वी रीफ्रेश करा.
+Pilot bill history limit reached. Stop and contact support; history was retained.|पायलट बिल के इतिहास की सीमा पूरी हुई। रुकें और सहायता से संपर्क करें; इतिहास सुरक्षित है।|पायलट बिलाच्या इतिहासाची मर्यादा गाठली. थांबा आणि मदतीशी संपर्क करा; इतिहास जतन आहे.
+Observation clock is more than five minutes ahead|अवलोकन की घड़ी पाँच मिनट से अधिक आगे है|निरीक्षणाचे घड्याळ पाच मिनिटांपेक्षा जास्त पुढे आहे
+Credential source/generation mismatch|क्रेडेंशियल का स्रोत या जनरेशन मेल नहीं खाता|क्रेडेन्शियलचा स्रोत किंवा जनरेशन जुळत नाही
+Firm outside approved source scope|फ़र्म स्वीकृत स्रोत दायरे से बाहर है|फर्म मंजूर स्रोत व्याप्तीबाहेर आहे
+Stale or conflicting observation. Do not reset the durable sequence.|पुराना या विरोधी अवलोकन। सुरक्षित क्रम संख्या रीसेट न करें।|जुने किंवा विसंगत निरीक्षण. जतन केलेला क्रमांक रीसेट करू नका.
+Bill changed. Refresh and review the outstanding amount.|बिल बदल गया। रीफ़्रेश करके बाकी राशि जाँचें।|बिल बदलले. रीफ्रेश करून बाकी रक्कम तपासा.
+This bill needs source/history review before collection|वसूली से पहले इस बिल के स्रोत या इतिहास की जाँच ज़रूरी है|वसुलीपूर्वी या बिलाचा स्रोत किंवा इतिहास तपासणे आवश्यक आहे
+Collection must not exceed the current outstanding amount|वसूली मौजूदा बाकी राशि से अधिक नहीं हो सकती|वसुली सध्याच्या बाकी रकमेपेक्षा जास्त असू शकत नाही
+Collection not found or already reversed|वसूली नहीं मिली या पहले ही उलटी गई है|वसुली सापडली नाही किंवा आधीच रद्द केली आहे
+Request ID already used for another action|अनुरोध ID किसी अन्य कार्रवाई में इस्तेमाल हो चुका है|विनंती ID दुसऱ्या कृतीसाठी आधीच वापरला आहे
+Only unspecified receipts can be assigned a method|केवल बिना तरीके वाली रसीदों को तरीका दिया जा सकता है|फक्त पद्धत नसलेल्या पावत्यांना पद्धत देता येते
+Reclassification must preserve the receipt amount|तरीका बदलने पर रसीद की राशि समान रहनी चाहिए|पद्धत बदलताना पावतीची रक्कम कायम राहिली पाहिजे
+Lifecycle review requires explicit synthetic evidence|जीवनचक्र की जाँच के लिए स्पष्ट काल्पनिक प्रमाण चाहिए|जीवनचक्र तपासणीसाठी स्पष्ट काल्पनिक पुरावा आवश्यक आहे
+Corrections must identify an existing collection|सुधार के लिए मौजूदा वसूली की पहचान दें|दुरुस्तीसाठी विद्यमान वसुलीची ओळख द्या
+An audit reason is required|ऑडिट का कारण चाहिए|ऑडिटचे कारण आवश्यक आहे
+Provide allocations only for a receipt or reclassification|राशि का विभाजन केवल रसीद या तरीका बदलने के लिए दें|रकमेचे वाटप फक्त पावती किंवा पद्धत बदलण्यासाठी द्या
+Combine allocations for the same method|एक ही तरीके की राशियों को जोड़ें|एकाच पद्धतीच्या रकमा एकत्र करा
+Assign known methods when reclassifying|वर्गीकरण बदलते समय ज्ञात तरीके दें|वर्गीकरण बदलताना ज्ञात पद्धती द्या
+RadioSoft preview is disabled or this permission is not granted|RadioSoft पूर्वावलोकन बंद है या यह अनुमति नहीं दी गई है|RadioSoft पूर्वावलोकन बंद आहे किंवा ही परवानगी दिलेली नाही
+An approved pilot shop owner is required|स्वीकृत पायलट दुकान के मालिक की पहुँच चाहिए|मंजूर पायलट दुकानाच्या मालकाचा प्रवेश आवश्यक आहे
+Bill not found in this source/shop|इस स्रोत या दुकान में बिल नहीं मिला|या स्रोत किंवा दुकानात बिल सापडले नाही
+Settings changed. Refresh and retry.|सेटिंग बदल गईं। रीफ़्रेश करके फिर कोशिश करें।|सेटिंग बदलल्या. रीफ्रेश करून पुन्हा प्रयत्न करा.
+Enable synthetic preview before pairing|पेयरिंग से पहले काल्पनिक पूर्वावलोकन चालू करें|जोडणीपूर्वी काल्पनिक पूर्वावलोकन सुरू करा
+Settings changed. Retry pairing.|सेटिंग बदल गईं। पेयरिंग फिर करें।|सेटिंग बदलल्या. जोडणी पुन्हा करा.
+Connector scope comes only from its credential|कनेक्टर का दायरा केवल उसके क्रेडेंशियल से तय होता है|कनेक्टरची व्याप्ती फक्त त्याच्या क्रेडेन्शियलवरून ठरते
+Invalid or expired pairing code|पेयरिंग कोड गलत है या उसकी समय सीमा पूरी हो गई|जोडणी कोड चुकीचा आहे किंवा त्याची मुदत संपली
+Pairing code already consumed or settings changed|पेयरिंग कोड इस्तेमाल हो चुका है या सेटिंग बदल गईं|जोडणी कोड वापरला गेला आहे किंवा सेटिंग बदलल्या
+Connector disabled, revoked or outside approved scope|कनेक्टर बंद है, उसकी पहुँच हटाई गई है या वह स्वीकृत दायरे से बाहर है|कनेक्टर बंद आहे, त्याचा प्रवेश रद्द आहे किंवा तो मंजूर व्याप्तीबाहेर आहे
+Request ID already used for another evidence entry|अनुरोध ID किसी अन्य प्रमाण प्रविष्टि में इस्तेमाल हो चुका है|विनंती ID दुसऱ्या पुरावा नोंदीसाठी आधीच वापरला आहे

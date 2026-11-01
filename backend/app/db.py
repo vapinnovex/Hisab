@@ -24,6 +24,16 @@ def get_db(request: Request):
 
 
 def create_indexes(db):
+    db.radiosoft_integrations.create_index("credential_hash", unique=True, sparse=True)
+    db.radiosoft_integrations.create_index("pairing.code_hash", unique=True, sparse=True)
+    db.radiosoft_bills.create_index([("shop_id", 1), ("source_id", 1), ("generation", 1), ("_id", 1)])
+    db.radiosoft_bills.create_index(
+        [("shop_id", 1), ("source_id", 1), ("generation", 1), ("observed_at", -1)]
+    )
+    db.radiosoft_bills.create_index(
+        [("shop_id", 1), ("source_id", 1), ("generation", 1), ("events.business_date", 1)]
+    )
+    db.radiosoft_evidence.create_index([("shop_id", 1), ("date", 1), ("at", -1)])
     db.face_shops.create_index("devices.token_hash", sparse=True)
     db.face_shops.create_index("pairing.code_hash", sparse=True)
     db.face_enrollments.create_index("expires_at", expireAfterSeconds=0)

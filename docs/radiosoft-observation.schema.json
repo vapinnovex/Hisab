@@ -1,0 +1,228 @@
+{
+  "$defs": {
+    "Amounts": {
+      "additionalProperties": false,
+      "properties": {
+        "net_amt": {
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Net Amt",
+          "type": "string"
+        },
+        "card_pay_charges": {
+          "default": "0",
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Card Pay Charges",
+          "type": "string"
+        },
+        "round_amt": {
+          "default": "0",
+          "pattern": "^-?\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Round Amt",
+          "type": "string"
+        },
+        "exchange_amt": {
+          "default": "0",
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Exchange Amt",
+          "type": "string"
+        },
+        "advance_amt": {
+          "default": "0",
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Advance Amt",
+          "type": "string"
+        },
+        "coupon_discount": {
+          "default": "0",
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Coupon Discount",
+          "type": "string"
+        },
+        "loyalty_discount": {
+          "default": "0",
+          "pattern": "^\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Loyalty Discount",
+          "type": "string"
+        }
+      },
+      "required": [
+        "net_amt"
+      ],
+      "title": "Amounts",
+      "type": "object"
+    },
+    "BillKey": {
+      "additionalProperties": false,
+      "properties": {
+        "invoice_no": {
+          "pattern": "^[1-9][0-9]{0,17}$",
+          "title": "Invoice No",
+          "type": "string"
+        },
+        "fyear": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Fyear",
+          "type": "string"
+        },
+        "invoice_type": {
+          "enum": [
+            0,
+            1
+          ],
+          "title": "Invoice Type",
+          "type": "integer"
+        },
+        "firm_code": {
+          "minimum": 0,
+          "title": "Firm Code",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "invoice_no",
+        "fyear",
+        "invoice_type",
+        "firm_code"
+      ],
+      "title": "BillKey",
+      "type": "object"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "maxLength": 200,
+          "title": "Description",
+          "type": "string"
+        },
+        "quantity": {
+          "pattern": "^\\d{1,8}(\\.\\d{1,8})?$",
+          "title": "Quantity",
+          "type": "string"
+        },
+        "amount": {
+          "pattern": "^-?\\d{1,10}(\\.\\d{1,8})?$",
+          "title": "Amount",
+          "type": "string"
+        },
+        "salesperson_ref": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Salesperson Ref",
+          "type": "string"
+        },
+        "salesperson_name": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Salesperson Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "description",
+        "quantity",
+        "amount"
+      ],
+      "title": "Line",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "synthetic": {
+      "const": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "source_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "generation": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Generation",
+      "type": "string"
+    },
+    "sequence": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "mapping_version": {
+      "const": "synthetic-net-v1",
+      "title": "Mapping Version",
+      "type": "string"
+    },
+    "key": {
+      "$ref": "#/$defs/BillKey"
+    },
+    "business_date": {
+      "format": "date",
+      "title": "Business Date",
+      "type": "string"
+    },
+    "source_time_raw": {
+      "default": "",
+      "maxLength": 40,
+      "title": "Source Time Raw",
+      "type": "string"
+    },
+    "amounts": {
+      "$ref": "#/$defs/Amounts"
+    },
+    "lines": {
+      "items": {
+        "$ref": "#/$defs/Line"
+      },
+      "maxItems": 200,
+      "title": "Lines",
+      "type": "array"
+    },
+    "source_status": {
+      "default": "CURRENT",
+      "enum": [
+        "CURRENT",
+        "MISSING_REVIEW",
+        "CANCELLED"
+      ],
+      "title": "Source Status",
+      "type": "string"
+    },
+    "lifecycle_evidence": {
+      "default": "",
+      "maxLength": 500,
+      "title": "Lifecycle Evidence",
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "synthetic",
+    "source_id",
+    "generation",
+    "sequence",
+    "observed_at",
+    "mapping_version",
+    "key",
+    "business_date",
+    "amounts",
+    "lines"
+  ],
+  "title": "Observation",
+  "type": "object"
+}

@@ -152,6 +152,8 @@ export type TabRoutes = {
   Profile: undefined;
 };
 export type Routes = HishobRoutes & {
+  RadioSoftSetup: undefined;
+  RadioSoftBills: undefined;
   StaffDetails: { staffId: string } | undefined;
   StaffReference: { staffId: string };
   StaffNote: { staffId: string; name: string };

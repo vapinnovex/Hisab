@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "synthetic": true,
+  "source_id": "synthetic-installation",
+  "generation": "REPLACE_WITH_PAIRING_GENERATION",
+  "sequence": 1,
+  "mapping_version": "synthetic-net-v1",
+  "key": {
+    "invoice_no": "1001",
+    "fyear": "SYNTHETIC-2026-27",
+    "invoice_type": 0,
+    "firm_code": 0
+  },
+  "business_date": "2026-11-01",
+  "source_time_raw": "11:53",
+  "amounts": {
+    "net_amt": "1000.00",
+    "exchange_amt": "0"
+  },
+  "lines": [
+    {
+      "description": "Synthetic item",
+      "quantity": "1",
+      "amount": "1000.00",
+      "salesperson_ref": "SYN-STAFF-1",
+      "salesperson_name": "Synthetic seller"
+    }
+  ],
+  "source_status": "CURRENT",
+  "observed_at": "2026-11-01T06:23:00Z"
+}

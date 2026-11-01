@@ -55,6 +55,7 @@ import {
 
 import { CustomerDues } from './src/financial/dues';
 import { HishobSearch } from './src/financial/search';
+import { RadioSoftBills, RadioSoftSetup } from './src/radiosoft/screens';
 
 const Stack = createNativeStackNavigator<Routes>();
 const Tabs = createBottomTabNavigator<TabRoutes>();
@@ -141,6 +142,10 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobTransactions" component={HishobTransactions} />
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
+          )}
+          <Stack.Screen name="RadioSoftBills" component={RadioSoftBills} />
+          {session!.role === 'OWNER' && (
+            <Stack.Screen name="RadioSoftSetup" component={RadioSoftSetup} />
           )}
           {selected!.shop.settings.attendance_enabled && (
             <>

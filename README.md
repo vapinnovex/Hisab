@@ -51,10 +51,9 @@ Both use `mongodb://127.0.0.1:27018`. The local script persists data under `.loc
 ```sh
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.lock.txt
+./.venv/bin/python -m pip install -r requirements.lock.txt
 cp .env.example .env
-uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+./.venv/bin/python -m uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 ```
 
 Health: http://localhost:8000/health · interactive API: http://localhost:8000/docs

@@ -75,3 +75,30 @@ Press `Ctrl+C` in the API window to stop FastAPI. Press `Ctrl+C` in the MongoDB 
 ```powershell
 docker compose stop mongo
 ```
+
+## macOS: startup stalls in a Documents-based virtual environment
+
+If package files show `dataless` in `ls -lO`, macOS has offloaded them. Importing those files can block while they are downloaded; auto-reload can restart again when files become local. This can happen before the API reaches application startup.
+
+Keep the virtual environment outside Documents. From `backend`, first-time setup is:
+
+```sh
+python3 -m venv "$HOME/.local/share/hishob/backend-venv"
+"$HOME/.local/share/hishob/backend-venv/bin/python" -m pip install -r requirements.lock.txt
+```
+
+Then start with:
+
+```sh
+./start-local.sh
+```
+
+The launcher reads the usual `backend/.env` and uses `http://127.0.0.1:8000`, without auto-reload. Stop an existing backend before starting another. It works even if the old repository `.venv` is still activated. Stop with Ctrl+C. Do not run a second copy while port 8000 is occupied.
+
+App source/resource files must also be available locally. In Finder, keep the project downloaded if it is in cloud-managed Documents. The dependency environment is separate from the repository; the launcher does not change database settings or shop data.
+
+For the RadioSoft demo helper, use the same external Python environment:
+
+```sh
+"$HOME/.local/share/hishob/backend-venv/bin/python" scripts/radiosoft_demo.py demo
+```

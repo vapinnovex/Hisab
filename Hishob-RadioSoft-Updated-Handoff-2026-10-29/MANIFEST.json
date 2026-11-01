@@ -1,0 +1,50 @@
+{
+  "package": "Hishob-RadioSoft updated read-only inspection",
+  "inspection_started_utc": "2026-10-29T14:37:39.1463661Z",
+  "package_generated_utc": "2026-10-29T14:58:59.945428+00:00",
+  "inspection_date_local": "2026-10-29",
+  "business_timezone": "Asia/Kolkata (UTC+05:30)",
+  "authority_rule": "RadioSoft: source bill facts. Hishob: actual collections. Never create collections from source tender/payment fields.",
+  "files": [
+    {
+      "name": "UPDATED-RADIOSOFT-HANDOFF.md",
+      "bytes": 30235,
+      "sha256": "e2277feb036730ea32f2b9948385ec9667e6e2766c6bc657fbbd1f9d4efb51f4"
+    },
+    {
+      "name": "radiosoft-schema-evidence.json",
+      "bytes": 245925,
+      "sha256": "277da5da0c517c6f1387214f45509a014338beec99693cbaeac91a5a8c508561"
+    },
+    {
+      "name": "redacted-lifecycle-examples.json",
+      "bytes": 35570,
+      "sha256": "4cbea306bb601ff1684c598e973ab679283d90cc29e5beb937faa9f8b158330b"
+    },
+    {
+      "name": "READONLY-PROBES.sql",
+      "bytes": 12839,
+      "sha256": "a0bc1301c86074c9f2d725a1b33b9cf1ced23fdc7cf27a1af51b09a64ea67311"
+    },
+    {
+      "name": "OPEN-QUESTIONS.md",
+      "bytes": 3707,
+      "sha256": "a468d08cf48fde77af0964f8678166164fd217700ae2470cb44449789a40b3e9"
+    }
+  ],
+  "manifest": {
+    "name": "MANIFEST.json",
+    "sha256": null,
+    "reason": "Self-hash deliberately omitted to avoid recursive hash dependency."
+  },
+  "archive_entry_count": 6,
+  "excluded": "No MDF/LDF, backup, original PDF/screenshots, credentials, customer names/phones/addresses, identifier mapping or entire bill history.",
+  "validation": {
+    "json_parse": true,
+    "observed_examples": 11,
+    "synthetic_examples": 1,
+    "identifier_mask_check": true,
+    "example_line_sets_complete": true
+  },
+  "inspection_effects": "SELECT and metadata access; existing document/template reads; local deliverable creation only. No connector installed, source data/schema/settings/users/CT/network changed or test sale created."
+}

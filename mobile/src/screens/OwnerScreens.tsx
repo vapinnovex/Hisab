@@ -28,6 +28,7 @@ import {
   statusLabel,
 } from '../components/ui';
 import { useAction, useResource } from '../hooks';
+import { RadioSoftEntry } from '../radiosoft/screens';
 import { AttendanceEntry, OwnerToday, Routes, Shop, Status, Worker } from '../types';
 import { matchesPerson, SearchField } from '../components/ListControls';
 import { PhoneField } from '../components/PhoneField';
@@ -363,6 +364,7 @@ export function OwnerDashboard() {
           </Pressable>
         </View>
       )}
+      <RadioSoftEntry />
       {selected!.permissions.view_hishob && (
         <Pressable
           accessibilityRole="button"
