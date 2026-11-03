@@ -51,6 +51,9 @@ jobs:
       - name: Install mobile dependencies
         working-directory: mobile
         run: npm ci
+      - name: Deployment configuration regression tests
+        working-directory: mobile
+        run: npm run test:deployment
       - name: Mobile typecheck
         working-directory: mobile
         run: npm run typecheck

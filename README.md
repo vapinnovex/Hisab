@@ -30,6 +30,8 @@ Hishob can be installed from a web link with persistent browser login, connectio
 
 ## Run locally
 
+The separate [Windows connector](connector/README.md) is integrated for synthetic loopback development only. Its RadioSoft reader remains local-only. See the [integration review and validation](docs/CONNECTOR-INTEGRATION-REVIEW.md) and [proposed Lalpotu HTTPS implementation plan](docs/CONNECTOR-HTTPS-PLAN.md) before any Windows installation or real-source work.
+
 Prerequisites: **Node 22.13+ (22 LTS recommended)**, Python 3.9+ (3.12 recommended), and MongoDB 7+ or Docker. `.nvmrc` selects Node 22. Python dependencies and the npm lockfile are checked in.
 
 ### 1. MongoDB

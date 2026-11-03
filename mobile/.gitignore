@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Vercel project links, pulled environment settings and compiled configuration
+.vercel/
+
 # Expo
 .expo/
 dist/

@@ -24,6 +24,7 @@
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.4",
     "@types/react": "~19.2.2",
+    "@vercel/routing-utils": "6.6.1",
     "eslint": "^9.39.5",
     "eslint-config-expo": "^57.0.2",
     "prettier": "^3.9.9",
@@ -40,9 +41,11 @@
     "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build:web": "expo export --platform web && node scripts/build-pwa.cjs",
+    "build:web": "expo export --platform web --clear && node scripts/build-pwa.cjs",
     "test:pwa": "playwright test --config playwright.pwa.config.ts",
-    "preview:pwa": "node scripts/serve-pwa.cjs"
+    "preview:pwa": "node scripts/serve-pwa.cjs",
+    "check:deployment": "node scripts/check-deployment.cjs",
+    "test:deployment": "node --test scripts/deployment-config.test.cjs"
   },
   "private": true,
   "engines": {

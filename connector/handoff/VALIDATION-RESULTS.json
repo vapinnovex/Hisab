@@ -1,0 +1,67 @@
+{
+  "created_utc": "2026-11-02T14:47:46.597459+00:00",
+  "user_facing_date": "2026-11-02",
+  "foundation_commit": "64e3c8d26bab3e8b44773fccb89703f6fd638f33",
+  "branch": "feat/radiosoft-windows-connector",
+  "mode": "SYNTHETIC_LOOPBACK_ONLY",
+  "environment": {
+    "os": "Windows 11 Pro 10.0.26100 x64",
+    "python": "3.12.14 x64",
+    "test_database": "Isolated MongoDB 7.0.16, loopback only",
+    "sql_drivers_observed": [
+      "SQL Server x86/x64",
+      "SQL Server Native Client 10.0 x86/x64"
+    ],
+    "elevated_administrator": false
+  },
+  "tests": [
+    {
+      "suite": "connector_source_suite",
+      "tests": 58,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 20.034
+    },
+    {
+      "suite": "unchanged_backend_radiosoft_suite",
+      "tests": 38,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 35.748
+    },
+    {
+      "suite": "final_packaged_windows_runtime",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 9.505
+    }
+  ],
+  "checks": {
+    "ruff_check": "passed",
+    "ruff_format": "passed",
+    "powershell_parser": "passed",
+    "acl_object_construction_in_memory": "passed",
+    "standalone_build": "passed; service, elevated status UI, separate local inspector",
+    "packaged_worker_http_and_gui_close": "passed",
+    "windows_dpapi": "passed",
+    "backend_real_ingestion_guard": "unchanged and tested",
+    "backend_accounting_guard": "unchanged and tested"
+  },
+  "not_performed": [
+    "SCM installation/start/recovery under LocalService",
+    "ACL testing as another identity",
+    "Physical reboot/logout/power-loss",
+    "Clean-machine upgrade/reinstall/uninstall",
+    "Live SQL SELECT-only connection/query benchmarks",
+    "Live source save/edit/return/deletion validation",
+    "Remote HTTPS",
+    "Code signing/SmartScreen",
+    "Production deployment",
+    "Real data upload"
+  ],
+  "test_count_note": "Packaged runtime tests repeat three Windows checks; do not add them as unique new source tests."
+}

@@ -38,16 +38,34 @@ JWT_EXPIRE_MINUTES=10080
 
 Keep this origin stable so installed apps and their cookies continue working. Include the exact Vercel production URL as another origin only if owners will actually use it. Do not use `*` or allow arbitrary preview origins. Use a backend instance that stays available during business hours; otherwise cold starts can exceed the client's 15-second timeout.
 
+#### Environment isolation and origin troubleshooting
+
+Follow [VERCEL-ENVIRONMENTS.md](VERCEL-ENVIRONMENTS.md) for the shared, validated
+`mobile/vercel.mjs` configuration, exact project variables, deployment checks and
+rollback. Do not reintroduce branch-specific `vercel.json` files.
+
+`CORS_ORIGINS` is parsed as a JSON list by `backend/app/config.py`. Explicit
+`Settings(...)` arguments take precedence over process environment, then `.env`,
+file secrets and defaults. Normal startup supplies no explicit settings.
+`get_settings()` caches settings until process restart. The safe backend diagnostic
+is `python -m app.check_origin https://hisab-mobile-delta.vercel.app` (run from the
+backend directory). It prints only whether the exact origin is recognized, and
+reads settings in a new process, not an existing worker.
+
+The original development 403 was caused by the Vercel proxy targeting the production
+backend. The dev backend accepted the origin. Do not weaken CORS to compensate for
+incorrect routing or add development origins to production.
+
 ### 3. Vercel web app
 
-1. **Replace `YOUR-HISHOB-API` in `mobile/vercel.json` with the actual Render hostname.** This is a required deployment-specific value.
-2. Import the repository. Set **Root Directory `mobile`**, framework **Other**, Node **22.x**, install `npm ci`. The committed config sets build `npm run build:web` and output `dist`.
+1. Configure each Vercel project using [VERCEL-ENVIRONMENTS.md](VERCEL-ENVIRONMENTS.md). The same `vercel.mjs` must be used on both branches; project variables select the validated backend.
+2. Import the repository. Set **Root Directory `mobile`**, framework **Other**, Node **22.x**, install `npm ci`. The committed config validates deployment settings before `npm run build:web` and serves `dist`.
 3. Leave `EXPO_PUBLIC_WEB_API_URL` **unset** (or empty) for deployment. Production builds always call `/api` on their own origin, even if a local `.env` contains an override; Vercel proxies these requests to Render. This is essential for reliable cookie login on Safari and browsers blocking third-party cookies. `EXPO_PUBLIC_API_URL` remains the separate native/development setting.
-4. Deploy and add the final HTTPS domain to Render's `CORS_ORIGINS`, then restart/redeploy the API. No backend credentials belong in Vercel's public Expo variables.
+4. For a new backend only, configure its exact frontend domain in `CORS_ORIGINS`. Existing dev/prod deployments need no Render change for this migration. No backend credentials belong in Vercel's public Expo variables.
 5. Check `https://YOUR-APP/api/auth/me` in a fresh browser: a **401 JSON response** is expected before login. HTML, 404, or 502 here means the rewrite/API needs fixing.
 6. Log in, create a shop, reload, and verify the same account returns. Test sign-out and another browser account. Then share the stable app link with owners.
 
-`mobile/vercel.json` includes the API rewrite, SPA fallback, no-store API responses and non-cached service-worker updates. Keep `/api` ahead of the SPA fallback so missing API routes cannot return the app HTML. Do not put a broad CDN cache in front of `/api`.
+`mobile/vercel.mjs` loads the API rewrites, SPA fallback, no-store API responses and non-cached service-worker updates from `scripts/deployment-config.cjs`. Keep `/api` ahead of the SPA fallback so missing API routes cannot return the app HTML. Do not put a broad CDN cache in front of `/api`.
 
 ## Local production PWA preview
 
@@ -99,6 +117,6 @@ Automated Chromium tests cannot confirm the actual Android install dialog, iOS A
 - `backend/app/routers/auth.py`, `account.py`: password authentication, email verification, logout and mobile-change endpoints support cookie sessions alongside native bearer responses. The PWA itself does not change accounting calculations.
 - `mobile/src/storage.ts`, `auth.tsx`, `api.ts`, `connection.ts`, `hooks.ts`: persistent session restoration, public API URL selection, connection state and refresh behavior.
 - `mobile/src/pwa.tsx`, `App.tsx`, account and form screens: installation guidance, connection/update banners and unsaved-form protection.
-- `mobile/public/`, `scripts/build-pwa.cjs`, `scripts/worker.template.js`, `scripts/serve-pwa.cjs`, `app.json`, `vercel.json`: install assets, exported app shell, update worker, local proxy preview and hosting configuration.
+- `mobile/public/`, `scripts/build-pwa.cjs`, `scripts/worker.template.js`, `scripts/serve-pwa.cjs`, `app.json`, `vercel.mjs`: install assets, exported app shell, update worker, local proxy preview and hosting configuration.
 - `backend/tests/test_web_session.py`, `mobile/e2e/pwa.spec.ts`, Playwright configs and test server: session security and production PWA integration checks.
 - Package/lockfile, TypeScript configuration, `.env.example` files, mobile contributor instructions and README: reproducible tooling and setup documentation.
