@@ -1,3 +1,4 @@
+import { RealRadioSoftEntry } from '../radiosoft/real';
 import { t, useLocale } from './../i18n';
 import { phoneError } from '../phone';
 import React, { useState } from 'react';
@@ -73,6 +74,7 @@ export function Profile() {
     : selected?.worker_name || t('Team member');
   return (
     <Page refresh={reload}>
+      <RealRadioSoftEntry />
       <Heading
         title={t('Your account')}
         subtitle={t('A little about you. Everything for your shop.')}

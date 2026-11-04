@@ -13,6 +13,8 @@ class DeliveryError(Exception):
 
 
 class HttpTransport:
+    prefix = "/api/radiosoft/connector/"
+
     def __init__(self, api):
         self.api = local_api(api)
 
@@ -25,7 +27,7 @@ class HttpTransport:
         try:
             with httpx.Client(timeout=8, trust_env=False, follow_redirects=False) as client:
                 with client.stream(
-                    "POST", self.api + "/api/radiosoft/connector/" + path, headers=headers, content=body
+                    "POST", self.api + self.prefix + path, headers=headers, content=body
                 ) as response:
                     if response.status_code != 200:
                         raise DeliveryError(response.status_code)

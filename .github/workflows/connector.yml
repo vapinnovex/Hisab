@@ -1,4 +1,4 @@
-name: Windows connector synthetic checks
+name: Windows connector preview checks
 on:
   push:
     paths: ['connector/**', 'backend/**', 'docs/radiosoft*', 'docs/radiosoft*/**', '.github/workflows/connector.yml']
@@ -36,7 +36,7 @@ jobs:
         run: python -m pytest -c connector/pyproject.toml connector/tests -q -ra
       - name: Backend collection and isolation regressions
         working-directory: backend
-        run: python -m pytest tests/test_radiosoft.py tests/test_financial_reliability.py tests/test_cashbook_modes.py tests/test_dues.py tests/test_hishob.py -q
+        run: python -m pytest tests/test_radiosoft.py tests/test_radiosoft_real.py tests/test_financial_reliability.py tests/test_cashbook_modes.py tests/test_dues.py tests/test_hishob.py -q
   windows-package:
     runs-on: windows-latest
     timeout-minutes: 20
@@ -61,8 +61,10 @@ jobs:
           }
       - shell: pwsh
         run: ./connector/windows/Build-Release.ps1 -Python (Get-Command python).Source
+      - shell: pwsh
+        run: ./connector/windows/Build-Release.ps1 -Python (Get-Command python).Source -RealDev
       - uses: actions/upload-artifact@v4
         with:
-          name: unsigned-synthetic-windows-package
+          name: unsigned-preview-windows-packages
           path: connector/dist/*.zip
           retention-days: 7

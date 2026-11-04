@@ -15,7 +15,7 @@ test = ["pytest==8.4.2", "ruff==0.16.8"]
 local-probe = ["pyodbc==5.2.0"]
 
 [tool.setuptools.package-data]
-hishob_connector = ["observation.schema.json"]
+hishob_connector = ["observation.schema.json", "real-observation.schema.json"]
 
 [tool.setuptools.packages.find]
 include = ["hishob_connector*"]

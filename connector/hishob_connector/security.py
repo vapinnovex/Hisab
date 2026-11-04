@@ -60,7 +60,7 @@ class ProcessLock:
             self.file.close()
 
 
-def service_state():
+def service_state(name="HishobRadioSoftSynthetic"):
     if os.name != "nt":
         return "UNSUPPORTED_PLATFORM"
     import pywintypes
@@ -69,9 +69,7 @@ def service_state():
     manager = service = None
     try:
         manager = win32service.OpenSCManager(None, None, win32service.SC_MANAGER_CONNECT)
-        service = win32service.OpenService(
-            manager, "HishobRadioSoftSynthetic", win32service.SERVICE_QUERY_STATUS
-        )
+        service = win32service.OpenService(manager, name, win32service.SERVICE_QUERY_STATUS)
         state = win32service.QueryServiceStatus(service)[1]
         return {
             1: "STOPPED",

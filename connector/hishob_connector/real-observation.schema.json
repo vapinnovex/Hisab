@@ -1,0 +1,266 @@
+{
+  "$defs": {
+    "BillKey": {
+      "additionalProperties": false,
+      "properties": {
+        "invoice_no": {
+          "pattern": "^[1-9][0-9]{0,17}$",
+          "title": "Invoice No",
+          "type": "string"
+        },
+        "fyear": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Fyear",
+          "type": "string"
+        },
+        "invoice_type": {
+          "enum": [
+            0,
+            1
+          ],
+          "title": "Invoice Type",
+          "type": "integer"
+        },
+        "firm_code": {
+          "minimum": 0,
+          "title": "Firm Code",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "invoice_no",
+        "fyear",
+        "invoice_type",
+        "firm_code"
+      ],
+      "title": "BillKey",
+      "type": "object"
+    },
+    "Person": {
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Ref",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "name"
+      ],
+      "title": "Person",
+      "type": "object"
+    },
+    "RealBill": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/BillKey"
+        },
+        "business_date": {
+          "format": "date",
+          "title": "Business Date",
+          "type": "string"
+        },
+        "source_time_raw": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Source Time Raw",
+          "type": "string"
+        },
+        "net_amt": {
+          "anyOf": [
+            {
+              "pattern": "^-?\\d{1,40}(\\.\\d{1,50})?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Net Amt"
+        },
+        "raw_header": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxProperties": 24,
+          "title": "Raw Header",
+          "type": "object"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/RealLine"
+          },
+          "maxItems": 200,
+          "title": "Lines",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "business_date",
+        "net_amt",
+        "raw_header",
+        "lines"
+      ],
+      "title": "RealBill",
+      "type": "object"
+    },
+    "RealLine": {
+      "additionalProperties": false,
+      "properties": {
+        "raw": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maxProperties": 24,
+          "title": "Raw",
+          "type": "object"
+        },
+        "salesperson_ref": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salesperson Ref"
+        },
+        "salesperson_name": {
+          "default": "",
+          "maxLength": 100,
+          "title": "Salesperson Name",
+          "type": "string"
+        },
+        "attribution_status": {
+          "enum": [
+            "RESOLVED_LOOKUP",
+            "ABSENT_REFERENCE",
+            "MISSING_OR_BLANK_LOOKUP"
+          ],
+          "title": "Attribution Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "raw",
+        "attribution_status"
+      ],
+      "title": "RealLine",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 2,
+      "title": "Version",
+      "type": "integer"
+    },
+    "synthetic": {
+      "const": false,
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "mapping_version": {
+      "const": "real-display-v1",
+      "title": "Mapping Version",
+      "type": "string"
+    },
+    "source_id": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Source Id",
+      "type": "string"
+    },
+    "generation": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Generation",
+      "type": "string"
+    },
+    "sequence": {
+      "maximum": 9007199254740991,
+      "minimum": 1,
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "BILL",
+        "DIRECTORY"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "bill": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RealBill"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "people": {
+      "items": {
+        "$ref": "#/$defs/Person"
+      },
+      "maxItems": 100,
+      "title": "People",
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "synthetic",
+    "mapping_version",
+    "source_id",
+    "generation",
+    "sequence",
+    "observed_at",
+    "kind"
+  ],
+  "title": "RealObservation",
+  "type": "object"
+}

@@ -1,3 +1,5 @@
+> 4 November owner confirmation: `SLNo=0` is a valid salesperson and is now resolved normally. The separate real DEV contract preserves signed NetAmt and leaves all financial actions disabled. See [current rules](../docs/RADIOSOFT-REAL-BUSINESS-RULES.md); earlier evidence below is retained as dated reference.
+
 # RadioSoft source and contract mapping — no real ingestion enabled
 
 Evidence: `docs/radiosoft-source-evidence-2026-10-29/` (inspection timestamp 2026-10-29T14:37:39Z). This implementation reads the supplied metadata and redacted examples; it has not repeated live SQL discovery. The newly verified desktop OS/driver inventory matches that evidence.

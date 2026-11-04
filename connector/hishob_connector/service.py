@@ -31,8 +31,8 @@ def dispatch():
 
     class ConnectorService(win32serviceutil.ServiceFramework):
         _svc_name_ = SERVICE_NAME
-        _svc_display_name_ = "Hishob RadioSoft Synthetic Preview"
-        _svc_description_ = "Local synthetic Hishob preview only; real SQL ingestion is disabled."
+        _svc_display_name_ = SERVICE_NAME
+        _svc_description_ = "Isolated Hishob display preview connector."
 
         def __init__(self, args):
             super().__init__(args)

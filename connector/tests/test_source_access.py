@@ -22,6 +22,8 @@ def test_readonly_identity_preflight(monkeypatch, failure):
             self.sql = sql
 
         def fetchone(self):
+            if "HAS_PERMS_BY_NAME" in self.sql:
+                return (0 if failure == "no_select" else 1,)
             return (1 if failure == "role" else None if failure == "unknown_role" else 0,) * 13
 
         def __iter__(self):

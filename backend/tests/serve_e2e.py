@@ -48,6 +48,30 @@ def approve_synthetic_pilot(shop_id: str, identity=Depends(current_identity)):
     return {"synthetic_only": True}
 
 
+@app.post("/api/test-only/radiosoft-real/{shop_id}")
+def approve_real_fixture(shop_id: str, identity=Depends(current_identity)):
+    from app.radiosoft_real_schemas import RealScope
+
+    if identity.role != "OWNER":
+        raise HTTPException(403, "Owner required")
+    shop_access(shop_id, app.state.db, identity, {"OWNER"})
+    settings.radiosoft_real_enabled = True
+    scope = RealScope(
+        shop_id=shop_id,
+        owner_id=identity.user["_id"],
+        source_id="e2e-fixture-pc",
+        generation="e2e-fixture-db",
+        database="RsDB",
+        firm_codes=[0],
+        invoice_types=[0, 1],
+        tracking_from="2026-11-03",
+        capture_from="2026-01-01",
+        capture_until="2027-01-01",
+    )
+    settings.radiosoft_real_pilots.append(scope)
+    return scope.model_dump(mode="json")
+
+
 class TestCamera:
     def ready(self):
         pass

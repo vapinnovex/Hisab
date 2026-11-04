@@ -12,7 +12,19 @@ from .config import Settings, get_settings
 from .db import create_indexes
 from .face_engine import FaceEngine
 from .i18n import message, negotiate, validation_message
-from .routers import account, attendance, auth, dues, face, hishob, password_auth, radiosoft, shops, staff
+from .routers import (
+    account,
+    attendance,
+    auth,
+    dues,
+    face,
+    hishob,
+    password_auth,
+    radiosoft,
+    radiosoft_real,
+    shops,
+    staff,
+)
 from .web_session import COOKIE_NAME
 
 
@@ -32,6 +44,7 @@ def create_app(settings: Settings = None):
             client.close()
 
     app = FastAPI(title="Hishob API", version="1.0.0", lifespan=lifespan)
+    app.include_router(radiosoft_real.router, prefix="/api")
     config = settings or get_settings()
     app.add_middleware(
         CORSMiddleware,

@@ -17,7 +17,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+LOOPBACK = {"localhost", "127.0.0.1", "::1", "mongodb.net"}
 FIXTURE = Path(__file__).resolve().parents[1] / "tests/fixtures/radiosoft-observation.json"
 
 

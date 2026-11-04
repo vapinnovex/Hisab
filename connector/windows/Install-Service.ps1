@@ -12,9 +12,7 @@ $state = Join-Path $env:ProgramData 'HishobConnectorSynthetic'
 $base = Join-Path $env:ProgramFiles 'HishobConnectorSynthetic'
 $destination = Join-Path $base $version
 function Check-Native([string]$message) { if ($LASTEXITCODE -ne 0) { throw $message } }
-function Reject-Reparse([string]$path) {
-    if ((Test-Path -LiteralPath $path) -and ((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw "Reparse points are not supported: $path" }
-}
+. (Join-Path $PSScriptRoot 'Verify-Payload.ps1')
 foreach ($path in @($state,$base,$destination)) { Reject-Reparse $path }
 if (Test-Path -LiteralPath $state) {
     Get-ChildItem -LiteralPath $state -Recurse -Force | ForEach-Object { Reject-Reparse $_.FullName }
@@ -36,6 +34,7 @@ foreach ($entry in $manifest.files) {
         }
     }
 }
+Verify-Payload $PSScriptRoot $manifest @('HishobConnector','HishobConnectorStatus','HishobLocalInspector')
 # No service deletion or automatic queue reset. Existing service is a reviewed upgrade.
 $existing = Get-Service -Name $name -ErrorAction SilentlyContinue
 if ($existing) { throw 'Existing service detected. Stop and follow the reviewed upgrade procedure; this installer never replaces it automatically.' }
@@ -55,6 +54,8 @@ if (-not $alreadyStaged) {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $folder) -Destination $destination -Recurse
     }
 }
+Protect-Program $base 'S-1-5-19'
+Verify-Payload $destination $manifest @('HishobConnector','HishobConnectorStatus','HishobLocalInspector') $true
 New-Item -ItemType Directory -Path $state -Force | Out-Null
 # Replace, rather than append to, potentially permissive existing ACLs.
 function Protect-State {

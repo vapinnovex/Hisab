@@ -1,3 +1,5 @@
+> Real DEV display-only implementation is now available through the separate `real_entry.py` / `-RealDev` build. Follow [SHOP-PC-DEV-SETUP.md](../docs/SHOP-PC-DEV-SETUP.md). The original synthetic service below remains independent; this is not Windows qualification or production enablement.
+
 # Hishob Windows connector 0.1.0 — synthetic preview only
 
 Repository integration review: [tests actually run on macOS and remaining release blockers](../docs/CONNECTOR-INTEGRATION-REVIEW.md). The original [Windows validation results](handoff/VALIDATION-RESULTS.json) and IMPLEMENTATION-REPORT.md below are handoff reports, not Windows checks repeated during integration. The [Lalpotu HTTPS plan](../docs/CONNECTOR-HTTPS-PLAN.md) is future work; it enables no real syncing. Resolve the installer's package/ACL hardening findings before approving a Windows installation.
