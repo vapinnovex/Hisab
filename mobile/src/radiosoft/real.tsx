@@ -77,9 +77,31 @@ export function RealRadioSoftEntry() {
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
   const status = useResource<{ enabled: boolean }>(
     `/shops/${selected?.shop_id ?? ''}/radiosoft-real/${session?.role === 'WORKER' ? 'availability' : 'status'}`,
-    false,
+    15000,
     !!selected,
   );
+  if (!selected) return null;
+  if (status.loading || status.error)
+    return (
+      <Card>
+        <Text>RadioSoft real DEV preview</Text>
+        <Text>
+          {status.loading
+            ? 'Checking RadioSoft access…'
+            : status.errorStatus === 401 || status.errorStatus === 403
+              ? 'RadioSoft preview access was rejected. No preview data is shown.'
+              : 'RadioSoft status is unavailable. Eligibility could not be checked.'}
+        </Text>
+        <ErrorText message={status.error} />
+        {!!status.error && (
+          <Button
+            title="Retry RadioSoft status"
+            busy={status.refreshing}
+            onPress={status.refresh}
+          />
+        )}
+      </Card>
+    );
   if (!status.data || (session?.role === 'WORKER' && !status.data.enabled)) return null;
   return (
     <Button
@@ -93,6 +115,11 @@ export function RealRadioSoftEntry() {
 }
 
 export function RadioSoftReal() {
+  const { selected, session } = useAuth();
+  return <RealPreview key={`${selected?.shop_id}:${session?.role}`} />;
+}
+
+function RealPreview() {
   const { selected, session, api } = useAuth();
   const base = `/shops/${selected!.shop_id}/radiosoft-real`;
   const worker = session?.role === 'WORKER';
@@ -100,14 +127,14 @@ export function RadioSoftReal() {
   const status = useResource<Status>(base + '/status', 15000, !worker);
   const directory = useResource<Directory>(
     base + '/salespeople',
-    false,
-    !worker && !!status.data?.can_map,
+    15000,
+    !worker && !status.error && !!status.data?.can_map,
   );
   const [after, setAfter] = useState('');
   const bills = useResource<{ bills: Bill[]; next_cursor: string | null }>(
     base + '/bills?after=' + after,
-    false,
-    !worker && !!status.data?.can_view,
+    15000,
+    !worker && !status.error && !!status.data?.can_view,
   );
   const action = useAction();
   const [confirmed, setConfirmed] = useState(false);
@@ -119,12 +146,45 @@ export function RadioSoftReal() {
   const [end, setEnd] = useState('');
   const [reportResult, setReport] = useState<{ base: string; data: Report } | null>(null);
   const report = reportResult?.base === base ? reportResult.data : null;
+  if (!worker && (status.loading || status.error || !status.data))
+    return (
+      <Page>
+        <Heading
+          title="RadioSoft real DEV preview"
+          subtitle="Display only. Financial actions are unavailable."
+        />
+        <Text>
+          {status.loading
+            ? 'Loading connection status…'
+            : status.errorStatus === 401 || status.errorStatus === 403
+              ? 'RadioSoft preview access was rejected. No preview data is shown.'
+              : 'Connection status is unavailable. Eligibility could not be checked.'}
+        </Text>
+        <ErrorText message={status.error} />
+        <Button title="Retry RadioSoft status" busy={status.refreshing} onPress={status.refresh} />
+      </Page>
+    );
   return (
     <Page>
       <Heading
-        title="RadioSoft DEV review"
+        title="RadioSoft real DEV preview"
         subtitle="Display only. Financial actions are unavailable."
       />
+      <Text>Real source observations. Separate from synthetic Bills &amp; Collections.</Text>
+      {!worker && (
+        <Button
+          title="Refresh real preview"
+          secondary
+          busy={status.refreshing || bills.refreshing || directory.refreshing}
+          onPress={async () => {
+            await Promise.all([
+              status.refresh(),
+              ...(status.data?.can_view ? [bills.refresh()] : []),
+              ...(status.data?.can_map ? [directory.refresh()] : []),
+            ]);
+          }}
+        />
+      )}
       <ErrorText message={action.error || status.error} />
       {!worker && status.data && (
         <Card>
@@ -244,10 +304,22 @@ export function RadioSoftReal() {
           )}
         </Card>
       )}
-      {!worker && directory.data && (
+      {!worker && status.data?.can_map && (
+        <>
+          {directory.loading && <Text>Loading salesperson directory…</Text>}
+          <ErrorText message={directory.error} />
+        </>
+      )}
+      {!worker && status.data?.can_map && !directory.error && directory.data && (
         <Card>
           <Text>Source salesperson mapping</Text>
           <Text>{directory.data.history_policy}</Text>
+          {directory.data.people.length === 0 && (
+            <Text>
+              No imported salespeople yet. The directory refreshes automatically while this screen
+              is active.
+            </Text>
+          )}
           {directory.data.people.map((person) => (
             <PersonMapping
               key={person.id}
@@ -261,19 +333,36 @@ export function RadioSoftReal() {
       )}
       {!worker && status.data?.can_view && (
         <>
-          <ErrorText message={directory.error || bills.error} />
-          {bills.data?.bills.map((b) => (
-            <Card key={b.id}>
-              <Text>
-                Bill {b.key.invoice_no} · {b.historical ? 'Historical review' : 'Review only'}
-              </Text>
-              <Text>Signed source payable: ₹{b.signed_source_payable ?? 'Unknown'}</Text>
-              <Text>
-                Owed to customer: ₹{b.owed_to_customer ?? 'Unknown'} · {b.settlement_status}
-              </Text>
-              {b.source_changed && <Text>Source edited; review the updated amount.</Text>}
-            </Card>
-          ))}
+          <ErrorText message={bills.error} />
+          {bills.loading && <Text>Loading imported bills…</Text>}
+          {!bills.error && bills.data?.bills.length === 0 && (
+            <Text>
+              {after
+                ? 'No more bills on this page. Return to the first page for new imports.'
+                : !status.data.enabled
+                  ? 'DEV connector is disabled. Confirm setup to resume imports.'
+                  : !status.data.paired
+                    ? 'PC is unpaired. Pair the connector to import bills.'
+                    : status.data.connection === 'OFFLINE'
+                      ? 'PC is disconnected. Reconnect the connector to receive bills.'
+                      : status.data.health && status.data.health.status !== 'OK'
+                        ? 'Source read has not completed successfully. Check the PC connector source status; an empty response does not confirm there are no source bills.'
+                        : 'No imported bills yet. Bills refresh automatically while this screen is active.'}
+            </Text>
+          )}
+          {!bills.error &&
+            bills.data?.bills.map((b) => (
+              <Card key={b.id}>
+                <Text>
+                  Bill {b.key.invoice_no} · {b.historical ? 'Historical review' : 'Review only'}
+                </Text>
+                <Text>Signed source payable: ₹{b.signed_source_payable ?? 'Unknown'}</Text>
+                <Text>
+                  Owed to customer: ₹{b.owed_to_customer ?? 'Unknown'} · {b.settlement_status}
+                </Text>
+                {b.source_changed && <Text>Source edited; review the updated amount.</Text>}
+              </Card>
+            ))}
           <Button title="First page" secondary onPress={() => setAfter('')} />
           {bills.data?.next_cursor && (
             <Button title="Next bills" onPress={() => setAfter(bills.data!.next_cursor!)} />

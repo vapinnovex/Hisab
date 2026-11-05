@@ -8,9 +8,12 @@ import { ApiError } from './api';
 export function useResource<T>(path: string, poll: boolean | number = false, enabled = true) {
   const { api } = useAuth();
   const focused = useIsFocused();
-  const [result, setResult] = useState<{ path: string; data: T | null; error: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    path: string;
+    data: T | null;
+    error: string;
+    errorStatus?: number;
+  } | null>(null);
   const [refreshingPath, setRefreshingPath] = useState<string | null>(null);
   const sequenceRef = useRef({ value: 0, pending: false });
   const sequence = sequenceRef.current;
@@ -32,6 +35,7 @@ export function useResource<T>(path: string, poll: boolean | number = false, ena
                 ? old.data
                 : null,
           error: (e as Error).message,
+          errorStatus: e instanceof ApiError ? e.status : undefined,
         }));
     } finally {
       if (sequence.value === current) {
@@ -41,7 +45,11 @@ export function useResource<T>(path: string, poll: boolean | number = false, ena
     }
   }, [api, path, sequence]);
   useEffect(() => {
-    if (!focused || !enabled) return;
+    if (!enabled) {
+      setResult(null);
+      return;
+    }
+    if (!focused) return;
     void refresh();
     const reconnect = onReconnect(() => {
       if (!sequence.pending) void refresh();
@@ -71,7 +79,8 @@ export function useResource<T>(path: string, poll: boolean | number = false, ena
     };
   }, [focused, refresh, poll, sequence, enabled]);
   return {
-    data: result?.path === path ? result.data : null,
+    data: enabled && result?.path === path ? result.data : null,
+    errorStatus: result?.path === path ? result.errorStatus : undefined,
     error: result?.path === path ? result.error : '',
     loading: result?.path !== path,
     refreshing: refreshingPath === path,
