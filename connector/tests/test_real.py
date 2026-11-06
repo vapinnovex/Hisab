@@ -371,3 +371,51 @@ def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, mo
     assert checkpoint["recent_day"] == "2026-11-06"
     assert checkpoint["recent_head_scope"] == 0
     store.close()
+
+
+def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(tmp_path, vault, monkeypatch):
+    from datetime import date
+
+    from hishob_connector import real
+    from hishob_connector.extractor import RECENT_KEYS_SQL
+
+    class FrozenDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 6)
+
+    class Transport:
+        def __init__(self):
+            self.calls = []
+
+        def post(self, path, body, credential=None):
+            self.calls.append((path, json.loads(body)))
+            if path == "command":
+                return {"scan_request_id": "refresh-1"}
+            if path == "health":
+                return {"received": True}
+            raise AssertionError(path)
+
+    monkeypatch.setattr(real, "date", FrozenDate)
+    source = FakeConnection()
+    monkeypatch.setattr(source, "close", lambda: None, raising=False)
+    monkeypatch.setattr(real, "open_local_readonly", lambda *_args, **_kwargs: source)
+    store = real_store(tmp_path, vault)
+    transport = Transport()
+    engine = real.RealEngine(store, transport)
+
+    engine.tick(now=100)
+
+    queries = [params for sql, params in source.calls if sql == RECENT_KEYS_SQL]
+    assert len(queries) == 2
+    assert all(
+        params[0] == 1
+        and params[3:5] == ("2026-11-06", "2026-11-07")
+        and params[-3:] == (2147483647, 2147483647, "ZZZZZZZZ")
+        for params in queries
+    )
+    assert store.get("handled_scan_request_id") == "refresh-1"
+    assert store.get("completed_scan_request_id") == "refresh-1"
+    health = [body for path, body in transport.calls if path == "health"]
+    assert health[-1]["scan_request_ack"] == "refresh-1"
+    store.close()

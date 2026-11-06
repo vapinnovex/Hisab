@@ -54,7 +54,7 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
     ).ok(),
   ).toBeTruthy();
   const headers = { Authorization: `Bearer ${credential}` };
-  await page.getByRole('button', { name: 'Refresh real preview', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh imported bills', exact: true }).click();
   await expect(
     page.getByText('PC is disconnected. Check the shop PC and internet connection.').first(),
   ).toBeVisible();
@@ -64,7 +64,7 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
       data: { status: healthStatus, pending_observations: 0, last_successful_source_read: null },
     });
     expect(reply.ok()).toBeTruthy();
-    await page.getByRole('button', { name: 'Refresh real preview', exact: true }).click();
+    await page.getByRole('button', { name: 'Refresh imported bills', exact: true }).click();
     await expect(
       page
         .getByText(
@@ -75,6 +75,33 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
         .first(),
     ).toBeVisible();
   }
+  const refreshReply = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/shops/${shop}/radiosoft-real/refresh`) &&
+      response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Refresh from shop PC', exact: true }).click();
+  const { request_id: requestId } = await (await refreshReply).json();
+  const command = await request.post(api + '/radiosoft/real-connector/command', {
+    headers,
+    data: {},
+  });
+  expect((await command.json()).scan_request_id).toBe(requestId);
+  const completedScan = await request.post(api + '/radiosoft/real-connector/health', {
+    headers,
+    data: {
+      status: 'OK',
+      pending_observations: 0,
+      last_successful_source_read: new Date().toISOString(),
+      scan_request_ack: requestId,
+    },
+  });
+  expect(completedScan.ok()).toBeTruthy();
+  await expect(
+    page.getByText('The shop PC scan finished. Showing the latest bills received by Hishob.', {
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 10000 });
   const envelope = {
     version: 2,
     synthetic: false,
@@ -160,7 +187,9 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
     .locator('[data-testid^="real-bill-card-"]')
     .evaluateAll((cards) => cards.map((card) => card.getAttribute('data-testid')));
   expect(billOrder).toEqual(['real-bill-card-2', 'real-bill-card-1']);
-  await secondBill.getByLabel('Collection amount', { exact: true }).fill('25');
+  await secondBill.getByRole('button', { name: 'Split', exact: true }).click();
+  await secondBill.getByLabel('Cash amount', { exact: true }).fill('10');
+  await secondBill.getByLabel('UPI amount', { exact: true }).fill('15');
   await secondBill.getByRole('button', { name: 'Record partial / full collection' }).click();
   await expect(secondBill.getByText('Partially paid', { exact: true })).toBeVisible({
     timeout: 15000,
@@ -176,7 +205,10 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
     }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Close bill', exact: true }).click();
-  await secondBill.getByRole('button', { name: 'Mark paid without method' }).click();
+  await secondBill.getByRole('button', { name: 'UPI', exact: true }).click();
+  await secondBill.getByRole('button', { name: 'Use full balance', exact: true }).click();
+  await expect(secondBill.getByLabel('Collection amount', { exact: true })).toHaveValue('75.00');
+  await secondBill.getByRole('button', { name: 'Record partial / full collection' }).click();
   await expect(secondBill.getByText('Paid', { exact: true })).toBeVisible({ timeout: 15000 });
   await secondBill.getByRole('button', { name: 'Open bill 2', exact: true }).click();
   const paidBillDialog = page.getByRole('dialog');
@@ -187,6 +219,30 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
     }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Close bill', exact: true }).click();
+  expect(
+    (
+      await request.post(api + '/radiosoft/real-connector/observations', {
+        headers,
+        data: {
+          ...envelope,
+          sequence: 4,
+          kind: 'BILL',
+          people: [],
+          bill: {
+            key: { invoice_no: '3', fyear: '2026 - 2027', invoice_type: 0, firm_code: 0 },
+            business_date: '2026-11-03',
+            net_amt: '50.00',
+            raw_header: { NetAmt: '50.00' },
+            lines: [],
+          },
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const thirdBill = page.getByTestId('real-bill-card-3');
+  await expect(thirdBill).toBeVisible({ timeout: 15000 });
+  await thirdBill.getByRole('button', { name: 'Mark paid without method' }).click();
+  await expect(thirdBill.getByText('Paid', { exact: true })).toBeVisible({ timeout: 15000 });
   await page.screenshot({ path: 'test-results/real-bills.png', fullPage: true });
   await page.getByRole('button', { name: 'Open bill 1', exact: true }).click();
   await expect(

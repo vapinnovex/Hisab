@@ -36,6 +36,9 @@ type Status = {
   manager_correct: boolean;
   last_contact: string | null;
   last_successful_sync: string | null;
+  scan_request_id: string | null;
+  scan_completed_id: string | null;
+  scan_pending: boolean;
   health: {
     pending_observations: number;
     status: string;
@@ -293,8 +296,10 @@ function Bills({
   refreshStatus: () => Promise<void>;
   onLinks: () => void;
 }) {
-  const { selected } = useAuth();
+  const { api, selected } = useAuth();
   const timezone = selected!.shop.timezone;
+  const refreshAction = useAction();
+  const [refreshMessage, setRefreshMessage] = useState('');
   const [date, setDate] = useState(() => shopDate(timezone));
   const [draftDate, setDraftDate] = useState(date);
   const [search, setSearch] = useState('');
@@ -333,12 +338,59 @@ function Bills({
   const needs = directory.data?.people.filter(
     (p) => !p.not_used && !directory.data!.workers.some((w) => w.id === p.worker_id),
   ).length;
+  const requestPcRefresh = () =>
+    void refreshAction.run(async () => {
+      if (status.connection !== 'CONNECTED') {
+        await Promise.all([
+          refreshStatus(),
+          bills.refresh(),
+          ...(status.can_map ? [directory.refresh()] : []),
+        ]);
+        setRefreshMessage(
+          t('The shop PC is not connected. Showing the latest bills already received by Hishob.'),
+        );
+        return;
+      }
+      setRefreshMessage(t('Requesting a fresh read from the paired shop PC…'));
+      const { request_id: requestId } = await api<{ request_id: string }>(
+        `${base}/refresh`,
+        {},
+        'POST',
+      );
+      let completed = false;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const latest = await api<Status>(`${base}/status`);
+        if (latest.scan_completed_id === requestId) {
+          completed = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+      await Promise.all([
+        refreshStatus(),
+        bills.refresh(),
+        ...(status.can_map ? [directory.refresh()] : []),
+      ]);
+      setRefreshMessage(
+        t(
+          completed
+            ? 'The shop PC scan finished. Showing the latest bills received by Hishob.'
+            : 'The shop PC has not confirmed the scan yet. Check its connector and connection status.',
+        ),
+      );
+    });
   return (
     <>
       <Button
-        title={t('Refresh real preview')}
+        title={t('Refresh from shop PC')}
         secondary
-        busy={bills.refreshing}
+        busy={refreshAction.busy}
+        onPress={requestPcRefresh}
+      />
+      <Button
+        title={t('Refresh imported bills')}
+        secondary
+        disabled={refreshAction.busy}
         onPress={async () => {
           await Promise.all([
             refreshStatus(),
@@ -347,6 +399,8 @@ function Bills({
           ]);
         }}
       />
+      <ErrorText message={refreshAction.error} />
+      {!!refreshMessage && <Text style={styles.small}>{refreshMessage}</Text>}
       {status.can_map && needs !== undefined && (
         <Card>
           <Text>
@@ -547,19 +601,27 @@ function RealQuickCollection({
 }) {
   const { api } = useAuth();
   const action = useAction();
-  const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'SPLIT'>('CASH');
+  const [amounts, setAmounts] = useState({ CASH: '', UPI: '', CARD: '' });
   const pending = useRef<Record<string, unknown> | null>(null);
   const [uncertain, setUncertain] = useState(false);
   useUnsavedChanges(uncertain);
   const eligible =
     canCollect && bill.collection_eligible && (bill.collection_outstanding_paise ?? 0) > 0;
-  let amountPaise = 0;
+  let allocations: { method: 'CASH' | 'UPI' | 'CARD'; amount_paise: number }[] = [];
+  let validAmounts = true;
   try {
-    amountPaise = parseCollectionAmount(amount);
+    allocations = Object.entries(amounts)
+      .filter(([, value]) => value !== '')
+      .map(([valueMethod, value]) => ({
+        method: valueMethod as 'CASH' | 'UPI' | 'CARD',
+        amount_paise: parseCollectionAmount(value),
+      }))
+      .filter((allocation) => allocation.amount_paise > 0);
   } catch {
-    amountPaise = 0;
+    validAmounts = false;
   }
+  const amountPaise = allocations.reduce((sum, item) => sum + item.amount_paise, 0);
   const send = (kind: 'RECEIVE' | 'MARK_PAID') =>
     void action.run(async () => {
       if (!pending.current) {
@@ -567,7 +629,7 @@ function RealQuickCollection({
           request_id: `real_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
           revision: bill.collection_revision,
           action: kind,
-          allocations: kind === 'RECEIVE' ? [{ method, amount_paise: amountPaise }] : [],
+          allocations: kind === 'RECEIVE' ? allocations : [],
         };
       }
       setUncertain(true);
@@ -575,7 +637,7 @@ function RealQuickCollection({
         await api(`${base}/bills/${bill.id}/collections`, pending.current, 'POST');
         pending.current = null;
         setUncertain(false);
-        setAmount('');
+        setAmounts({ CASH: '', UPI: '', CARD: '' });
       } catch (error) {
         if (error instanceof ApiError && error.status < 500) {
           pending.current = null;
@@ -594,27 +656,61 @@ function RealQuickCollection({
         <>
           <Text style={styles.heading}>{t('Record a collection')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {(['CASH', 'UPI', 'CARD'] as const).map((value) => (
+            {(['CASH', 'UPI', 'CARD', 'SPLIT'] as const).map((value) => (
               <Button
                 key={value}
-                title={t(value === 'CASH' ? 'Cash' : value)}
+                title={t(value === 'SPLIT' ? 'Split' : value === 'CASH' ? 'Cash' : value)}
                 secondary={method !== value}
                 disabled={uncertain || action.busy}
-                onPress={() => setMethod(value)}
+                onPress={() => {
+                  setMethod(value);
+                  setAmounts({ CASH: '', UPI: '', CARD: '' });
+                }}
               />
             ))}
           </View>
-          <Field
-            label={t('Collection amount')}
-            value={amount}
-            keyboardType="decimal-pad"
-            editable={!uncertain && !action.busy}
-            onChangeText={setAmount}
-          />
+          {method === 'SPLIT' ? (
+            (['CASH', 'UPI', 'CARD'] as const).map((value) => (
+              <Field
+                key={value}
+                label={t('{0} amount', [t(value === 'CASH' ? 'Cash' : value)])}
+                value={amounts[value]}
+                keyboardType="decimal-pad"
+                editable={!uncertain && !action.busy}
+                onChangeText={(text) => setAmounts((old) => ({ ...old, [value]: text }))}
+              />
+            ))
+          ) : (
+            <>
+              <Field
+                label={t('Collection amount')}
+                value={amounts[method]}
+                keyboardType="decimal-pad"
+                editable={!uncertain && !action.busy}
+                onChangeText={(text) => setAmounts({ CASH: '', UPI: '', CARD: '', [method]: text })}
+              />
+              <Button
+                title={t('Use full balance')}
+                secondary
+                disabled={uncertain || action.busy}
+                onPress={() =>
+                  setAmounts({
+                    CASH: '',
+                    UPI: '',
+                    CARD: '',
+                    [method]: ((bill.collection_outstanding_paise ?? 0) / 100).toFixed(2),
+                  })
+                }
+              />
+            </>
+          )}
           <Button
             title={t('Record partial / full collection')}
             disabled={
-              !amountPaise || amountPaise > (bill.collection_outstanding_paise ?? 0) || uncertain
+              !validAmounts ||
+              !amountPaise ||
+              amountPaise > (bill.collection_outstanding_paise ?? 0) ||
+              uncertain
             }
             busy={action.busy}
             onPress={() => send('RECEIVE')}

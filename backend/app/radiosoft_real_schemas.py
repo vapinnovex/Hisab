@@ -147,6 +147,7 @@ class RealHealth(Contract):
     pending_observations: int = Field(ge=0, le=5000)
     last_successful_source_read: Optional[AwareDatetime] = None
     coverage: dict = Field(default_factory=dict, max_length=10)
+    scan_request_ack: Optional[str] = Field(default=None, max_length=100)
 
 
 class Mapping(Contract):

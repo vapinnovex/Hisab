@@ -21,7 +21,7 @@ from .extractor import (
     open_local_readonly,
 )
 from .store import Store
-from .transport import HttpTransport
+from .transport import DeliveryError, HttpTransport
 
 VALIDATOR = Draft202012Validator(
     json.loads(files("hishob_connector").joinpath("real-observation.schema.json").read_text()),
@@ -249,7 +249,7 @@ class Poller:
     def __init__(self, store, reader):
         self.store, self.reader = store, reader
 
-    def capture(self):
+    def capture(self, force_latest=False):
         b = self.store.get("binding")
         cp = self.store.get(
             "real_checkpoint",
@@ -265,6 +265,44 @@ class Poller:
                 "recent_order": "DESC",
             },
         )
+        if force_latest:
+            today = date.today()
+            capture_from = date.fromisoformat(b["capture_from"])
+            capture_until = date.fromisoformat(b["capture_until"])
+            if not capture_from <= today < capture_until:
+                raise ExtractionReview("TODAY_OUTSIDE_CAPTURE_WINDOW")
+            scopes = [(t, f) for f in b["firm_codes"] for t in b["invoice_types"]]
+            fingerprints = cp.setdefault("refresh_head_fingerprints", {})
+            records = []
+            for scope_index, (invoice_type, firm) in enumerate(scopes):
+                keys = self.reader.keys_page(
+                    invoice_type,
+                    firm,
+                    str(today),
+                    str(today + timedelta(days=1)),
+                    (2147483647, "ZZZZZZZZ"),
+                    1,
+                    newest_first=True,
+                )
+                if not keys:
+                    continue
+                key = keys[0]
+                record = map_bill(
+                    self.reader.inspect_bill(
+                        key["InvoiceNo"],
+                        key["FYear"],
+                        key["InvoiceType"],
+                        key["FirmCode"],
+                    )
+                )
+                fingerprint = hashlib.sha256(encoded(record)).hexdigest()
+                if fingerprints.get(str(scope_index)) != fingerprint:
+                    records.append(record)
+                    fingerprints[str(scope_index)] = fingerprint
+            cp["refresh_head_fingerprints"] = fingerprints
+            cp["complete_history_claim"] = False
+            self.store.enqueue_real(records, datetime.now(timezone.utc).isoformat(), cp)
+            return
         records = []
         turn = cp["turn"]
         if turn == 0 or turn % 10 == 0:
@@ -376,8 +414,33 @@ class RealEngine(Engine):
 
     def tick(self, now=None):
         clock = time.time() if now is None else now
-        if self.store.get("mode") == "RUNNING" and clock - self.store.get("last_real_attempt", 0) >= 60:
+        if self.store.get("mode") == "RUNNING" and clock - self.store.get("last_command_poll", 0) >= 5:
+            self.store.put("last_command_poll", clock)
+            try:
+                command = self.post(
+                    "command", encoded({}), self.store.get("credential")
+                )
+                if isinstance(command, dict):
+                    request_id = command.get("scan_request_id")
+                    if request_id:
+                        self.store.put("requested_scan_id", request_id)
+            except DeliveryError:
+                pass
+        requested_scan = self.store.get("requested_scan_id")
+        handled_scan = self.store.get("handled_scan_request_id")
+        force_scan = bool(
+            requested_scan
+            and requested_scan != handled_scan
+            and (
+                requested_scan != self.store.get("attempted_scan_request_id")
+                or clock - self.store.get("last_real_attempt", 0) >= 60
+            )
+        )
+        scan_due = clock - self.store.get("last_real_attempt", 0) >= 60
+        if self.store.get("mode") == "RUNNING" and (force_scan or scan_due):
             self.store.put("last_real_attempt", clock)
+            if force_scan:
+                self.store.put("attempted_scan_request_id", requested_scan)
             connection = None
             try:
                 if self.store.count() > 4500:
@@ -394,7 +457,11 @@ class RealEngine(Engine):
                     max_read_seconds=20,
                 )
                 reader.verify_schema()
-                Poller(self.store, reader).capture()
+                Poller(self.store, reader).capture(force_latest=force_scan)
+                if force_scan:
+                    self.store.put("handled_scan_request_id", requested_scan)
+                    self.store.put("scan_request_sequence", self.store.get("sequence"))
+                    self.store.put("last_health_attempt", 0)
                 self.store.put("source_health", "OK")
                 self.store.put("source_error", None)
             except ExtractionReview as exc:
@@ -410,6 +477,17 @@ class RealEngine(Engine):
         # Prevent the base engine's artificial generator; delivery/retry is shared.
         self.store.put("last_scan", clock)
         super().tick(clock)
+        sequence = self.store.get("scan_request_sequence")
+        handled = self.store.get("handled_scan_request_id")
+        if (
+            handled
+            and sequence is not None
+            and self.store.get("last_acknowledged_sequence", 0) >= sequence
+            and self.store.get("completed_scan_request_id") != handled
+        ):
+            self.store.put("completed_scan_request_id", handled)
+            self.store.put("last_health_attempt", 0)
+            self.health(clock)
 
     def health(self, now, status=None):
         # Base health includes only delivery health. Enrich without changing source freshness.
@@ -423,6 +501,7 @@ class RealEngine(Engine):
                     data.update(
                         last_successful_source_read=engine.store.get("last_source_observation"),
                         coverage=engine.store.get("real_checkpoint", {}),
+                        scan_request_ack=engine.store.get("completed_scan_request_id"),
                     )
                     body = encoded(data)
                 return (original or RealTransport(engine.store.get("api"))).post(path, body, credential)

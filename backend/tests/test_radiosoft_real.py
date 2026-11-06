@@ -124,6 +124,33 @@ def test_real_bills_are_latest_first_and_day_total_includes_signed_source_amount
     assert all_dates[0]["business_date"] == "2026-11-03"
 
 
+def test_owner_can_request_and_connector_acknowledges_pc_refresh(client, setup_shop):
+    path, auth, _ = configure(client, setup_shop)
+    owner, _, _, worker_auth = setup_shop
+
+    denied = client.post(path + "/refresh", headers=worker_auth, json={})
+    assert denied.status_code == 403
+
+    refresh = client.post(path + "/refresh", headers=owner, json={})
+    assert refresh.status_code == 200
+    request_id = refresh.json()["request_id"]
+    assert refresh.json()["pending"] is True
+    repeated = client.post(path + "/refresh", headers=owner, json={})
+    assert repeated.json() == {"request_id": request_id, "pending": True}
+    assert client.post("/api/radiosoft/real-connector/command", headers=auth, json={}).json() == {
+        "scan_request_id": request_id
+    }
+
+    status = {"status": "OK", "pending_observations": 0, "scan_request_ack": request_id}
+    health = client.post("/api/radiosoft/real-connector/health", headers=auth, json=status)
+    assert health.status_code == 200 and health.json() == {"received": True}
+    assert client.post("/api/radiosoft/real-connector/command", headers=auth, json={}).json() == {
+        "scan_request_id": None
+    }
+    assert client.get(path + "/status", headers=owner).json()["scan_completed_id"] == request_id
+    assert client.post(path + "/refresh", headers=owner, json={}).status_code == 429
+
+
 def test_real_dev_collections_are_separate_idempotent_and_source_read_only(client, setup_shop):
     path, auth, _ = configure(client, setup_shop)
     owner, shop, _, worker_auth = setup_shop

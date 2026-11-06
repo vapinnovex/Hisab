@@ -392,11 +392,24 @@ def ingest(body: RealObservation, c=Depends(auth), db=Depends(get_db)):
 
 @router.post(connector_path + "/health")
 def health(body: RealHealth, c=Depends(auth), db=Depends(get_db)):
+    update = {
+        "$set": {"health": body.model_dump(mode="json"), "last_contact": now()},
+    }
+    if body.scan_request_ack and body.scan_request_ack == c.get("scan_request_id"):
+        update["$set"]["scan_completed_id"] = body.scan_request_ack
     db.radiosoft_real_integrations.update_one(
         {"_id": c["_id"], "credential_hash": c["credential_hash"]},
-        {"$set": {"health": body.model_dump(mode="json"), "last_contact": now()}},
+        update,
     )
     return {"received": True}
+
+
+@router.post(connector_path + "/command")
+def connector_command(c=Depends(auth), db=Depends(get_db)):
+    current = db.radiosoft_real_integrations.find_one({"_id": c["_id"]}) or c
+    requested = current.get("scan_request_id")
+    pending = requested if requested and requested != current.get("scan_completed_id") else None
+    return {"scan_request_id": pending}
 
 
 @router.post(shop_path + "/revoke")
@@ -444,10 +457,36 @@ def status(shop_id: str, request: Request, identity=Depends(current_identity), d
         "manager_correct": bool(c.get("manager_correct")),
         "last_contact": c.get("last_contact"),
         "last_successful_sync": c.get("last_successful_sync"),
+        "scan_request_id": c.get("scan_request_id"),
+        "scan_completed_id": c.get("scan_completed_id"),
+        "scan_pending": bool(c.get("scan_request_id") and c.get("scan_request_id") != c.get("scan_completed_id")),
         "health": c.get("health"),
         "accounting_available": False,
         "coverage": "Bounded polling; missing rows never imply deletion; repeated reads do not establish final save.",
     }
+
+
+@router.post(shop_path + "/refresh")
+def request_source_refresh(
+    shop_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)
+):
+    _, _, c = access(request, db, shop_id, identity, "view")
+    if not c or not c.get("enabled") or not c.get("credential_hash"):
+        raise HTTPException(409, "DEV connector must be enabled and paired before requesting a PC refresh")
+    if c.get("scan_request_id") != c.get("scan_completed_id"):
+        return {"request_id": c["scan_request_id"], "pending": True}
+    timestamp = now()
+    previous = c.get("scan_requested_at")
+    if previous and (timestamp - previous).total_seconds() < 15:
+        raise HTTPException(429, "Please wait before requesting another PC source scan")
+    request_id = secrets.token_urlsafe(24)
+    result = db.radiosoft_real_integrations.update_one(
+        {"_id": shop_id, "credential_hash": c["credential_hash"]},
+        {"$set": {"scan_request_id": request_id, "scan_requested_at": timestamp}},
+    )
+    if not result.modified_count:
+        raise HTTPException(409, "Connector settings changed. Refresh and retry.")
+    return {"request_id": request_id, "pending": True}
 
 
 @router.get(shop_path + "/salespeople")
