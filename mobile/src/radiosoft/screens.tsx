@@ -366,6 +366,9 @@ export function RadioSoftSetup() {
                       {pair.code}
                     </Text>
                     <Text style={styles.small}>
+                      {t('This eight-digit code expires in five minutes.')}
+                    </Text>
+                    <Text style={styles.small}>
                       {t('Pairing expires: {0}', [new Date(pair.expires_at).toLocaleTimeString()])}
                     </Text>
                   </View>

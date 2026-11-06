@@ -32,7 +32,7 @@ def local_api(value):
         or parsed.query
         or parsed.fragment
     ):
-        raise argparse.ArgumentTypeError("Use a loopback API address, e.g. http://localhost:8001")
+        raise argparse.ArgumentTypeError("Use a loopback API address, e.g. http://localhost:8000")
     return value.rstrip("/")
 
 
@@ -85,8 +85,17 @@ def post(api, path, body, credential=None):
                 raise RuntimeError(f"HTTP {error.code}: {detail}") from None
         except (URLError, TimeoutError):
             if attempt == 2:
-                raise RuntimeError("Local API unavailable. Check http://localhost:8000/health.") from None
+                raise RuntimeError(f"Local API unavailable. Check {api}/health and retry.") from None
         time.sleep(1)
+
+
+def check_api(api):
+    try:
+        with urlopen(api + "/health", timeout=5) as response:
+            if response.status != 200:
+                raise RuntimeError(f"Local API health check failed at {api}/health.")
+    except (HTTPError, URLError, TimeoutError):
+        raise RuntimeError(f"Local API unavailable. Start the backend and check {api}/health.") from None
 
 
 def make_bills(scope):
@@ -126,6 +135,7 @@ def make_bills(scope):
 
 def demo(api, interval=30):
     print("Synthetic local demo only. No RadioSoft/SQL access; no accounting activation.")
+    check_api(api)
     code = getpass.getpass("Paste the five-minute pairing code (input hidden): ").strip()
     credential = secrets.token_urlsafe(32)
     scope = post(api, "pair", {"code": code, "credential": credential})
@@ -207,7 +217,7 @@ def demo(api, interval=30):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["ids", "demo"])
-    parser.add_argument("--api", default="http://localhost:8001", type=local_api)
+    parser.add_argument("--api", default="http://localhost:8000", type=local_api)
     args = parser.parse_args()
     try:
         print_ids() if args.command == "ids" else demo(args.api)

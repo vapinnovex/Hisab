@@ -1,6 +1,8 @@
 """DEV-only real preview. Separate collections, credentials and routes from v1."""
 
+import re
 import secrets
+from datetime import date as Date
 from datetime import timedelta
 from decimal import Decimal
 
@@ -14,8 +16,8 @@ from pymongo.write_concern import WriteConcern
 from ..db import get_db as application_db
 from ..db import now
 from ..radiosoft import digest, secret_hash
-from ..radiosoft_real_schemas import Mapping, RealHealth, RealObservation, Setup
-from ..radiosoft_schemas import PairRequest
+from ..radiosoft_real_schemas import Mapping, RealHealth, RealObservation, RealPairRequest, Setup
+from ..real_pairing import pairing_attempt, pairing_hash
 from ..security import current_identity, shop_access, worker_in_shop
 from .radiosoft import connector_request
 
@@ -122,37 +124,62 @@ def setup(
 
 @router.post(shop_path + "/pairing")
 def pairing(shop_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)):
-    _, _, c = access(request, db, shop_id, identity, "owner")
+    _, s, c = access(request, db, shop_id, identity, "owner")
     if not c or not c["enabled"]:
         raise HTTPException(409, "Confirm setup first")
     if c.get("pair_created_at") and (now() - c["pair_created_at"]).total_seconds() < 30:
         raise HTTPException(429, "Wait before creating another pairing code")
-    code = secrets.token_urlsafe(24)
-    expires = now() + timedelta(minutes=5)
-    db.radiosoft_real_integrations.update_one(
-        {"_id": shop_id},
-        {
-            "$set": {
-                "pairing": {"code_hash": secret_hash(code), "expires_at": expires},
-                "pair_created_at": now(),
-            },
-            "$push": {"audit": {"action": "PAIRING_CREATED", "actor_id": identity.user["_id"], "at": now()}},
-        },
-    )
-    return {"code": code, "expires_at": expires, "scope": c["scope"]}
+    timestamp = now()
+    expires = timestamp + timedelta(minutes=5)
+    for _ in range(20):
+        code = f"{secrets.randbelow(100_000_000):08d}"
+        if pairing_hash(code, request) == c.get("pairing", {}).get("code_hash"):
+            continue
+        try:
+            updated = db.radiosoft_real_integrations.find_one_and_update(
+                {
+                    "_id": shop_id,
+                    "enabled": True,
+                    "scope": s,
+                    "$or": [
+                        {"pair_created_at": {"$exists": False}},
+                        {"pair_created_at": {"$lte": timestamp - timedelta(seconds=30)}},
+                    ],
+                },
+                {
+                    "$set": {
+                        "pairing": {"code_hash": pairing_hash(code, request), "expires_at": expires},
+                        "pair_created_at": timestamp,
+                    },
+                    "$push": {
+                        "audit": {
+                            "action": "PAIRING_CREATED",
+                            "actor_id": identity.user["_id"],
+                            "at": timestamp,
+                        }
+                    },
+                },
+            )
+        except DuplicateKeyError:
+            # The unique index prevents active-code collisions, including concurrent issuance.
+            continue
+        if not updated:
+            raise HTTPException(429, "Wait before creating another pairing code")
+        return {"code": code, "expires_at": expires, "scope": c["scope"]}
+    raise HTTPException(503, "Could not issue a unique code. Retry shortly.")
 
 
-@router.post(connector_path + "/pair")
-def exchange(body: PairRequest, request: Request, db=Depends(get_db)):
+@router.post(connector_path + "/pair", dependencies=[Depends(pairing_attempt)])
+def exchange(body: RealPairRequest, request: Request, db=Depends(get_db)):
     connector_request(request)
     query = {
-        "pairing.code_hash": secret_hash(body.code),
+        "pairing.code_hash": pairing_hash(body.code, request),
         "pairing.expires_at": {"$gt": now()},
         "enabled": True,
     }
     c = db.radiosoft_real_integrations.find_one(query)
     if not c or c["scope"] != scope(request, db, c["_id"]):
-        raise HTTPException(401, "Invalid pairing")
+        raise HTTPException(401, "Invalid or expired pairing code")
     proof = secret_hash(body.credential)
     query.update(
         {
@@ -380,6 +407,8 @@ def status(shop_id: str, request: Request, identity=Depends(current_identity), d
         "scope": s,
         "enabled": c.get("enabled", False),
         "paired": bool(c.get("credential_hash")),
+        "manager_view": bool(c.get("manager_view")),
+        "manager_map": bool(c.get("manager_map")),
         "last_contact": c.get("last_contact"),
         "last_successful_sync": c.get("last_successful_sync"),
         "health": c.get("health"),
@@ -431,17 +460,32 @@ def mapping(
     old = db.radiosoft_real_people.find_one({"_id": person, **source_query(c)})
     if not old:
         raise HTTPException(404, "Source person not found")
+    if body.not_used and body.worker_id:
+        raise HTTPException(422, "A person cannot be linked and marked not used.")
+    if (old.get("worker_id") or old.get("not_used")) and len(body.reason.strip()) < 2:
+        raise HTTPException(422, "Give a short reason for changing an established link.")
+    reason = body.reason.strip() or (
+        "Owner/manager marked source person not used"
+        if body.not_used
+        else "Owner/manager verified first staff link"
+    )
     audit = {
         "at": now(),
         "actor_id": identity.user["_id"],
         "old_worker_id": old.get("worker_id"),
+        "old_not_used": old.get("not_used", False),
+        "not_used": body.not_used,
         "worker_id": body.worker_id,
-        "reason": body.reason,
+        "reason": reason,
         "revision": body.revision + 1,
     }
     result = db.radiosoft_real_people.update_one(
         {"_id": person, **source_query(c), "revision": body.revision},
-        {"$set": {"worker_id": body.worker_id}, "$inc": {"revision": 1}, "$push": {"audit": audit}},
+        {
+            "$set": {"worker_id": body.worker_id, "not_used": body.not_used},
+            "$inc": {"revision": 1},
+            "$push": {"audit": audit},
+        },
     )
     if not result.modified_count:
         raise HTTPException(409, "Mapping changed; refresh")
@@ -475,21 +519,46 @@ def bills(
     request: Request,
     after: str = "",
     limit: int = Query(50, ge=1, le=100),
+    business_date: Date = None,
+    search: str = Query("", max_length=100),
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
     _, _, c = access(request, db, shop_id, identity)
     if not c:
         return {"bills": [], "next_cursor": None}
-    rows = list(
-        db.radiosoft_real_bills.find({**source_query(c), "_id": {"$gt": after}})
-        .sort("_id", 1)
-        .limit(limit + 1)
-    )
+    query = {**source_query(c), "_id": {"$gt": after}}
+    if business_date:
+        query["snapshot.business_date"] = str(business_date)
+    if search.strip():
+        query["snapshot.key.invoice_no"] = {"$regex": re.escape(search.strip()), "$options": "i"}
+    rows = list(db.radiosoft_real_bills.find(query).sort("_id", 1).limit(limit + 1))
     return {
         "bills": [view(b, c) for b in rows[:limit]],
         "next_cursor": rows[limit - 1]["_id"] if len(rows) > limit else None,
     }
+
+
+@router.get(shop_path + "/bills/{bill_id}")
+def bill_detail(
+    shop_id: str, bill_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)
+):
+    _, _, c = access(request, db, shop_id, identity)
+    bill = db.radiosoft_real_bills.find_one({"_id": bill_id, **source_query(c)}) if c else None
+    if not bill:
+        raise HTTPException(404, "Imported bill not found")
+    result = view(bill, c)
+    result["attribution"] = bill["attribution"]
+    for line in result["lines"]:
+        worker = bill["attribution"].get(line["salesperson_ref"], {}).get("worker_id")
+        member = db.memberships.find_one({"_id": worker, "shop_id": shop_id, "role": "WORKER"}) if worker else None
+        if member:
+            from .shops import worker_view
+
+            line["worker_name"] = worker_view(db, member)["name"]
+        else:
+            line["worker_name"] = None
+    return result
 
 
 @router.get(shop_path + "/worker-sales")

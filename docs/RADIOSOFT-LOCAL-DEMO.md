@@ -40,7 +40,7 @@ This tests Hishob with fake bills. It does not connect to RadioSoft or start a W
    ~/.local/share/hishob/backend-venv/bin/python scripts/radiosoft_demo.py demo --api http://localhost:8001
    ```
 
-   Paste the pairing code when prompted. Input is hidden; press Enter after pasting. The code expires after five minutes. The helper pairs with the local API and sends three fake bills for ₹1,000, ₹750 and ₹1,500. Their references are printed in the terminal. Open **Bills & Collections** in the app and allow about 10 seconds for its next refresh.
+   Paste the eight-digit pairing code when prompted. Input is hidden; press Enter after pasting. The code expires after five minutes. Previously issued 32-character codes remain accepted until they expire. The helper pairs with the local API and sends three fake bills for ₹1,000, ₹750 and ₹1,500. Their references are printed in the terminal. Open **Bills & Collections** in the app and allow about 10 seconds for its next refresh.
 
 6. Try the workflow:
 

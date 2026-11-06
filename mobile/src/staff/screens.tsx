@@ -106,7 +106,7 @@ export function StaffDetailsScreen({
         (!worker.password_ready && selected!.permissions.add_workers)))
   )
     shortcuts.push({
-      label: t('Password access'),
+      label: t(worker.login_enabled ? 'Password access' : 'Add mobile / Set up login'),
       icon: 'key-outline',
       onPress: () => navigation.navigate('StaffPasswordAccess', { worker }),
     });
@@ -131,7 +131,8 @@ export function StaffDetailsScreen({
             <Text style={styles.small}>
               {manager ? t('Manager') : t('Worker')} · {worker.active ? t('Active') : t('Inactive')}
             </Text>
-            <Text style={styles.small}>{worker.mobile}</Text>
+            <Text style={styles.small}>{worker.mobile || t('Login not enabled')}</Text>
+            {!worker.login_enabled && <Text style={styles.small}>{t('Login not enabled')}</Text>}
           </View>
         </View>
         {worker.password_reset_requested && (

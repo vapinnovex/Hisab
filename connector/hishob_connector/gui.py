@@ -4,6 +4,7 @@ import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .contract import normalize_pairing_code
 from .security import DPAPI
 from .store import Store
 from .synthetic import SCENARIOS
@@ -25,7 +26,10 @@ def show(directory):
     code = tk.StringVar()
     ttk.Label(frame, text="Local development API").pack(anchor="w")
     ttk.Entry(frame, textvariable=api).pack(fill="x", pady=4)
-    ttk.Label(frame, text="Owner-issued pairing code (hidden; expires after five minutes)").pack(anchor="w")
+    ttk.Label(
+        frame,
+        text="Owner-issued eight-digit pairing code (hidden; expires after five minutes)",
+    ).pack(anchor="w")
     ttk.Entry(frame, textvariable=code, show="•").pack(fill="x", pady=4)
 
     def action(fn):
@@ -46,7 +50,7 @@ def show(directory):
                 store.close()
 
     def pair(store):
-        store.queue_pair(api.get().strip(), code.get().strip())
+        store.queue_pair(api.get().strip(), normalize_pairing_code(code.get()))
         code.set("")
 
     ttk.Button(frame, text="Pair with synthetic backend", command=lambda: action(pair)).pack(

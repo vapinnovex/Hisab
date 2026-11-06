@@ -194,3 +194,27 @@ test('uncertain staff payment save is recovered without posting twice', async ({
   expect(day.transactions).toHaveLength(1);
   expect(day.expected_closing_cash).toBe('900.00');
 });
+
+test('optional worker mobile remains optional after changing country', async ({ page }) => {
+  const suffix = String(Date.now()).slice(-8);
+  await login(page, 'Owner', '+9194' + suffix);
+  await page.getByLabel('Shop name', { exact: true }).fill('Optional Mobile Shop');
+  await page.getByRole('button', { name: 'Create shop', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Add worker', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Add worker', exact: true }).click();
+  await page.getByLabel('Worker name', { exact: true }).fill('No Mobile Worker');
+  await page.getByRole('button', { name: 'Country code: India +91', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Search countries', exact: true }).fill('United Kingdom');
+  await page.getByRole('button', { name: 'United Kingdom +44', exact: true }).click();
+  const added = page.waitForResponse(
+    (response) => response.request().method() === 'POST' && response.url().endsWith('/workers'),
+  );
+  await page.getByRole('button', { name: 'Add worker', exact: true }).click();
+  const response = await added;
+  expect(response.ok()).toBeTruthy();
+  expect(response.request().postDataJSON().mobile).toBeNull();
+  await page.getByLabel('Team tab', { exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · No Mobile Worker', exact: true }),
+  ).toBeVisible();
+});

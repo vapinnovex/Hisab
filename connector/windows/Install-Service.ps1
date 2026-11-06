@@ -7,7 +7,7 @@ $admin = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentit
 if (-not $admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Administrator is required to install the Windows service and protected directories.' }
 if (-not [Environment]::Is64BitOperatingSystem) { throw 'This package supports Windows x64 only.' }
 $name = 'HishobRadioSoftSynthetic'
-$version = '0.1.0'
+$version = '0.2.0'
 $state = Join-Path $env:ProgramData 'HishobConnectorSynthetic'
 $base = Join-Path $env:ProgramFiles 'HishobConnectorSynthetic'
 $destination = Join-Path $base $version

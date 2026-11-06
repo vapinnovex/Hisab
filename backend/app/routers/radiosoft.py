@@ -30,6 +30,7 @@ from ..radiosoft_schemas import (
     PairRequest,
     PilotSettings,
 )
+from ..real_pairing import pairing_attempt, pairing_hash
 from ..security import current_identity, shop_access
 
 router = APIRouter(tags=["RadioSoft synthetic preview"])
@@ -202,19 +203,38 @@ def pairing(shop_id: str, request: Request, identity=Depends(current_identity), 
     _, _, _, config, _ = owner_access(request, db, shop_id, identity)
     if not config or config["mode"] != "PREVIEW":
         raise HTTPException(409, "Enable synthetic preview before pairing")
-    code = secrets.token_urlsafe(24)
     expires_at = now() + timedelta(minutes=5)
-    result = db.radiosoft_integrations.update_one(
-        {"_id": shop_id, "revision": config["revision"], "mode": "PREVIEW"},
-        {
-            "$set": {"pairing": {"code_hash": secret_hash(code), "expires_at": expires_at}},
-            "$inc": {"revision": 1},
-            "$push": {"audit": {"action": "PAIRING_CREATED", "at": now(), "actor_id": identity.user["_id"]}},
-        },
-    )
-    if not result.modified_count:
-        raise HTTPException(409, "Settings changed. Retry pairing.")
-    return {"code": code, "expires_at": expires_at, "source_id": config["source_id"], "synthetic_only": True}
+    for _ in range(20):
+        code = f"{secrets.randbelow(100_000_000):08d}"
+        code_hash = pairing_hash(code, request, "radiosoft-synthetic-pair")
+        if code_hash == config.get("pairing", {}).get("code_hash"):
+            continue
+        try:
+            result = db.radiosoft_integrations.update_one(
+                {"_id": shop_id, "revision": config["revision"], "mode": "PREVIEW"},
+                {
+                    "$set": {"pairing": {"code_hash": code_hash, "expires_at": expires_at}},
+                    "$inc": {"revision": 1},
+                    "$push": {
+                        "audit": {
+                            "action": "PAIRING_CREATED",
+                            "at": now(),
+                            "actor_id": identity.user["_id"],
+                        }
+                    },
+                },
+            )
+        except DuplicateKeyError:
+            continue
+        if not result.modified_count:
+            raise HTTPException(409, "Settings changed. Retry pairing.")
+        return {
+            "code": code,
+            "expires_at": expires_at,
+            "source_id": config["source_id"],
+            "synthetic_only": True,
+        }
+    raise HTTPException(503, "Could not issue a unique code. Retry shortly.")
 
 
 @router.post(shop_path + "/revoke")
@@ -236,11 +256,12 @@ def connector_request(request):
         raise HTTPException(400, "Connector scope comes only from its credential")
 
 
-@router.post(connector_path + "/pair")
+@router.post(connector_path + "/pair", dependencies=[Depends(pairing_attempt)])
 def exchange(body: PairRequest, request: Request, db=Depends(get_db)):
     connector_request(request)
+    code_hash = pairing_hash(body.code, request, "radiosoft-synthetic-pair")
     config = db.radiosoft_integrations.find_one(
-        {"pairing.code_hash": secret_hash(body.code), "pairing.expires_at": {"$gt": now()}, "mode": "PREVIEW"}
+        {"pairing.code_hash": code_hash, "pairing.expires_at": {"$gt": now()}, "mode": "PREVIEW"}
     )
     if not config or not scope_matches(config, approved_scope(request, db, config["_id"])):
         raise HTTPException(401, "Invalid or expired pairing code")
@@ -251,7 +272,7 @@ def exchange(body: PairRequest, request: Request, db=Depends(get_db)):
         {
             "_id": config["_id"],
             "revision": config["revision"],
-            "pairing.code_hash": secret_hash(body.code),
+            "pairing.code_hash": code_hash,
             "pairing.expires_at": {"$gt": now()},
             "$or": [{"pairing.claimed_hash": {"$exists": False}}, {"pairing.claimed_hash": credential_hash}],
         },

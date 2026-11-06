@@ -1,5 +1,5 @@
 import { localeTag, t, useLocale, localized } from './../i18n';
-import { phoneError } from '../phone';
+import { hasNationalNumber, phoneError } from '../phone';
 import { RegisterCalendar } from '../components/RegisterCalendar';
 import { dateInZone } from '../financial/calendar';
 import React, { useState } from 'react';
@@ -646,7 +646,7 @@ function TeamList({ managersOnly = false }: { managersOnly?: boolean }) {
                       · {person.active ? t('Active') : t('Inactive')}
                     </Text>
                   </View>
-                  <Text style={styles.small}>{person.mobile}</Text>
+                  <Text style={styles.small}>{person.mobile || t('Login not enabled')}</Text>
                 </View>
               </View>
               {person.password_reset_requested && (
@@ -752,6 +752,7 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
   const manager = route.params?.kind === 'MANAGER';
   const label = manager ? t('manager') : t('worker');
   const { api, selected } = useAuth();
+  const [requestId] = useState(() => `staff-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [name, setName] = useState(worker?.name || '');
   const [mobile, setMobile] = useState(worker?.mobile || '+91');
   const [active, setActive] = useState(worker?.active ?? true);
@@ -768,7 +769,13 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
     <Page>
       <Heading
         title={worker ? t('Edit {0}', [label]) : t('Add {0}', [label])}
-        subtitle={t('They’ll use this mobile number to log in as a {0}.', [label])}
+        subtitle={
+          manager
+            ? t('They’ll use this mobile number to log in as a {0}.', [label])
+            : t(
+                'Mobile is optional. A staff profile without login can still track attendance and payments.',
+              )
+        }
       />
       <Field
         required
@@ -780,6 +787,7 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
         maxLength={100}
       />
       <PhoneField
+        optional={!manager}
         value={mobile}
         onChange={setMobile}
         helperText={t(
@@ -812,7 +820,7 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
             <Text style={styles.small}>
               {' '}
               {t(
-                'Changing this number transfers this worker profile and its history to the new number. The old number loses access to this profile.',
+                'Adding a contact number does not enable login. Use Set up login to send a verified staff invitation. Linked account numbers must be changed in account settings.',
               )}{' '}
             </Text>
           )}
@@ -844,7 +852,9 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
         title={`${worker ? t('Save') : t('Add')} ${label}`}
         busy={action.busy}
         disabled={
-          name.trim().length < 2 || !!phoneError(mobile) || (addSalary && !validSalary(salary))
+          name.trim().length < 2 ||
+          ((manager || hasNationalNumber(mobile)) && !!phoneError(mobile)) ||
+          (addSalary && !validSalary(salary))
         }
         onPress={() =>
           void action.run(async () => {
@@ -852,7 +862,12 @@ export function WorkerForm({ route, navigation }: NativeStackScreenProps<Routes,
               `/shops/${selected!.shop_id}/${manager ? 'managers' : 'workers'}${worker ? '/' + worker.id : ''}`,
               {
                 name,
-                mobile,
+                mobile: !manager && !hasNationalNumber(mobile) ? null : mobile,
+                ...(!manager
+                  ? worker
+                    ? { revision: worker.revision }
+                    : { request_id: requestId }
+                  : {}),
                 ...(worker ? { active } : {}),
                 ...(!worker && addSalary ? { salary } : {}),
               },

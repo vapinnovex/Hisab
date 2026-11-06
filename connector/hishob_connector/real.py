@@ -140,8 +140,9 @@ class RealStore(Store):
         api = https_origin(api)
         if self.get("pilot_kind") != "REAL_DEV":
             raise ValueError("Real pairing requires initialized real DEV state")
-        if not isinstance(code, str) or not 32 <= len(code) <= 100:
-            raise ValueError("Invalid pairing code")
+        from .pairing_ui import normalize_code
+
+        code = normalize_code(code)
         import secrets
 
         with self.transaction():
@@ -158,6 +159,7 @@ class RealStore(Store):
                 },
             )
             self.put("mode", "PAIRING")
+            self.put("error", None)
 
     def finish_pair(self, pending_id, response):
         response = validate_binding(response)
@@ -174,6 +176,7 @@ class RealStore(Store):
             self.put("credential", pending["body"]["credential"])
             self.put("pending_pair", None)
             self.put("mode", "RUNNING")
+            self.put("error", None)
             return True
 
     def enqueue_real(self, records, observed_at, checkpoint):

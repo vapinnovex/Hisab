@@ -1,7 +1,6 @@
 """Separate real-preview executable; all secrets entered interactively, never argv."""
 
 import argparse
-import getpass
 import json
 import threading
 from pathlib import Path
@@ -44,6 +43,10 @@ def main():
         if args.state != service.default_directory():
             parser.error("Service state path is fixed")
         service.dispatch()
+    elif args.command == "pair":
+        from .pairing_ui import show
+
+        show(args.state)
     elif args.command == "run":
         run(args.state, threading.Event())
     else:
@@ -62,10 +65,6 @@ def main():
                     store.put("api", origin)
             elif args.command == "cancel-pair":
                 store.cancel_pair()
-            elif args.command == "pair":
-                if not store.get("expected_binding"):
-                    raise ValueError("Configure confirmed source binding first")
-                store.queue_pair(store.get("api"), getpass.getpass("Owner pairing code: "))
             else:
                 print(json.dumps(store.status(), indent=2))
         finally:

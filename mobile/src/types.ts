@@ -65,6 +65,8 @@ export type Session = {
   memberships: Membership[];
 };
 export type Worker = {
+  login_enabled: boolean;
+  revision: number;
   id: string;
   role: 'MANAGER' | 'WORKER';
   password_ready: boolean;

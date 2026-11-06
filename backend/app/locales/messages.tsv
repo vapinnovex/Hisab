@@ -222,3 +222,55 @@ Invalid or expired pairing code|पेयरिंग कोड गलत है
 Pairing code already consumed or settings changed|पेयरिंग कोड इस्तेमाल हो चुका है या सेटिंग बदल गईं|जोडणी कोड वापरला गेला आहे किंवा सेटिंग बदलल्या
 Connector disabled, revoked or outside approved scope|कनेक्टर बंद है, उसकी पहुँच हटाई गई है या वह स्वीकृत दायरे से बाहर है|कनेक्टर बंद आहे, त्याचा प्रवेश रद्द आहे किंवा तो मंजूर व्याप्तीबाहेर आहे
 Request ID already used for another evidence entry|अनुरोध ID किसी अन्य प्रमाण प्रविष्टि में इस्तेमाल हो चुका है|विनंती ID दुसऱ्या पुरावा नोंदीसाठी आधीच वापरला आहे
+Provide an adjustment amount only for a waiver|रक़म में बदलाव केवल छूट के लिए दें|रकमेतील बदल फक्त माफीसाठी द्या
+Waiver reversal must identify an existing adjustment|छूट रद्द करने के लिए पहले से मौजूद समायोजन की पहचान करें|माफी रद्द करण्यासाठी आधीपासूनचा बदल ओळखा
+A person cannot be linked and marked not used.|किसी व्यक्ति को लिंक करके उपयोग में नहीं है, ऐसा नहीं चिह्नित कर सकते।|एखाद्या व्यक्तीला लिंक करून वापरात नाही असे चिन्हांकित करता येत नाही.
+A settlement must specify how to handle the remainder|निपटान में बची हुई राशि का तरीका बताना ज़रूरी है|सेटलमेंटमध्ये उरलेली रक्कम कशी हाताळायची ते सांगणे आवश्यक आहे
+Add a contact mobile before setting up login.|लॉगिन सेटअप करने से पहले संपर्क मोबाइल नंबर जोड़ें।|लॉगिन सेटअप करण्यापूर्वी संपर्क मोबाइल क्रमांक जोडा.
+An account already uses this number. Enter its current password to accept the staff invitation.|इस नंबर का खाता पहले से मौजूद है। कर्मचारी आमंत्रण स्वीकारने के लिए उसका मौजूदा पासवर्ड दर्ज करें।|या क्रमांकाचे खाते आधीपासून आहे. कर्मचारी आमंत्रण स्वीकारण्यासाठी त्याचा सध्याचा पासवर्ड भरा.
+Bill list changed. Return to the first page.|बिल सूची बदल गई है। पहले पेज पर लौटें।|बिलांची यादी बदलली आहे. पहिल्या पानावर परत जा.
+Change a linked login number through verified account settings.|लिंक किए गए लॉगिन नंबर को सत्यापित खाता सेटिंग से बदलें।|लिंक केलेला लॉगिन क्रमांक पडताळलेल्या खाते सेटिंग्जमधून बदला.
+Configured owner does not own this shop|कॉन्फ़िगर किया गया मालिक इस दुकान का मालिक नहीं है|कॉन्फिगर केलेला मालक या दुकानाचा मालक नाही
+Confirm setup first|पहले सेटअप की पुष्टि करें|आधी सेटअपची पुष्टी करा
+Connector revoked or binding changed|कनेक्टर रद्द किया गया है या बाइंडिंग बदल गई है|कनेक्टर रद्द केला आहे किंवा बाइंडिंग बदलली आहे
+Could not issue a unique code. Retry shortly.|अलग कोड जारी नहीं हो सका। थोड़ी देर बाद फिर कोशिश करें।|वेगळा कोड देता आला नाही. थोड्या वेळाने पुन्हा प्रयत्न करा.
+Customer credit requires a customer name or reference|ग्राहक क्रेडिट के लिए ग्राहक का नाम या पहचान ज़रूरी है|ग्राहक क्रेडिटसाठी ग्राहकाचे नाव किंवा संदर्भ आवश्यक आहे
+Customer details and notes belong to settlements or notes|ग्राहक का विवरण और नोट केवल निपटान या नोट में जोड़ें|ग्राहकाचे तपशील आणि नोंदी फक्त सेटलमेंट किंवा नोंदीत द्या
+Deployment binding changed; restore it or use reviewed recovery|डिप्लॉयमेंट बाइंडिंग बदल गई है; उसे बहाल करें या जाँची हुई रिकवरी प्रक्रिया अपनाएँ|डिप्लॉयमेंट बाइंडिंग बदलली आहे; ती पूर्ववत करा किंवा तपासलेली रिकव्हरी प्रक्रिया वापरा
+Duplicate directory reference|डायरेक्टरी में दोहराया गया संदर्भ|डिरेक्टरीतील संदर्भाची पुनरावृत्ती झाली
+Enter a note of at least two characters|कम से कम दो अक्षरों का नोट दर्ज करें|किमान दोन अक्षरांची नोंद भरा
+Enter an amount within the pending balance, or choose credit/discount|बाकी शेष के भीतर राशि दर्ज करें या क्रेडिट/छूट चुनें|बाकी शिल्लक रकमेइतकी किंवा त्यापेक्षा कमी रक्कम भरा, किंवा क्रेडिट/सूट निवडा
+Enter the eight-digit pairing code|आठ अंकों का पेयरिंग कोड दर्ज करें|आठ अंकी पेअरिंग कोड भरा
+Exactly one deployment scope is required|डिप्लॉयमेंट का ठीक एक दायरा ज़रूरी है|डिप्लॉयमेंटची नेमकी एक व्याप्ती आवश्यक आहे
+Explicit confirmation must match the configured source, dates and scope|स्पष्ट पुष्टि कॉन्फ़िगर किए गए स्रोत, तारीखों और दायरे से मेल खानी चाहिए|स्पष्ट पुष्टी कॉन्फिगर केलेला स्रोत, तारखा आणि व्याप्तीशी जुळली पाहिजे
+Give a short reason for changing an established link.|पहले से मौजूद लिंक बदलने का छोटा कारण दें।|आधीपासूनची लिंक बदलण्याचे थोडक्यात कारण द्या.
+Imported bill not found|आयात किया गया बिल नहीं मिला|आयात केलेले बिल सापडले नाही
+Invalid capture/tracking scope|डेटा लेने या ट्रैकिंग का दायरा अमान्य है|डेटा संकलन किंवा ट्रॅकिंगची व्याप्ती अवैध आहे
+Invalid date|तारीख अमान्य है|तारीख अवैध आहे
+Invalid real observation kind|वास्तविक अवलोकन का प्रकार अमान्य है|वास्तविक निरीक्षणाचा प्रकार अवैध आहे
+Invalid source payable|स्रोत से देय राशि अमान्य है|स्रोताकडून देय रक्कम अवैध आहे
+Mapping changed; refresh|मैपिंग बदल गई है; रीफ़्रेश करें|मॅपिंग बदलली आहे; रीफ्रेश करा
+Narrow the report date range|रिपोर्ट की तारीखों का दायरा छोटा करें|अहवालाची तारीख श्रेणी कमी करा
+Observation too large; preserve queue|अवलोकन बहुत बड़ा है; कतार सुरक्षित रखें|निरीक्षण खूप मोठे आहे; रांग जतन ठेवा
+Outside confirmed capture scope|पुष्टि किए गए डेटा दायरे से बाहर|पुष्टी केलेल्या डेटा व्याप्तीबाहेर
+Pairing already claimed|पेयरिंग पहले ही इस्तेमाल हो चुकी है|पेअरिंग आधीच वापरली आहे
+Real DEV preview disabled|वास्तविक DEV प्रीव्यू बंद है|वास्तविक DEV पूर्वदृश्य बंद आहे
+Sequence already used for different bytes|इस क्रम का उपयोग अलग डेटा के लिए हो चुका है|हा क्रम वेगळ्या डेटासाठी आधीच वापरला आहे
+Setup changed; retry|सेटअप बदल गया है; फिर कोशिश करें|सेटअप बदलले आहे; पुन्हा प्रयत्न करा
+Source clock ahead|स्रोत की घड़ी आगे है|स्रोताचे घड्याळ पुढे आहे
+Source history capacity reached; preserve queue and request review|स्रोत इतिहास की सीमा पूरी हो गई है; कतार सुरक्षित रखें और जाँच का अनुरोध करें|स्रोत इतिहासाची मर्यादा पूर्ण झाली आहे; रांग जतन करा आणि तपासणीची विनंती करा
+Source payable mismatch|स्रोत से देय राशि मेल नहीं खाती|स्रोताकडून देय रक्कम जुळत नाही
+Source person not found|स्रोत का व्यक्ति नहीं मिला|स्रोतामधील व्यक्ती सापडली नाही
+Source/generation mismatch|स्रोत या जनरेशन में मेल नहीं है|स्रोत किंवा जनरेशन जुळत नाही
+Stream continuity conflict; do not reset state|स्ट्रीम की निरंतरता में टकराव है; स्थिति रीसेट न करें|स्ट्रीमच्या सातत्यात विसंगती आहे; स्थिती रीसेट करू नका
+There is no remaining balance for credit or discount|क्रेडिट या छूट के लिए कोई बाकी राशि नहीं है|क्रेडिट किंवा सूट देण्यासाठी शिल्लक रक्कम नाही
+This account already has a worker profile in this shop. Ask the owner to review it.|इस खाते की इस दुकान में पहले से कर्मचारी प्रोफ़ाइल है। मालिक से इसकी जाँच करने को कहें।|या खात्याचे या दुकानात कर्मचारी प्रोफाइल आधीपासून आहे. मालकाला तपासण्यास सांगा.
+This bill has no eligible pending balance|इस बिल में कोई योग्य बाकी राशि नहीं है|या बिलात पात्र शिल्लक रक्कम नाही
+This creation request was already used. Refresh and retry.|यह बनाने का अनुरोध पहले इस्तेमाल हो चुका है। रीफ़्रेश करके फिर कोशिश करें।|तयार करण्याची ही विनंती आधीच वापरली आहे. रीफ्रेश करून पुन्हा प्रयत्न करा.
+This preview permission is not granted|इस प्रीव्यू की अनुमति नहीं है|या पूर्वदृश्याची परवानगी दिलेली नाही
+Too many pairing attempts. Try again later.|पेयरिंग की बहुत कोशिशें हो चुकी हैं। बाद में फिर कोशिश करें।|पेअरिंगचे खूप प्रयत्न झाले. नंतर पुन्हा प्रयत्न करा.
+Unapproved source columns|स्रोत के कॉलम स्वीकृत नहीं हैं|स्रोताचे कॉलम मंजूर नाहीत
+Use a report window of at most 31 days|रिपोर्ट की अवधि अधिकतम 31 दिनों की रखें|अहवालाचा कालावधी जास्तीत जास्त 31 दिवसांचा ठेवा
+Wait before creating another pairing code|दूसरा पेयरिंग कोड बनाने से पहले प्रतीक्षा करें|दुसरा पेअरिंग कोड तयार करण्यापूर्वी थांबा
+Waiver must not exceed an eligible bill's pending balance|छूट की राशि योग्य बिल की बाकी राशि से अधिक नहीं होनी चाहिए|माफीची रक्कम पात्र बिलाच्या शिल्लक रकमेपेक्षा जास्त नसावी
+Waiver not found or already reversed|छूट नहीं मिली या पहले ही रद्द की जा चुकी है|माफी सापडली नाही किंवा आधीच रद्द केली आहे

@@ -296,7 +296,7 @@ def test_legacy_shop_defaults_and_admin_mapping(client, setup_shop):
     assert client.get(f"/api/shops/{shop}/attendance/today", headers=manager).status_code == 200
 
 
-def test_reset_and_mobile_reassignment(client, setup_shop):
+def test_reset_and_linked_mobile_change_requires_verified_account_flow(client, setup_shop):
     owner, shop, worker, auth = setup_shop
     _, _, base, attendance = paths(setup_shop)
     day = client.post(attendance + "/check-in", headers=owner).json()["date"]
@@ -304,18 +304,13 @@ def test_reset_and_mobile_reassignment(client, setup_shop):
         client.put(attendance, headers=owner, json={"date": day, "status": "NOT_MARKED"}).status_code == 200
     )
     assert client.post(attendance + "/check-in", headers=owner).status_code == 200
+    assert client.patch(
+        base + "/workers/" + worker,
+        headers=owner,
+        json={"name": "Asha", "mobile": "+919876543255", "active": True},
+    ).status_code == 409
     assert (
-        client.patch(
-            base + "/workers/" + worker,
-            headers=owner,
-            json={"name": "Asha", "mobile": "+919876543255", "active": True},
-        ).status_code
-        == 200
-    )
-    assert client.get(base + "/me/attendance/today", headers=auth).status_code == 403
-    replacement = login(client, "+919876543255", "WORKER")
-    assert (
-        client.get(base + "/me/attendance/today", headers=replacement).json()["attendance"]["status"]
+        client.get(base + "/me/attendance/today", headers=auth).json()["attendance"]["status"]
         == "PRESENT"
     )
 

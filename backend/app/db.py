@@ -24,6 +24,7 @@ def get_db(request: Request):
 
 
 def create_indexes(db):
+    db.radiosoft_pair_limits.create_index("expires_at", expireAfterSeconds=0)
     db.radiosoft_real_integrations.create_index("credential_hash", unique=True, sparse=True)
     db.radiosoft_real_integrations.create_index("pairing.code_hash", unique=True, sparse=True)
     for collection in (db.radiosoft_real_bills, db.radiosoft_real_people):
@@ -58,9 +59,17 @@ def create_indexes(db):
     db.email_change_history.create_index("challenge_id", unique=True)
     db.email_change_history.create_index([("user_id", ASCENDING), ("changed_at", -1)])
     db.shops.create_index("created_by")
+    # Build the replacement constraint BEFORE removing the legacy index. Existing
+    # linked memberships keep identical uniqueness; profile-only staff have no user.
     db.memberships.create_index(
-        [("shop_id", ASCENDING), ("user_id", ASCENDING), ("role", ASCENDING)], unique=True
+        [("shop_id", ASCENDING), ("user_id", ASCENDING), ("role", ASCENDING)],
+        unique=True,
+        name="linked_membership_unique",
+        partialFilterExpression={"user_id": {"$type": "string"}},
     )
+    if "shop_id_1_user_id_1_role_1" in db.memberships.index_information():
+        db.memberships.drop_index("shop_id_1_user_id_1_role_1")
+    db.memberships.create_index("login_invite.hash", unique=True, sparse=True)
     db.memberships.create_index([("user_id", ASCENDING), ("active", ASCENDING)])
     db.memberships.create_index([("shop_id", ASCENDING), ("role", ASCENDING), ("active", ASCENDING)])
     db.worker_profiles.create_index("membership_id", unique=True)

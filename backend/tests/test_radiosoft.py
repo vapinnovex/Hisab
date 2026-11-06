@@ -1,6 +1,7 @@
 """All examples are synthetic. No source database, shop IDs or production pairing."""
 
 import json
+import re
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
@@ -15,7 +16,7 @@ from pydantic import ValidationError
 from app.config import Settings
 from app.db import now
 from app.main import create_app
-from app.radiosoft import to_paise
+from app.radiosoft import secret_hash, to_paise
 
 CONNECTOR = "/api/radiosoft/connector"
 FIXTURE = json.loads((Path(__file__).parent / "fixtures/radiosoft-observation.json").read_text())
@@ -42,6 +43,7 @@ def pilot(client, setup_shop):
         == 200
     )
     code = client.post(base + "/pairing", headers=owner).json()["code"]
+    assert re.fullmatch(r"[0-9]{8}", code)
     credential = secrets.token_urlsafe(32)
     paired = client.post(CONNECTOR + "/pair", json={"code": code, "credential": credential})
     assert paired.status_code == 200, paired.text
@@ -129,6 +131,27 @@ def test_pairing_lost_response_expiry_reuse_and_revocation(client, pilot):
     assert client.post(p["base"] + "/revoke", headers=p["owner"]).status_code == 200
     assert send(client, p).status_code == 401
     assert client.post(CONNECTOR + "/pair", json=body).status_code == 401
+
+
+def test_outstanding_legacy_pairing_code_still_works(client, pilot):
+    p = pilot
+    legacy_code = secrets.token_urlsafe(24)
+    client.app.state.db.radiosoft_integrations.update_one(
+        {"_id": p["shop"]},
+        {
+            "$set": {
+                "pairing": {
+                    "code_hash": secret_hash(legacy_code),
+                    "expires_at": now() + timedelta(minutes=5),
+                }
+            }
+        },
+    )
+    response = client.post(
+        CONNECTOR + "/pair",
+        json={"code": legacy_code, "credential": secrets.token_urlsafe(32)},
+    )
+    assert response.status_code == 200, response.text
 
 
 def test_scope_permissions_and_tampering(client, pilot):

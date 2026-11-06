@@ -1,4 +1,5 @@
 import json
+import re
 from importlib.resources import files
 from urllib.parse import urlsplit
 
@@ -7,6 +8,18 @@ from jsonschema import Draft202012Validator, FormatChecker
 SCHEMA = json.loads(files("hishob_connector").joinpath("observation.schema.json").read_text())
 VALIDATOR = Draft202012Validator(SCHEMA, format_checker=FormatChecker())
 MAX_SEQUENCE = 9_007_199_254_740_991
+
+
+def normalize_pairing_code(value):
+    if not isinstance(value, str):
+        raise ValueError("Enter the eight-digit pairing code")
+    text = value.strip()
+    compact = re.sub(r"\s", "", text)
+    if re.fullmatch(r"[0-9]{8}", compact):
+        return compact
+    if re.fullmatch(r"[A-Za-z0-9_-]{32,100}", text):
+        return text
+    raise ValueError("Enter the eight-digit pairing code")
 
 
 def encoded(body):

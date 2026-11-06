@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Literal, Optional, Union
 
-from pydantic import AwareDatetime, Field, model_validator
+from pydantic import AwareDatetime, Field, field_validator, model_validator
 
 from .radiosoft_schemas import BillKey, Contract
 
@@ -142,4 +142,17 @@ class RealHealth(Contract):
 class Mapping(Contract):
     revision: int = Field(ge=0)
     worker_id: Optional[str] = Field(default=None, max_length=100)
-    reason: str = Field(min_length=2, max_length=500)
+    reason: str = Field(default="", max_length=500)
+    not_used: bool = False
+
+
+class RealPairRequest(Contract):
+    code: str = Field(min_length=8, max_length=100, repr=False)
+    credential: str = Field(min_length=43, max_length=100, pattern=r"^[A-Za-z0-9_-]+$", repr=False)
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def pairing_code(cls, value):
+        from .real_pairing import normalize_code
+
+        return normalize_code(value)

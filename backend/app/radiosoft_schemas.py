@@ -3,7 +3,7 @@
 from datetime import date
 from typing import Literal, Optional
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Contract(BaseModel):
@@ -19,8 +19,15 @@ class PilotSettings(Contract):
 
 
 class PairRequest(Contract):
-    code: str = Field(min_length=32, max_length=100, repr=False)
+    code: str = Field(min_length=8, max_length=100, repr=False)
     credential: str = Field(min_length=43, max_length=100, pattern=r"^[A-Za-z0-9_-]+$", repr=False)
+
+    @field_validator("code", mode="before")
+    @classmethod
+    def pairing_code(cls, value):
+        from .real_pairing import normalize_code
+
+        return normalize_code(value)
 
 
 class BillKey(Contract):

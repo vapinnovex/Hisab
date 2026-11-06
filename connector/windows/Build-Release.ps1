@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitProcess) { throw 'Build on Windows x64.' }
-$version = '0.1.0'
+$version = '0.2.0'
 $dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $root 'dist' }
 $build = Join-Path $root 'build'
 $mode = if ($RealDev) { 'REAL_DEV_DISPLAY_ONLY' } else { 'SYNTHETIC_LOOPBACK_ONLY' }
@@ -25,7 +25,7 @@ try {
     if ($RealDev) {
         & $Python @common --name HishobConnectorDev --console --hidden-import pyodbc --hidden-import win32timezone --hidden-import servicemanager --hidden-import win32service --hidden-import win32serviceutil real_entry.py
         if ($LASTEXITCODE -ne 0) { throw 'Real DEV build failed.' }
-        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-DevService.ps1') -Destination $release
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-DevService.ps1'),(Join-Path $PSScriptRoot 'Upgrade-DevService.ps1') -Destination $release
         foreach ($doc in @('SHOP-PC-DEV-SETUP.md','RADIOSOFT-REAL-BUSINESS-RULES.md','RADIOSOFT-REAL-IMPLEMENTATION.md')) {
             Copy-Item -LiteralPath (Join-Path $root "../docs/$doc") -Destination $release
         }
