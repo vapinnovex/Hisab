@@ -101,6 +101,138 @@ def test_signed_review_retry_and_history(client, setup_shop):
     assert db.receipts.count_documents({}) == 0
 
 
+def test_real_dev_collections_are_separate_idempotent_and_source_read_only(client, setup_shop):
+    path, auth, _ = configure(client, setup_shop)
+    owner, shop, _, worker_auth = setup_shop
+    body = envelope(net="1000.00")
+    assert send(client, auth, body).status_code == 200
+    bill = client.get(path + "/bills?business_date=2026-11-03", headers=owner).json()["bills"][0]
+    bill_id = bill["id"]
+    assert bill["collection_eligible"]
+    assert bill["collection_status"] == "AWAITING_COLLECTION"
+    assert bill["collection_outstanding_paise"] == 100000
+
+    url = path + f"/bills/{bill_id}/collections"
+    partial = {
+        "request_id": "real-partial-001",
+        "revision": 1,
+        "action": "RECEIVE",
+        "allocations": [{"method": "CASH", "amount_paise": 40000}],
+    }
+    recorded = client.post(url, headers=owner, json=partial)
+    assert recorded.status_code == 200, recorded.text
+    assert recorded.json()["collection_status"] == "PARTIAL"
+    assert recorded.json()["collection_outstanding_paise"] == 60000
+    assert client.post(url, headers=owner, json=partial).json()["collection_collected_paise"] == 40000
+
+    paid = {
+        "request_id": "real-mark-paid-001",
+        "revision": 2,
+        "action": "MARK_PAID",
+        "allocations": [],
+    }
+    result = client.post(url, headers=owner, json=paid)
+    assert result.status_code == 200, result.text
+    assert result.json()["collection_status"] == "PAID"
+    assert result.json()["collection_collected_paise"] == 100000
+    assert result.json()["collection_events"][-1]["allocations"] == [
+        {"method": "UNSPECIFIED", "amount_paise": 60000}
+    ]
+
+    db = client.app.state.db
+    source = db.radiosoft_real_bills.find_one({"_id": bill_id})
+    assert source["snapshot"]["net_amt"] == "1000.00"
+    assert source["events"] == [] and source["settlements"] == []
+    assert db.radiosoft_real_collections.count_documents({"shop_id": shop}) == 1
+    assert db.hishob_days.count_documents({"shop_id": shop}) == 0
+    assert client.post(url, headers=worker_auth, json=partial).status_code == 403
+    reverse = {
+        "request_id": "real-reverse-001",
+        "revision": 3,
+        "action": "REVERSE",
+        "allocations": [],
+        "collection_id": "real-mark-paid-001",
+        "reason": "Payment was assigned to the wrong bill",
+    }
+    reversed_result = client.post(url, headers=owner, json=reverse)
+    assert reversed_result.status_code == 200, reversed_result.text
+    assert reversed_result.json()["collection_status"] == "PARTIAL"
+    assert reversed_result.json()["collection_outstanding_paise"] == 60000
+
+
+def test_source_edit_keeps_real_collection_history_and_blocks_new_entries(client, setup_shop):
+    path, auth, _ = configure(client, setup_shop)
+    owner, _, _, _ = setup_shop
+    assert send(client, auth, envelope(net="1000.00")).status_code == 200
+    bill = client.get(path + "/bills?business_date=2026-11-03", headers=owner).json()["bills"][0]
+    url = path + f"/bills/{bill['id']}/collections"
+    receipt = {
+        "request_id": "source-edit-receipt",
+        "revision": 1,
+        "action": "RECEIVE",
+        "allocations": [{"method": "CASH", "amount_paise": 40000}],
+    }
+    assert client.post(url, headers=owner, json=receipt).status_code == 200
+    assert send(client, auth, envelope(2, "900.00")).status_code == 200
+    changed = client.get(path + "/bills?business_date=2026-11-03", headers=owner).json()["bills"][0]
+    assert changed["collection_status"] == "SOURCE_REVIEW"
+    assert changed["collection_collected_paise"] == 40000
+    assert not changed["collection_eligible"]
+    blocked = {
+        "request_id": "source-edit-receipt-2",
+        "revision": 2,
+        "action": "RECEIVE",
+        "allocations": [{"method": "CASH", "amount_paise": 10000}],
+    }
+    assert client.post(url, headers=owner, json=blocked).status_code == 409
+
+
+def test_real_collection_manager_grant_is_separate_from_view_and_corrections(client, setup_shop):
+    from conftest import login
+
+    path, auth, s = configure(client, setup_shop)
+    owner, shop, _, _ = setup_shop
+    created = client.post(
+        f"/api/shops/{shop}/managers",
+        headers=owner,
+        json={"name": "Counter manager", "mobile": "+919876543219"},
+    )
+    assert created.status_code == 201, created.text
+    manager = login(client, "+919876543219", "MANAGER")
+    response = client.post(
+        path + "/setup",
+        headers=owner,
+        json={
+            "scope": s.model_dump(mode="json"),
+            "confirm_source_and_scope": True,
+            "manager_view": True,
+            "manager_collect": True,
+            "manager_correct": False,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert client.get(path + "/status", headers=manager).json()["can_collect"]
+    assert send(client, auth, envelope(net="1000.00")).status_code == 200
+    bill = client.get(path + "/bills?business_date=2026-11-03", headers=owner).json()["bills"][0]
+    url = path + f"/bills/{bill['id']}/collections"
+    payload = {
+        "request_id": "manager-collection-001",
+        "revision": 1,
+        "action": "RECEIVE",
+        "allocations": [{"method": "UPI", "amount_paise": 50000}],
+    }
+    assert client.post(url, headers=manager, json=payload).status_code == 200
+    reversal = {
+        "request_id": "manager-reversal-001",
+        "revision": 2,
+        "action": "REVERSE",
+        "allocations": [],
+        "collection_id": "manager-collection-001",
+        "reason": "Entered on wrong bill",
+    }
+    assert client.post(url, headers=manager, json=reversal).status_code == 403
+
+
 def test_mapping_zero_directory_worker_isolation_and_frozen_history(client, setup_shop):
     path, auth, _ = configure(client, setup_shop)
     owner, _, worker, worker_auth = setup_shop

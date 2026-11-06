@@ -126,7 +126,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
         selected!.shop.settings.attendance_enabled &&
         selected!.permissions.view_hishob &&
         root !== 'Hishob' && <Stack.Screen name="MyAttendance" component={MyAttendance} />}
-      <Stack.Screen name="RadioSoftReal" component={RadioSoftReal} />
+      {root !== 'Hishob' && <Stack.Screen name="RadioSoftReal" component={RadioSoftReal} />}
       {session!.role !== 'WORKER' && (
         <>
           {root === 'Hishob' && selected!.permissions.view_hishob && (
@@ -145,8 +145,8 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
           )}
-          <Stack.Screen name="RadioSoftBills" component={RadioSoftBills} />
-          {session!.role === 'OWNER' && (
+          {root !== 'Hishob' && <Stack.Screen name="RadioSoftBills" component={RadioSoftBills} />}
+          {root !== 'Hishob' && session!.role === 'OWNER' && (
             <Stack.Screen name="RadioSoftSetup" component={RadioSoftSetup} />
           )}
           {selected!.shop.settings.attendance_enabled && (

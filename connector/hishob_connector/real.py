@@ -239,11 +239,11 @@ class RealStore(Store):
 
 
 class Poller:
-    """One directory page or <=5 bill keys per minute, day/scope keyset rotation.
+    """One directory page or <=5 bill keys per minute, prioritizing today's bills.
 
-    Full bounded date scope is revisited; a separate recent pass alternates with
-    historical passes. Checkpoint and observations commit together. Failures do
-    not advance the page, infer disappearance, or discard queued deliveries.
+    The current local business date is revisited separately from bounded history.
+    Checkpoint and observations commit together. Failures do not advance the page,
+    infer disappearance, or discard queued deliveries.
     """
 
     def __init__(self, store, reader):
@@ -281,7 +281,7 @@ class Poller:
             lower = (
                 max(
                     date.fromisoformat(b["capture_from"]),
-                    datetime.now(timezone.utc).date() - timedelta(days=2),
+                    date.today(),
                 )
                 if recent
                 else date.fromisoformat(b["capture_from"])

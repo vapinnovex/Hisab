@@ -21,8 +21,9 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
     data: { name: 'Mapped worker', mobile: '+919855555093' },
   });
   expect(workerResponse.ok()).toBeTruthy();
-  await page.getByRole('button', { name: 'Open account', exact: true }).click();
-  await page.getByRole('button', { name: 'RadioSoft bills (DEV)', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await expect(page.getByText('Tracking starts: 2026-11-03', { exact: true })).toBeVisible();
   await page.getByLabel('Confirm source scope and tracking date').click();
@@ -127,6 +128,48 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   await expect(page.getByText('Amount owed to customer: ₹61', { exact: true })).toBeVisible({
     timeout: 25000,
   });
+  expect(
+    (
+      await request.post(api + '/radiosoft/real-connector/observations', {
+        headers,
+        data: {
+          ...envelope,
+          sequence: 3,
+          kind: 'BILL',
+          people: [],
+          bill: {
+            key: { invoice_no: '2', fyear: '2026 - 2027', invoice_type: 0, firm_code: 0 },
+            business_date: '2026-11-03',
+            net_amt: '100.00',
+            raw_header: { NetAmt: '100.00' },
+            lines: [],
+          },
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.getByRole('button', { name: 'Open bill 2', exact: true }).click();
+  await page.getByLabel('Collection amount', { exact: true }).fill('25');
+  await page.getByRole('button', { name: 'Record partial / full collection', exact: true }).click();
+  const billDialog = page.getByRole('dialog');
+  await expect(billDialog.getByText('Partially paid', { exact: true })).toBeVisible({
+    timeout: 15000,
+  });
+  await expect(
+    billDialog.getByText('Source payable ₹100.00 · Recorded ₹25.00 · Remaining ₹75.00', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page
+    .getByRole('button', { name: 'Mark remaining balance paid (method not recorded)' })
+    .click();
+  await expect(billDialog.getByText('Paid', { exact: true })).toBeVisible({ timeout: 15000 });
+  await expect(
+    billDialog.getByText('Source payable ₹100.00 · Recorded ₹100.00 · Remaining ₹0.00', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Close bill', exact: true }).click();
   await page.screenshot({ path: 'test-results/real-bills.png', fullPage: true });
   await page.getByRole('button', { name: 'Open bill 1', exact: true }).click();
   await expect(
@@ -149,7 +192,9 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   await page.screenshot({ path: 'test-results/real-links.png', fullPage: true });
   await expect(page.getByRole('button', { name: 'Record payment', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /back/i }).first().click();
-  await page.getByRole('button', { name: 'RadioSoft bills (DEV)', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await page.getByRole('button', { name: 'Stop and revoke DEV connector', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Confirm revoke', exact: true })).toBeVisible();
@@ -178,11 +223,13 @@ test('status failure stays visible, retries, and access rejection hides protecte
     page.getByText('RadioSoft status is unavailable. Eligibility could not be checked.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'RadioSoft bills (DEV)', exact: true }),
+    page.getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true }),
   ).toHaveCount(0);
   failure = 0;
   await page.getByRole('button', { name: 'Retry RadioSoft status', exact: true }).click();
-  await page.getByRole('button', { name: 'RadioSoft bills (DEV)', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await expect(page.getByText('Tracking starts: 2026-11-03', { exact: true })).toBeVisible();
   failure = 503;
@@ -207,6 +254,6 @@ test('status failure stays visible, retries, and access rejection hides protecte
     page.getByText('RadioSoft preview access was rejected. No preview data is shown.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'RadioSoft bills (DEV)', exact: true }),
+    page.getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true }),
   ).toHaveCount(0);
 });

@@ -30,6 +30,16 @@ class Setup(Contract):
     confirm_source_and_scope: Literal[True]
     manager_view: bool = False
     manager_map: bool = False
+    manager_collect: bool = False
+    manager_correct: bool = False
+
+    @model_validator(mode="after")
+    def manager_collection_access(self):
+        if self.manager_collect and not self.manager_view:
+            raise ValueError("Managers who collect must also be allowed to view bills")
+        if self.manager_correct and not self.manager_collect:
+            raise ValueError("Managers who correct collections must also be allowed to collect")
+        return self
 
 
 class RealLine(Contract):

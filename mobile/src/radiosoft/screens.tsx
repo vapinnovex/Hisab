@@ -270,7 +270,7 @@ export function RadioSoftEntry() {
     <View style={{ gap: 10 }}>
       {resource.data.mode === 'PREVIEW' && resource.data.permissions.view && (
         <Button
-          title={t('Bills & Collections')}
+          title={t('Synthetic Bills & Collections')}
           secondary
           onPress={() => navigation.navigate('RadioSoftBills')}
         />
@@ -327,8 +327,12 @@ export function RadioSoftSetup() {
       ) : (
         <>
           <Card>
-            <Text style={styles.heading}>{t('RadioSoft → Hishob')}</Text>
-            <Text style={styles.small}>{t('Bills from RadioSoft. Collections in Hishob.')}</Text>
+            <Text style={styles.heading}>{t('Synthetic RadioSoft preview')}</Text>
+            <Text style={styles.small}>
+              {t(
+                'Synthetic sample bills and collections are separate from live RadioSoft and Hishob.',
+              )}
+            </Text>
             {config.mode === 'OFF' && (
               <Button
                 title={t('Enable synthetic preview')}
@@ -338,7 +342,7 @@ export function RadioSoftSetup() {
             )}
             {config.mode === 'PREVIEW' && (
               <Button
-                title={t('Bills & Collections')}
+                title={t('Synthetic Bills & Collections')}
                 onPress={() => navigation.navigate('RadioSoftBills')}
               />
             )}
@@ -1100,8 +1104,10 @@ export function RadioSoftBills() {
     <Page wide refresh={resource.refresh}>
       <View style={{ gap: 12 }}>
         <Heading
-          title={t('Bills & Collections')}
-          subtitle={t('Bills from RadioSoft. Collections in Hishob.')}
+          title={t('Synthetic Bills & Collections')}
+          subtitle={t(
+            'Sample bills and collections only. Separate from live RadioSoft and Hishob.',
+          )}
         />
         <Text style={radioStyles.preview}>
           {t('Synthetic preview — excluded from galla, customer dues and accounting.')}

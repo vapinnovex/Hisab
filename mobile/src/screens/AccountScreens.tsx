@@ -74,7 +74,7 @@ export function Profile() {
     : selected?.worker_name || t('Team member');
   return (
     <Page refresh={reload}>
-      <RealRadioSoftEntry />
+      {session?.role === 'WORKER' && <RealRadioSoftEntry />}
       <Heading
         title={t('Your account')}
         subtitle={t('A little about you. Everything for your shop.')}

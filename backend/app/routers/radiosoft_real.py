@@ -4,7 +4,8 @@ import re
 import secrets
 from datetime import date as Date
 from datetime import timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
+from zoneinfo import ZoneInfo
 
 from bson import BSON
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -16,7 +17,14 @@ from pymongo.write_concern import WriteConcern
 from ..db import get_db as application_db
 from ..db import now
 from ..radiosoft import digest, secret_hash
-from ..radiosoft_real_schemas import Mapping, RealHealth, RealObservation, RealPairRequest, Setup
+from ..radiosoft_real_schemas import (
+    Mapping,
+    RealHealth,
+    RealObservation,
+    RealPairRequest,
+    Setup,
+)
+from ..radiosoft_schemas import CollectionAction
 from ..real_pairing import pairing_attempt, pairing_hash
 from ..security import current_identity, shop_access, worker_in_shop
 from .radiosoft import connector_request
@@ -63,15 +71,19 @@ def access(request, db, shop_id, identity, permission="view"):
     allowed = (
         owner
         or (
-            permission in {"view", "map"}
-            and member["role"] in {"MANAGER", "ADMIN"}
+            permission in {"view", "map", "collect", "correct"}
+            and member["role"]
+            in ({"MANAGER"} if permission in {"collect", "correct"} else {"MANAGER", "ADMIN"})
             and config
             and config.get("manager_" + permission)
         )
         or (permission == "report" and member["role"] == "WORKER")
     )
     if permission == "status" and member["role"] in {"MANAGER", "ADMIN"}:
-        allowed = bool(config and (config.get("manager_view") or config.get("manager_map")))
+        allowed = bool(
+            config
+            and any(config.get("manager_" + delegated) for delegated in ("view", "map", "collect", "correct"))
+        )
     if permission == "report" and member["role"] in {"MANAGER", "ADMIN"}:
         allowed = bool(config and config.get("manager_view"))
     if not allowed:
@@ -95,12 +107,27 @@ def setup(
     _, s, old = access(request, db, shop_id, identity, "owner")
     if body.scope.model_dump(mode="json") != s:
         raise HTTPException(409, "Explicit confirmation must match the configured source, dates and scope")
-    audit = {"action": "SETUP_CONFIRMED", "actor_id": identity.user["_id"], "at": now(), "scope": s}
+    audit = {
+        "action": "SETUP_CONFIRMED",
+        "actor_id": identity.user["_id"],
+        "at": now(),
+        "scope": s,
+        "manager_view": body.manager_view,
+        "manager_map": body.manager_map,
+        "manager_collect": body.manager_collect,
+        "manager_correct": body.manager_correct,
+    }
     if old:
         db.radiosoft_real_integrations.update_one(
             {"_id": shop_id},
             {
-                "$set": {"enabled": True, "manager_view": body.manager_view, "manager_map": body.manager_map},
+                "$set": {
+                    "enabled": True,
+                    "manager_view": body.manager_view,
+                    "manager_map": body.manager_map,
+                    "manager_collect": body.manager_collect,
+                    "manager_correct": body.manager_correct,
+                },
                 "$push": {"audit": audit},
             },
         )
@@ -113,6 +140,8 @@ def setup(
                     "enabled": True,
                     "manager_view": body.manager_view,
                     "manager_map": body.manager_map,
+                    "manager_collect": body.manager_collect,
+                    "manager_correct": body.manager_correct,
                     "last_sequence": 0,
                     "audit": [audit],
                 }
@@ -404,11 +433,15 @@ def status(shop_id: str, request: Request, identity=Depends(current_identity), d
         else "OFFLINE",
         "can_map": bool(c and (identity.role == "OWNER" or c.get("manager_map"))),
         "can_view": bool(c and (identity.role == "OWNER" or c.get("manager_view"))),
+        "can_collect": bool(c and (identity.role == "OWNER" or c.get("manager_collect"))),
+        "can_correct": bool(c and (identity.role == "OWNER" or c.get("manager_correct"))),
         "scope": s,
         "enabled": c.get("enabled", False),
         "paired": bool(c.get("credential_hash")),
         "manager_view": bool(c.get("manager_view")),
         "manager_map": bool(c.get("manager_map")),
+        "manager_collect": bool(c.get("manager_collect")),
+        "manager_correct": bool(c.get("manager_correct")),
         "last_contact": c.get("last_contact"),
         "last_successful_sync": c.get("last_successful_sync"),
         "health": c.get("health"),
@@ -492,6 +525,168 @@ def mapping(
     return {"revision": body.revision + 1, "history_policy": "FUTURE_BILLS_ONLY"}
 
 
+REAL_COLLECTION_METHODS = ("CASH", "UPI", "CARD", "UNSPECIFIED")
+REAL_COLLECTION_ACTIONS = {"RECEIVE", "MARK_PAID", "RECLASSIFY", "REVERSE", "NOTE"}
+
+
+def effective_real_collections(ledger):
+    receipts = {}
+    for event in ledger.get("events", []):
+        if event["action"] in {"RECEIVE", "MARK_PAID"}:
+            receipts[event["id"]] = {**event, "reversed": False}
+        elif event["action"] == "RECLASSIFY":
+            receipts[event["collection_id"]]["allocations"] = event["allocations"]
+        elif event["action"] == "REVERSE":
+            receipts[event["collection_id"]]["reversed"] = True
+    return list(receipts.values())
+
+
+def collection_state(bill, c, ledger=None):
+    snapshot = bill["snapshot"]
+    net = Decimal(snapshot["net_amt"]) if snapshot["net_amt"] is not None else None
+    amount = net * 100 if net is not None else None
+    payable = (
+        int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        if amount is not None and 0 < amount <= 1_000_000_000_000
+        else None
+    )
+    events = (ledger or {}).get("events", [])
+    receipts = effective_real_collections(ledger or {})
+    totals = {method: 0 for method in REAL_COLLECTION_METHODS}
+    for receipt in receipts:
+        if not receipt["reversed"]:
+            for allocation in receipt["allocations"]:
+                totals[allocation["method"]] += allocation["amount_paise"]
+    collected = sum(totals.values())
+    outstanding = payable - collected if payable is not None else None
+    historical = snapshot["business_date"] < c["scope"]["tracking_from"]
+    source_changed = len(bill["versions"]) > 1
+    eligible = payable is not None and not historical and not source_changed
+    status = (
+        "SOURCE_REVIEW"
+        if source_changed
+        else "HISTORICAL_REVIEW"
+        if historical
+        else "AMOUNT_REVIEW"
+        if payable is None or payable <= 0 or payable > 1_000_000_000_000
+        else "OVERCOLLECTED"
+        if outstanding < 0
+        else "PAID"
+        if outstanding == 0
+        else "PARTIAL"
+        if collected > 0
+        else "AWAITING_COLLECTION"
+    )
+    state = {
+        "collection_revision": (ledger or {}).get("revision", 1),
+        "collection_status": status,
+        "collection_payable_paise": payable,
+        "collection_collected_paise": collected,
+        "collection_outstanding_paise": outstanding,
+        "collection_method_totals": totals,
+        "collection_eligible": eligible,
+        "collection_events": [
+            {
+                key: receipt[key]
+                for key in ("id", "action", "allocations", "reversed", "at", "business_date", "actor_role")
+                if key in receipt
+            }
+            for receipt in receipts
+        ],
+        "collection_notes": [
+            {"id": event["id"], "text": event["note"], "at": event["at"]}
+            for event in events
+            if event["action"] == "NOTE"
+        ],
+    }
+    return state
+
+
+def apply_real_collection(db, bill, c, body, identity, shop):
+    if body.action not in REAL_COLLECTION_ACTIONS:
+        raise HTTPException(422, "This action is not available in the real DEV collection register")
+    ledger_id = bill["_id"]
+    ledger = db.radiosoft_real_collections.find_one({"_id": ledger_id})
+    revision = ledger["revision"] if ledger else 1
+    events = list((ledger or {}).get("events", []))
+    fingerprint = digest(body.model_dump(mode="json"))
+    for event in events:
+        if event["request_id"] == body.request_id:
+            if event["request_digest"] != fingerprint or event["actor_id"] != identity.user["_id"]:
+                raise HTTPException(409, "Request ID already used for another action")
+            return {**view(bill, c), **collection_state(bill, c, ledger)}
+    if body.revision != revision:
+        raise HTTPException(409, "Collection record changed. Refresh before retrying.")
+    state = collection_state(bill, c, ledger)
+    if body.action != "NOTE" and not state["collection_eligible"]:
+        raise HTTPException(409, "This bill is historical, changed, or has an ineligible source amount")
+    allocations = [allocation.model_dump() for allocation in body.allocations]
+    if body.action in {"RECEIVE", "MARK_PAID"}:
+        outstanding = state["collection_outstanding_paise"]
+        if outstanding is None or outstanding <= 0:
+            raise HTTPException(409, "This bill has no eligible outstanding balance")
+        if body.action == "MARK_PAID":
+            allocations = [{"method": "UNSPECIFIED", "amount_paise": outstanding}]
+        amount = sum(allocation["amount_paise"] for allocation in allocations)
+        if amount <= 0 or amount > outstanding:
+            raise HTTPException(409, "Collection must not exceed the current outstanding amount")
+    elif body.action == "RECLASSIFY":
+        receipt = next(
+            (r for r in effective_real_collections(ledger or {}) if r["id"] == body.collection_id), None
+        )
+        if not receipt or receipt["reversed"]:
+            raise HTTPException(409, "Collection not found or already reversed")
+        if not any(item["method"] == "UNSPECIFIED" for item in receipt["allocations"]):
+            raise HTTPException(409, "Only unspecified receipts can be assigned a method")
+        if sum(item["amount_paise"] for item in allocations) != sum(
+            item["amount_paise"] for item in receipt["allocations"]
+        ):
+            raise HTTPException(409, "Reclassification must preserve the receipt amount")
+    elif body.action == "REVERSE":
+        receipt = next(
+            (r for r in effective_real_collections(ledger or {}) if r["id"] == body.collection_id), None
+        )
+        if not receipt or receipt["reversed"]:
+            raise HTTPException(409, "Collection not found or already reversed")
+    event = {
+        **body.model_dump(mode="json"),
+        "id": body.request_id,
+        "allocations": allocations,
+        "request_digest": fingerprint,
+        "actor_id": identity.user["_id"],
+        "actor_role": identity.role,
+        "at": now(),
+        "business_date": now().astimezone(ZoneInfo(shop["timezone"])).date().isoformat(),
+        "source_sequence": bill["sequence"],
+        "source_snapshot_digest": digest(bill["snapshot"]),
+    }
+    events.append(event)
+    replacement = {
+        "_id": ledger_id,
+        "shop_id": c["_id"],
+        "source_id": c["scope"]["source_id"],
+        "generation": c["scope"]["generation"],
+        "business_date": event["business_date"],
+        "revision": revision + 1,
+        "events": events,
+        "updated_at": now(),
+    }
+    if len(BSON.encode(replacement)) > 8_000_000:
+        raise HTTPException(409, "DEV collection history capacity reached; existing history was retained")
+    if ledger:
+        saved = db.radiosoft_real_collections.replace_one(
+            {"_id": ledger_id, "revision": revision}, replacement
+        )
+        if not saved.modified_count:
+            raise HTTPException(409, "Collection changed concurrently. Refresh and retry.")
+    else:
+        try:
+            db.radiosoft_real_collections.insert_one(replacement)
+        except DuplicateKeyError:
+            raise HTTPException(409, "Collection changed concurrently. Refresh and retry.")
+    return {**view(bill, c), **collection_state(bill, c, replacement)}
+
+
 def view(bill, c):
     snapshot = bill["snapshot"]
     payable = Decimal(snapshot["net_amt"]) if snapshot["net_amt"] is not None else None
@@ -521,21 +716,73 @@ def bills(
     limit: int = Query(50, ge=1, le=100),
     business_date: Date = None,
     search: str = Query("", max_length=100),
+    collection_status: str = Query("ALL", pattern="^(ALL|PENDING|PARTIAL|PAID|REVIEW)$"),
     identity=Depends(current_identity),
     db=Depends(get_db),
 ):
     _, _, c = access(request, db, shop_id, identity)
     if not c:
         return {"bills": [], "next_cursor": None}
-    query = {**source_query(c), "_id": {"$gt": after}}
+    query = source_query(c)
     if business_date:
         query["snapshot.business_date"] = str(business_date)
     if search.strip():
         query["snapshot.key.invoice_no"] = {"$regex": re.escape(search.strip()), "$options": "i"}
-    rows = list(db.radiosoft_real_bills.find(query).sort("_id", 1).limit(limit + 1))
+    rows = list(db.radiosoft_real_bills.find(query).sort("_id", 1).limit(2001))
+    if len(rows) > 2000:
+        raise HTTPException(422, "Narrow the date or bill-number search to review this DEV register")
+    ledgers = {
+        row["_id"]: row
+        for row in db.radiosoft_real_collections.find(
+            {"_id": {"$in": [bill["_id"] for bill in rows]}, **source_query(c)}
+        )
+    }
+    views = [{**view(bill, c), **collection_state(bill, c, ledgers.get(bill["_id"]))} for bill in rows]
+    counts = {"PENDING": 0, "PARTIAL": 0, "PAID": 0, "REVIEW": 0, "ALL": len(views)}
+    for row in views:
+        if row["collection_status"] in {"AWAITING_COLLECTION", "PARTIAL"}:
+            counts["PENDING"] += 1
+        if row["collection_status"] == "PARTIAL":
+            counts["PARTIAL"] += 1
+        elif row["collection_status"] == "PAID":
+            counts["PAID"] += 1
+        elif row["collection_status"] not in {"AWAITING_COLLECTION"}:
+            counts["REVIEW"] += 1
+    summary = {
+        "bill_count": len(views),
+        "eligible_bill_count": sum(row["collection_eligible"] for row in views),
+        "payable_paise": sum(
+            row["collection_payable_paise"] or 0 for row in views if row["collection_eligible"]
+        ),
+        "collected_paise": sum(
+            row["collection_collected_paise"] for row in views if row["collection_eligible"]
+        ),
+        "outstanding_paise": sum(
+            max(row["collection_outstanding_paise"] or 0, 0) for row in views if row["collection_eligible"]
+        ),
+    }
+    matching = [
+        row
+        for row in views
+        if collection_status == "ALL"
+        or (collection_status == "PENDING" and row["collection_status"] in {"AWAITING_COLLECTION", "PARTIAL"})
+        or row["collection_status"] == collection_status
+        or (
+            collection_status == "REVIEW"
+            and row["collection_status"] not in {"AWAITING_COLLECTION", "PARTIAL", "PAID"}
+        )
+    ]
+    ids = [row["id"] for row in matching]
+    if after:
+        if after not in ids:
+            raise HTTPException(409, "Bill list changed. Return to the first page.")
+        matching = matching[ids.index(after) + 1 :]
+    page = matching[:limit]
     return {
-        "bills": [view(b, c) for b in rows[:limit]],
-        "next_cursor": rows[limit - 1]["_id"] if len(rows) > limit else None,
+        "bills": page,
+        "next_cursor": page[-1]["id"] if len(matching) > limit else None,
+        "counts": counts,
+        "summary": summary,
     }
 
 
@@ -547,11 +794,14 @@ def bill_detail(
     bill = db.radiosoft_real_bills.find_one({"_id": bill_id, **source_query(c)}) if c else None
     if not bill:
         raise HTTPException(404, "Imported bill not found")
-    result = view(bill, c)
+    ledger = db.radiosoft_real_collections.find_one({"_id": bill_id, **source_query(c)})
+    result = {**view(bill, c), **collection_state(bill, c, ledger)}
     result["attribution"] = bill["attribution"]
     for line in result["lines"]:
         worker = bill["attribution"].get(line["salesperson_ref"], {}).get("worker_id")
-        member = db.memberships.find_one({"_id": worker, "shop_id": shop_id, "role": "WORKER"}) if worker else None
+        member = (
+            db.memberships.find_one({"_id": worker, "shop_id": shop_id, "role": "WORKER"}) if worker else None
+        )
         if member:
             from .shops import worker_view
 
@@ -559,6 +809,27 @@ def bill_detail(
         else:
             line["worker_name"] = None
     return result
+
+
+@router.post(shop_path + "/bills/{bill_id}/collections")
+def collect_real_bill(
+    shop_id: str,
+    bill_id: str,
+    body: CollectionAction,
+    request: Request,
+    identity=Depends(current_identity),
+    db=Depends(get_db),
+):
+    permission = (
+        "correct" if body.action in {"RECLASSIFY", "REVERSE", "WAIVE", "REVERSE_WAIVER"} else "collect"
+    )
+    _, _, c = access(request, db, shop_id, identity, permission)
+    access(request, db, shop_id, identity, "view")
+    shop = db.shops.find_one({"_id": shop_id})
+    bill = db.radiosoft_real_bills.find_one({"_id": bill_id, **source_query(c)}) if c else None
+    if not bill:
+        raise HTTPException(404, "Imported bill not found")
+    return apply_real_collection(db, bill, c, body, identity, shop)
 
 
 @router.get(shop_path + "/worker-sales")

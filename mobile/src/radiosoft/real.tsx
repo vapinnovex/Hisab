@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { ApiError } from '../api';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../auth';
@@ -8,6 +9,7 @@ import { useAction, useResource } from '../hooks';
 import { Routes, Worker } from '../types';
 import { t, useLocale } from '../i18n';
 import { Button, Card, ErrorText, Field, Heading, Page, styles } from '../components/ui';
+import { useUnsavedChanges } from '../pwa';
 
 type Scope = {
   source_id: string;
@@ -23,11 +25,15 @@ type Status = {
   connection: string;
   can_map: boolean;
   can_view: boolean;
+  can_collect: boolean;
+  can_correct: boolean;
   scope: Scope;
   enabled: boolean;
   paired: boolean;
   manager_view: boolean;
   manager_map: boolean;
+  manager_collect: boolean;
+  manager_correct: boolean;
   last_contact: string | null;
   last_successful_sync: string | null;
   health: {
@@ -58,6 +64,22 @@ type Bill = {
   signed_source_payable: string | null;
   owed_to_customer: string | null;
   settlement_status: string;
+  collection_revision: number;
+  collection_status: string;
+  collection_payable_paise: number | null;
+  collection_collected_paise: number;
+  collection_outstanding_paise: number | null;
+  collection_method_totals: Record<string, number>;
+  collection_eligible: boolean;
+  collection_events: {
+    id: string;
+    action: string;
+    allocations: { method: string; amount_paise: number }[];
+    reversed: boolean;
+    at: string;
+    actor_role: string;
+  }[];
+  collection_notes?: { id: string; text: string; at: string }[];
   historical: boolean;
   source_changed: boolean;
   lines?: {
@@ -79,7 +101,7 @@ type Report = {
   policy: string;
 };
 const denied = (status?: number) => status === 401 || status === 403;
-const entryTitle = 'RadioSoft bills (DEV)';
+const entryTitle = 'Live RadioSoft bills & collections (DEV)';
 
 export function RealRadioSoftEntry() {
   useLocale();
@@ -138,17 +160,32 @@ function shopDate(timezone: string, offset = 0) {
   date.setUTCDate(date.getUTCDate() + offset);
   return date.toISOString().slice(0, 10);
 }
-function sourceSummary(status: Status) {
+function sourceSummary(status: Status, timezone: string) {
   if (!status.enabled) return t('DEV connector is disabled. Open Connection settings to resume.');
   if (!status.paired) return t('PC is unpaired. Open Connection settings to pair it.');
   if (status.connection === 'OFFLINE')
     return t('PC is disconnected. Check the shop PC and internet connection.');
   if (status.health?.status && status.health.status !== 'OK')
     return t('Source read failed or is incomplete. Open Connection settings for details.');
+  const today = shopDate(timezone);
+  if (today < status.scope.capture_from)
+    return t('Live capture starts on {0}.', [status.scope.capture_from]);
+  if (today >= status.scope.capture_until)
+    return t(
+      'Today is outside the approved capture window (ends {0}, exclusive). Ask the DEV administrator to extend it.',
+      [status.scope.capture_until],
+    );
   const last = status.health?.last_successful_source_read;
   if (!last) return t('Waiting for the first successful source read.');
   const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(last)) / 60000));
-  return t('Last source read {0} minutes ago. Imports may still be partial.', [minutes]);
+  const uploaded = status.last_successful_sync
+    ? `${Math.max(0, Math.floor((Date.now() - Date.parse(status.last_successful_sync)) / 60000))} min ago`
+    : t('Never');
+  return t('PC read {0} min ago · last server upload: {1} · {2} queued. Bills may be partial.', [
+    minutes,
+    uploaded,
+    status.health?.pending_observations ?? 0,
+  ]);
 }
 export function RadioSoftReal() {
   const { selected, session } = useAuth();
@@ -186,7 +223,7 @@ function RealPreview() {
     <Page>
       <Heading
         title={t(worker ? 'My attributed sales (DEV)' : entryTitle)}
-        subtitle={t('Real source preview. Financial actions are unavailable.')}
+        subtitle={t('RadioSoft stays read-only. DEV collections are saved separately in Hishob.')}
       />
       {!worker && (
         <>
@@ -211,7 +248,7 @@ function RealPreview() {
             </Text>
           )}
           <ErrorText message={status.error} />
-          {status.data && <Text>{sourceSummary(status.data)}</Text>}
+          {status.data && <Text>{sourceSummary(status.data, selected!.shop.timezone)}</Text>}
         </>
       )}
       {!worker && section === 'bills' && status.data?.can_view && (
@@ -235,11 +272,13 @@ function RealPreview() {
       {!worker && section === 'bills' && status.data?.can_view && (
         <Button title={t('Attributed item sales')} secondary onPress={() => setSection('report')} />
       )}
-      <Text style={styles.small}>
-        {t(
-          'Separate from synthetic Bills & Collections. Imported amounts are not proof of payment or debt.',
-        )}
-      </Text>
+      {!worker && (
+        <Text style={styles.small}>
+          {t(
+            'RadioSoft is never changed. Collection records stay in a separate Hishob DEV register, not the cashbook.',
+          )}
+        </Text>
+      )}
     </Page>
   );
 }
@@ -262,14 +301,30 @@ function Bills({
   const [draftSearch, setDraftSearch] = useState('');
   const [after, setAfter] = useState('');
   const [billId, setBillId] = useState<string | null>(null);
-  const bills = useResource<{ bills: Bill[]; next_cursor: string | null }>(
-    `${base}/bills?business_date=${encodeURIComponent(date)}&search=${encodeURIComponent(search)}&after=${encodeURIComponent(after)}`,
+  const [queue, setQueue] = useState<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW'>('ALL');
+  const bills = useResource<{
+    bills: Bill[];
+    next_cursor: string | null;
+    counts: Record<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW', number>;
+    summary: {
+      bill_count: number;
+      eligible_bill_count: number;
+      payable_paise: number;
+      collected_paise: number;
+      outstanding_paise: number;
+    };
+  }>(
+    `${base}/bills?business_date=${encodeURIComponent(date)}&search=${encodeURIComponent(search)}&collection_status=${queue}&after=${encodeURIComponent(after)}`,
     15000,
   );
   const directory = useResource<Directory>(base + '/salespeople', 15000, status.can_map);
   const applyDate = (value: string) => {
     setDate(value);
     setDraftDate(value);
+    setAfter('');
+  };
+  const applyQueue = (value: typeof queue) => {
+    setQueue(value);
     setAfter('');
   };
   const needs = directory.data?.people.filter(
@@ -302,6 +357,29 @@ function Bills({
           <Button title={t('Manage links')} secondary onPress={onLinks} />
         </Card>
       )}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {(['ALL', 'PENDING', 'PARTIAL', 'PAID', 'REVIEW'] as const).map((value) => (
+          <Button
+            key={value}
+            title={t('{0} ({1})', [
+              t(
+                value === 'ALL'
+                  ? 'All bills'
+                  : value === 'PENDING'
+                    ? 'Pending'
+                    : value === 'PARTIAL'
+                      ? 'Partially paid'
+                      : value === 'PAID'
+                        ? 'Paid'
+                        : 'Needs review',
+              ),
+              bills.data?.counts[value] ?? '…',
+            ])}
+            secondary={queue !== value}
+            onPress={() => applyQueue(value)}
+          />
+        ))}
+      </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Button title={t('Today')} secondary onPress={() => applyDate(shopDate(timezone))} />
         <Button
@@ -321,8 +399,27 @@ function Bills({
         }}
       />
       <Text style={styles.small}>
-        {t('Imported bills only. This is not a complete daily sales total.')}
+        {t(
+          'RadioSoft is read-only. Collections below are local DEV test records; they do not update RadioSoft or Hishob cashbook totals.',
+        )}
       </Text>
+      {bills.data && (
+        <Card>
+          <Text style={styles.heading}>{t('Selected date collection summary')}</Text>
+          <Text>
+            {t('Eligible bills: {0} · Source total: {1}', [
+              bills.data.summary.eligible_bill_count,
+              moneyPaise(bills.data.summary.payable_paise),
+            ])}
+          </Text>
+          <Text>
+            {t('Recorded here: {0} · Remaining: {1}', [
+              moneyPaise(bills.data.summary.collected_paise),
+              moneyPaise(bills.data.summary.outstanding_paise),
+            ])}
+          </Text>
+        </Card>
+      )}
       <ErrorText message={bills.error} />
       {!!bills.error && bills.data && (
         <Text>{t('Could not refresh. These imported bills may be stale.')}</Text>
@@ -337,7 +434,7 @@ function Bills({
                 : 'No imported bills for this date yet.',
             )}
           </Text>
-          <Text>{sourceSummary(status)}</Text>
+          <Text>{sourceSummary(status, timezone)}</Text>
         </Card>
       )}
       {bills.data?.bills.map((bill) => (
@@ -348,7 +445,13 @@ function Bills({
             {bill.source_time_raw ? ` · ${bill.source_time_raw}` : ''}
           </Text>
           <BillAmount bill={bill} />
-          <Text>{t(bill.historical ? 'Historical review' : 'Review only')}</Text>
+          <Text>{t(collectionLabel(bill.collection_status))}</Text>
+          <Text>
+            {t('Recorded {0} · Remaining {1}', [
+              moneyPaise(bill.collection_collected_paise),
+              moneyPaise(bill.collection_outstanding_paise),
+            ])}
+          </Text>
           {bill.source_changed && <Text>{t('Source edited; review the updated amount.')}</Text>}
           <Button
             title={t('Open bill {0}', [bill.key.invoice_no])}
@@ -361,8 +464,33 @@ function Bills({
       {bills.data?.next_cursor && (
         <Button title={t('Next bills')} onPress={() => setAfter(bills.data!.next_cursor!)} />
       )}
-      {billId && <BillDetail base={base} id={billId} close={() => setBillId(null)} />}
+      {billId && (
+        <BillDetail
+          base={base}
+          id={billId}
+          canCollect={status.can_collect}
+          canCorrect={status.can_correct}
+          refresh={bills.refresh}
+          close={() => setBillId(null)}
+        />
+      )}
     </>
+  );
+}
+function moneyPaise(value: number | null) {
+  return value === null ? t('Needs amount review') : `₹${(value / 100).toFixed(2)}`;
+}
+function collectionLabel(status: string) {
+  return (
+    {
+      AWAITING_COLLECTION: 'Pending',
+      PARTIAL: 'Partially paid',
+      PAID: 'Paid',
+      OVERCOLLECTED: 'Excess / adjustment to review',
+      HISTORICAL_REVIEW: 'Historical bill — review',
+      AMOUNT_REVIEW: 'Needs amount review',
+      SOURCE_REVIEW: 'Source changed — review before collection',
+    }[status] || status
   );
 }
 function BillAmount({ bill }: { bill: Bill }) {
@@ -376,7 +504,21 @@ function BillAmount({ bill }: { bill: Bill }) {
     </Text>
   );
 }
-function BillDetail({ base, id, close }: { base: string; id: string; close: () => void }) {
+function BillDetail({
+  base,
+  id,
+  canCollect,
+  canCorrect,
+  refresh,
+  close,
+}: {
+  base: string;
+  id: string;
+  canCollect: boolean;
+  canCorrect: boolean;
+  refresh: () => Promise<void>;
+  close: () => void;
+}) {
   const detail = useResource<Bill>(`${base}/bills/${id}`, 15000);
   return (
     <Modal visible onRequestClose={close} animationType="slide">
@@ -395,6 +537,31 @@ function BillDetail({ base, id, close }: { base: string; id: string; close: () =
               subtitle={detail.data.business_date}
             />
             <BillAmount bill={detail.data} />
+            <Card>
+              <Text style={styles.heading}>{t('DEV collection register')}</Text>
+              <Text>{t(collectionLabel(detail.data.collection_status))}</Text>
+              <Text>
+                {t('Source payable {0} · Recorded {1} · Remaining {2}', [
+                  moneyPaise(detail.data.collection_payable_paise),
+                  moneyPaise(detail.data.collection_collected_paise),
+                  moneyPaise(detail.data.collection_outstanding_paise),
+                ])}
+              </Text>
+              <Text style={styles.small}>
+                {t(
+                  'Entries are stored in Hishob DEV only. They are not written to RadioSoft or the cashbook.',
+                )}
+              </Text>
+            </Card>
+            <RealCollectionEditor
+              base={base}
+              bill={detail.data}
+              canCollect={canCollect}
+              canCorrect={canCorrect}
+              refresh={async () => {
+                await Promise.all([detail.refresh(), refresh()]);
+              }}
+            />
             <Text>
               {t(
                 'Review only. Source item amounts are provisional; discounts, rounding and exchanges remain unallocated.',
@@ -432,6 +599,185 @@ function BillDetail({ base, id, close }: { base: string; id: string; close: () =
       </ScrollView>
     </Modal>
   );
+}
+function RealCollectionEditor({
+  base,
+  bill,
+  canCollect,
+  canCorrect,
+  refresh,
+}: {
+  base: string;
+  bill: Bill;
+  canCollect: boolean;
+  canCorrect: boolean;
+  refresh: () => Promise<void>;
+}) {
+  const { api } = useAuth();
+  const action = useAction();
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [reason, setReason] = useState('');
+  const pending = useRef<Record<string, unknown> | null>(null);
+  const [uncertain, setUncertain] = useState(false);
+  useUnsavedChanges(uncertain);
+  const send = (kind: 'RECEIVE' | 'MARK_PAID' | 'REVERSE', receiptId?: string) =>
+    void action.run(async () => {
+      if (!pending.current) {
+        const requestId = `real_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        const body: Record<string, unknown> = {
+          request_id: requestId,
+          revision: bill.collection_revision,
+          action: kind,
+          allocations:
+            kind === 'RECEIVE' ? [{ method, amount_paise: parseCollectionAmount(amount) }] : [],
+        };
+        if (kind === 'REVERSE') {
+          body.collection_id = receiptId;
+          body.reason = reason.trim();
+        }
+        pending.current = body;
+      }
+      setUncertain(true);
+      try {
+        await api(`${base}/bills/${bill.id}/collections`, pending.current, 'POST');
+        pending.current = null;
+        setUncertain(false);
+        setAmount('');
+        setReason('');
+      } catch (error) {
+        if (error instanceof ApiError && error.status < 500) {
+          pending.current = null;
+          setUncertain(false);
+        }
+        throw error;
+      } finally {
+        await refresh();
+      }
+    });
+  let amountValid = false;
+  let amountPaise = 0;
+  try {
+    amountPaise = parseCollectionAmount(amount);
+    amountValid = true;
+  } catch {
+    amountValid = false;
+  }
+  const eligible = bill.collection_eligible && (bill.collection_outstanding_paise ?? 0) > 0;
+  return (
+    <View style={{ gap: 10 }}>
+      <ErrorText message={action.error} />
+      {canCollect && eligible && (
+        <>
+          <Text style={styles.heading}>{t('Record a collection')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['CASH', 'UPI', 'CARD'] as const).map((value) => (
+              <Button
+                key={value}
+                title={t(value === 'CASH' ? 'Cash' : value)}
+                secondary={method !== value}
+                disabled={uncertain || action.busy}
+                onPress={() => setMethod(value)}
+              />
+            ))}
+          </View>
+          <Field
+            label={t('Collection amount')}
+            value={amount}
+            keyboardType="decimal-pad"
+            editable={!uncertain && !action.busy}
+            onChangeText={setAmount}
+          />
+          <Button
+            title={t('Record partial / full collection')}
+            disabled={
+              !amountValid ||
+              amountPaise <= 0 ||
+              amountPaise > (bill.collection_outstanding_paise ?? 0) ||
+              uncertain
+            }
+            busy={action.busy}
+            onPress={() => send('RECEIVE')}
+          />
+          <Button
+            title={t('Mark remaining balance paid (method not recorded)')}
+            secondary
+            disabled={uncertain}
+            busy={action.busy}
+            onPress={() => send('MARK_PAID')}
+          />
+        </>
+      )}
+      {!bill.collection_eligible && (
+        <Text style={styles.small}>
+          {t(
+            'Collection entry is blocked: only unchanged, positive, in-period bills can be recorded.',
+          )}
+        </Text>
+      )}
+      {uncertain && (
+        <Button
+          title={t('Retry the same request')}
+          busy={action.busy}
+          onPress={() =>
+            send((pending.current?.action as 'RECEIVE' | 'MARK_PAID' | 'REVERSE') || 'RECEIVE')
+          }
+        />
+      )}
+      {!!bill.collection_events.length && (
+        <View style={{ gap: 8 }}>
+          <Text style={styles.heading}>{t('Collection history')}</Text>
+          {bill.collection_events.map((receipt) => (
+            <Card key={receipt.id}>
+              <Text>
+                {receipt.action === 'MARK_PAID'
+                  ? t('Marked paid · method not recorded')
+                  : t('Collected {0}', [
+                      moneyPaise(
+                        receipt.allocations.reduce((sum, item) => sum + item.amount_paise, 0),
+                      ),
+                    ])}
+                {receipt.reversed ? ` · ${t('Reversed')}` : ''}
+              </Text>
+              {receipt.allocations.map((allocation, index) => (
+                <Text key={index} style={styles.small}>
+                  {t(
+                    allocation.method === 'UNSPECIFIED' ? 'Method not recorded' : allocation.method,
+                  )}{' '}
+                  · {moneyPaise(allocation.amount_paise)}
+                </Text>
+              ))}
+              <Text style={styles.small}>{new Date(receipt.at).toLocaleString()}</Text>
+              {canCorrect && !receipt.reversed && (
+                <>
+                  <Field
+                    label={t('Correction reason')}
+                    value={reason}
+                    editable={!uncertain && !action.busy}
+                    onChangeText={setReason}
+                    maxLength={500}
+                  />
+                  <Button
+                    title={t('Reverse collection')}
+                    secondary
+                    disabled={reason.trim().length < 2 || uncertain}
+                    busy={action.busy}
+                    onPress={() => send('REVERSE', receipt.id)}
+                  />
+                </>
+              )}
+            </Card>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+function parseCollectionAmount(value: string) {
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(value))
+    throw new Error(t('Enter a valid amount with up to two decimal places.'));
+  const [whole, fraction = ''] = value.split('.');
+  return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
 }
 function Links({ base }: { base: string }) {
   const directory = useResource<Directory>(base + '/salespeople', 15000);
@@ -706,6 +1052,8 @@ function Connection({
   const [confirmed, setConfirmed] = useState(false);
   const [managerView, setManagerView] = useState(status.manager_view);
   const [managerMap, setManagerMap] = useState(status.manager_map);
+  const [managerCollect, setManagerCollect] = useState(status.manager_collect);
+  const [managerCorrect, setManagerCorrect] = useState(status.manager_correct);
   const [showBinding, setShowBinding] = useState(false);
   const [revoke, setRevoke] = useState(false);
   const [pairing, setPairing] = useState<{ code: string; expires_at: string } | null>(null);
@@ -775,7 +1123,9 @@ function Connection({
               <Switch
                 accessibilityLabel={t('Manager view')}
                 value={managerView}
-                onValueChange={setManagerView}
+                onValueChange={(value) => {
+                  setManagerView(value || managerCollect || managerCorrect);
+                }}
               />
               <Text>{t('Allow managers to link salespeople')}</Text>
               <Switch
@@ -783,6 +1133,33 @@ function Connection({
                 value={managerMap}
                 onValueChange={setManagerMap}
               />
+              <Text>{t('Allow managers to record full and partial DEV collections')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager collections')}
+                value={managerCollect}
+                onValueChange={(value) => {
+                  setManagerCollect(value);
+                  if (value) setManagerView(true);
+                  else setManagerCorrect(false);
+                }}
+              />
+              <Text>{t('Allow managers to reverse or correct collection entries')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager collection corrections')}
+                value={managerCorrect}
+                onValueChange={(value) => {
+                  setManagerCorrect(value);
+                  if (value) {
+                    setManagerCollect(true);
+                    setManagerView(true);
+                  }
+                }}
+              />
+              <Text style={styles.small}>
+                {t(
+                  'These entries stay in Hishob DEV; nothing is sent to RadioSoft or the cashbook.',
+                )}
+              </Text>
               <Button
                 title={t('Confirm DEV setup')}
                 disabled={!confirmed}
@@ -796,6 +1173,8 @@ function Connection({
                         confirm_source_and_scope: true,
                         manager_view: managerView,
                         manager_map: managerMap,
+                        manager_collect: managerCollect,
+                        manager_correct: managerCorrect,
                       },
                       'POST',
                     );

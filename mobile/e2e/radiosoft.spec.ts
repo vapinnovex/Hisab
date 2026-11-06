@@ -14,9 +14,9 @@ test('synthetic setup, pairing, backend polling, collections, stale warning and 
   await page.getByLabel('Shop name', { exact: true }).fill('Synthetic RadioSoft shop');
   await page.getByRole('button', { name: 'Create shop', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open Hishob', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Bills & Collections', exact: true })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByRole('button', { name: 'Synthetic Bills & Collections', exact: true }),
+  ).toHaveCount(0);
   const session = await page.request.get(`${apiRoot}/auth/me`);
   expect(session.ok()).toBeTruthy();
   const shop = (await session.json()).memberships[0].shop.id;
@@ -62,7 +62,7 @@ test('synthetic setup, pairing, backend polling, collections, stale warning and 
     headers,
     data: { status: 'OK', pending_observations: 0 },
   });
-  await page.getByRole('button', { name: 'Bills & Collections', exact: true }).click();
+  await page.getByRole('button', { name: 'Synthetic Bills & Collections', exact: true }).click();
   await expect(page.getByText('Connector connected', { exact: true })).toBeVisible();
   await expect(
     page.getByLabel('Payable ₹1000.00 · Collected ₹0.00 · Outstanding ₹1000.00', { exact: true }),
