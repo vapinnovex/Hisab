@@ -261,11 +261,13 @@ class Poller:
                 "after": [0, ""],
                 "recent_day": None,
                 "recent_scope": 0,
-                "recent_after": [0, ""],
+                "recent_after": [2147483647, "ZZZZZZZZ"],
+                "recent_order": "DESC",
             },
         )
         records = []
-        if cp["turn"] % 3 == 0:
+        turn = cp["turn"]
+        if turn == 0 or turn % 10 == 0:
             rows = self.reader.salespeople_page(cp["directory_after"], 50)
             records = [
                 {
@@ -276,7 +278,7 @@ class Poller:
             ]
             cp["directory_after"] = rows[-1]["SLNo"] if len(rows) == 50 else -2147483649
         else:
-            recent = cp["turn"] % 3 == 1
+            recent = turn % 5 != 4
             prefix = "recent_" if recent else ""
             lower = (
                 max(
@@ -289,14 +291,66 @@ class Poller:
             upper = date.fromisoformat(b["capture_until"])
             lower = min(lower, upper - timedelta(days=1))
             day = date.fromisoformat(cp[prefix + "day"]) if cp[prefix + "day"] else lower
-            if day < lower or day >= upper:
+            if recent and (day != lower or cp.get("recent_order") != "DESC"):
+                cp["recent_order"] = "DESC"
+                cp["recent_after"] = [2147483647, "ZZZZZZZZ"]
+                cp["recent_scope"] = 0
                 day = lower
-                cp[prefix + "after"] = [0, ""]
+            elif day < lower or day >= upper:
+                day = lower
+                cp[prefix + "after"] = [2147483647, "ZZZZZZZZ"] if recent else [0, ""]
             scopes = [(t, f) for f in b["firm_codes"] for t in b["invoice_types"]]
+            if recent:
+                head_scope = cp.get("recent_head_scope", 0) % len(scopes)
+                head_type, head_firm = scopes[head_scope]
+                latest_keys = self.reader.keys_page(
+                    head_type,
+                    head_firm,
+                    str(lower),
+                    str(min(lower + timedelta(days=1), upper)),
+                    (2147483647, "ZZZZZZZZ"),
+                    1,
+                    newest_first=True,
+                )
+                cp["recent_head_scope"] = (head_scope + 1) % len(scopes)
+                if latest_keys:
+                    latest_key = latest_keys[0]
+                    latest_record = map_bill(
+                        self.reader.inspect_bill(
+                            latest_key["InvoiceNo"],
+                            latest_key["FYear"],
+                            latest_key["InvoiceType"],
+                            latest_key["FirmCode"],
+                        )
+                    )
+                    fingerprints = cp.setdefault("recent_head_fingerprints", {})
+                    fingerprint = hashlib.sha256(encoded(latest_record)).hexdigest()
+                    if fingerprints.get(str(head_scope)) != fingerprint:
+                        records.append(latest_record)
+                        fingerprints[str(head_scope)] = fingerprint
+                    latest_identity = tuple(
+                        latest_key[k] for k in ("InvoiceNo", "FYear", "InvoiceType", "FirmCode")
+                    )
+                else:
+                    latest_identity = None
+            else:
+                latest_identity = None
             t, f = scopes[cp[prefix + "scope"]]
             end = min(day + timedelta(days=1), upper)
-            keys = self.reader.keys_page(t, f, str(day), str(end), tuple(cp[prefix + "after"]), 5)
+            keys = self.reader.keys_page(
+                t,
+                f,
+                str(day),
+                str(end),
+                tuple(cp[prefix + "after"]),
+                5,
+                newest_first=recent,
+            )
             for k in keys:
+                if recent and latest_identity == tuple(
+                    k[key] for key in ("InvoiceNo", "FYear", "InvoiceType", "FirmCode")
+                ):
+                    continue
                 records.append(
                     map_bill(
                         self.reader.inspect_bill(k["InvoiceNo"], k["FYear"], k["InvoiceType"], k["FirmCode"])
@@ -305,10 +359,11 @@ class Poller:
             if len(keys) == 5:
                 cp[prefix + "after"] = [keys[-1]["InvoiceNo"], keys[-1]["FYear"]]
             else:
-                cp[prefix + "after"] = [0, ""]
+                cp[prefix + "after"] = [2147483647, "ZZZZZZZZ"] if recent else [0, ""]
                 cp[prefix + "scope"] = (cp[prefix + "scope"] + 1) % len(scopes)
                 if cp[prefix + "scope"] == 0:
-                    day = end if end < upper else lower
+                    if not recent:
+                        day = end if end < upper else lower
             cp[prefix + "day"] = str(day)
         cp["turn"] += 1
         cp["complete_history_claim"] = False

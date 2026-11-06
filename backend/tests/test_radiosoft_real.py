@@ -38,7 +38,7 @@ def configure(client, setup_shop):
     return path, {"Authorization": "Bearer " + proof}, s
 
 
-def envelope(sequence=1, net="-61.00", number="1"):
+def envelope(sequence=1, net="-61.00", number="1", business_date="2026-11-03", source_time_raw=""):
     return {
         "version": 2,
         "synthetic": False,
@@ -50,7 +50,8 @@ def envelope(sequence=1, net="-61.00", number="1"):
         "kind": "BILL",
         "bill": {
             "key": {"invoice_no": number, "fyear": "2026 - 2027 ", "invoice_type": 0, "firm_code": 0},
-            "business_date": "2026-11-03",
+            "business_date": business_date,
+            "source_time_raw": source_time_raw,
             "net_amt": net,
             "raw_header": {"NetAmt": net, "ExchangeAmt": "1800.00", "DiscAmt": "0", "RoundAmt": "0"},
             "lines": [
@@ -99,6 +100,28 @@ def test_signed_review_retry_and_history(client, setup_shop):
         f"/api/shops/{shop}/radiosoft/bills/{bill_id}/collections", headers=owner, json={}
     ).status_code in (403, 422)
     assert db.receipts.count_documents({}) == 0
+
+
+def test_real_bills_are_latest_first_and_day_total_includes_signed_source_amounts(client, setup_shop):
+    path, auth, _ = configure(client, setup_shop)
+    owner, _, _, _ = setup_shop
+    bills = [
+        envelope(1, "100.00", "1001", source_time_raw="10:30:00"),
+        envelope(2, "250.00", "1002", source_time_raw="14:30:00"),
+        envelope(3, "10.00", "1003", source_time_raw="14:30:00"),
+        envelope(4, "-5.00", "1004", source_time_raw="15:00:00"),
+        envelope(5, "900.00", "9999", business_date="2026-11-02", source_time_raw="23:59:00"),
+    ]
+    for bill in bills:
+        assert send(client, auth, bill).status_code == 200
+
+    daily = client.get(path + "/bills?business_date=2026-11-03", headers=owner).json()
+    assert [bill["key"]["invoice_no"] for bill in daily["bills"]] == ["1004", "1003", "1002", "1001"]
+    assert daily["summary"]["bill_count"] == 4
+    assert daily["summary"]["source_total"] == "355.00"
+
+    all_dates = client.get(path + "/bills", headers=owner).json()["bills"]
+    assert all_dates[0]["business_date"] == "2026-11-03"
 
 
 def test_real_dev_collections_are_separate_idempotent_and_source_read_only(client, setup_shop):

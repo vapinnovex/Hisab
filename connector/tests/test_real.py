@@ -312,9 +312,9 @@ def test_polling_budget_and_failed_page_never_advance(tmp_path, vault):
     poller.capture()  # directory first, including unobserved people
     assert store.count() == 1
     checkpoint = store.get("real_checkpoint")
-    from hishob_connector.extractor import KEYS_SQL
+    from hishob_connector.extractor import RECENT_KEYS_SQL
 
-    source.fail = KEYS_SQL
+    source.fail = RECENT_KEYS_SQL
     with pytest.raises(TimeoutError):
         poller.capture()
     assert store.get("real_checkpoint") == checkpoint and store.count() == 1
@@ -325,7 +325,7 @@ def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeyp
     from datetime import date
 
     from hishob_connector import real
-    from hishob_connector.extractor import KEYS_SQL, Reader
+    from hishob_connector.extractor import RECENT_KEYS_SQL, Reader
 
     class FrozenDate(date):
         @classmethod
@@ -340,7 +340,34 @@ def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeyp
     poller.capture()
     poller.capture()
 
-    recent_query = next(call for call in source.calls if call[0] == KEYS_SQL)
+    recent_query = next(call for call in source.calls if call[0] == RECENT_KEYS_SQL)
     assert recent_query[1][3:5] == ("2026-11-06", "2026-11-07")
     assert store.get("real_checkpoint")["recent_day"] == "2026-11-06"
+    assert recent_query[1][0] == 1
+    store.close()
+
+
+def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, monkeypatch):
+    from datetime import date
+
+    from hishob_connector import real
+    from hishob_connector.extractor import RECENT_KEYS_SQL, Reader
+
+    class FrozenDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 6)
+
+    monkeypatch.setattr(real, "date", FrozenDate)
+    source = FakeConnection()
+    store = real_store(tmp_path, vault)
+    poller = real.Poller(store, Reader(source, [0], "2026-01-01", "2027-01-01", 0))
+    for _ in range(6):
+        poller.capture()
+    recent_queries = [call for call in source.calls if call[0] == RECENT_KEYS_SQL]
+    assert len(recent_queries) >= 6
+    assert all(call[1][3:5] == ("2026-11-06", "2026-11-07") for call in recent_queries)
+    checkpoint = store.get("real_checkpoint")
+    assert checkpoint["recent_day"] == "2026-11-06"
+    assert checkpoint["recent_head_scope"] == 0
     store.close()

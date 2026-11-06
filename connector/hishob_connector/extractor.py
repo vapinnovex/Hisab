@@ -73,6 +73,9 @@ SALESPERSON_PAGE_SQL = "SELECT TOP (?) SLNo,SLName FROM dbo.Salesman WHERE SLNo>
 KEYS_SQL = """SELECT TOP (?) InvoiceNo,FYear,InvoiceType,FirmCode
 FROM dbo.Invoice WHERE InvoiceType=? AND FirmCode=? AND InvoiceDate>=? AND InvoiceDate<?
 AND (InvoiceNo>? OR (InvoiceNo=? AND FYear>?)) ORDER BY InvoiceNo,FYear"""
+RECENT_KEYS_SQL = """SELECT TOP (?) InvoiceNo,FYear,InvoiceType,FirmCode
+FROM dbo.Invoice WHERE InvoiceType=? AND FirmCode=? AND InvoiceDate>=? AND InvoiceDate<?
+AND (InvoiceNo<? OR (InvoiceNo=? AND FYear<?)) ORDER BY InvoiceNo DESC,FYear DESC"""
 
 
 class ExtractionReview(Exception):
@@ -130,7 +133,15 @@ class Reader:
             self.max_read_seconds is not None and time.monotonic() - self.started_at >= self.max_read_seconds
         ):
             raise ExtractionReview("READ_BUDGET_EXCEEDED_PAGE_INCOMPLETE")
-        if sql not in {HEADER_SQL, LINES_SQL, SCHEMA_SQL, KEYS_SQL, SALESPERSON_SQL, SALESPERSON_PAGE_SQL}:
+        if sql not in {
+            HEADER_SQL,
+            LINES_SQL,
+            SCHEMA_SQL,
+            KEYS_SQL,
+            RECENT_KEYS_SQL,
+            SALESPERSON_SQL,
+            SALESPERSON_PAGE_SQL,
+        }:
             raise ValueError("Only reviewed SELECT templates are allowed")
         cursor = self.connection.cursor()
         time.sleep(self.throttle_seconds)
@@ -165,11 +176,17 @@ class Reader:
         if any(columns[k] != value for k, value in expected_types.items()):
             raise ExtractionReview("SCHEMA_MISMATCH")
 
-    def keys_page(self, invoice_type, firm, start, end, after=(0, ""), limit=50):
+    def keys_page(self, invoice_type, firm, start, end, after=(0, ""), limit=50, newest_first=False):
         if invoice_type not in (0, 1) or firm not in self.firms or not 1 <= limit <= 100:
             raise ExtractionReview("UNAPPROVED_SCOPE")
         self.check_dates(start, end)
-        return self.query(KEYS_SQL, (limit, invoice_type, firm, start, end, after[0], after[0], after[1]))
+        if newest_first:
+            sql = RECENT_KEYS_SQL
+            params = (limit, invoice_type, firm, start, end, after[0], after[0], after[1])
+        else:
+            sql = KEYS_SQL
+            params = (limit, invoice_type, firm, start, end, after[0], after[0], after[1])
+        return self.query(sql, params)
 
     def check_dates(self, start, end):
         if (

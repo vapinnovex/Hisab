@@ -12,6 +12,7 @@ from hishob_connector.extractor import (
     KEYS_SQL,
     LINE_COLUMNS,
     LINES_SQL,
+    RECENT_KEYS_SQL,
     SALESPERSON_PAGE_SQL,
     SALESPERSON_SQL,
     SCHEMA_SQL,
@@ -74,7 +75,7 @@ class FakeConnection:
                     rows = [
                         {"SLNo": k, "SLName": v} for k, v in sorted(parent.people.items()) if k > params[1]
                     ][: params[0]]
-                elif sql == KEYS_SQL:
+                elif sql in (KEYS_SQL, RECENT_KEYS_SQL):
                     rows = []
                 else:
                     raise AssertionError(sql)
@@ -195,3 +196,13 @@ def test_failed_query_and_unapproved_scope_never_mean_missing():
         reader.keys_page(2, 0, "2026-01-01", "2027-01-01")
     reader.keys_page(0, 0, "2026-01-01", "2027-01-01", after=(42, "year verbatim"))
     assert db.calls[-1][1] == (50, 0, 0, "2026-01-01", "2027-01-01", 42, 42, "year verbatim")
+
+
+def test_recent_keys_use_descending_invoice_cursor():
+    db = FakeConnection()
+    reader = Reader(db, [0], "2026-01-01", "2027-01-01", throttle_seconds=0)
+    reader.keys_page(0, 0, "2026-11-06", "2026-11-07", after=(42, "2026 - 2027 "), limit=5, newest_first=True)
+    sql, params = db.calls[-1]
+    assert sql == RECENT_KEYS_SQL
+    assert "ORDER BY InvoiceNo DESC,FYear DESC" in sql
+    assert params == (5, 0, 0, "2026-11-06", "2026-11-07", 42, 42, "2026 - 2027 ")

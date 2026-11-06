@@ -128,6 +128,10 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   await expect(page.getByText('Amount owed to customer: ₹61', { exact: true })).toBeVisible({
     timeout: 25000,
   });
+  const negativeBill = page.getByTestId('real-bill-card-1');
+  await expect(negativeBill.getByRole('button', { name: 'Mark paid without method' })).toHaveCount(
+    0,
+  );
   expect(
     (
       await request.post(api + '/radiosoft/real-connector/observations', {
@@ -148,9 +152,20 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
       })
     ).ok(),
   ).toBeTruthy();
-  await page.getByRole('button', { name: 'Open bill 2', exact: true }).click();
-  await page.getByLabel('Collection amount', { exact: true }).fill('25');
-  await page.getByRole('button', { name: 'Record partial / full collection', exact: true }).click();
+  const secondBill = page.getByTestId('real-bill-card-2');
+  await expect(secondBill).toBeVisible({ timeout: 25000 });
+  await expect(page.getByText('RadioSoft totals for selected date', { exact: true })).toBeVisible();
+  await expect(page.getByText('₹39.00', { exact: true })).toBeVisible();
+  const billOrder = await page
+    .locator('[data-testid^="real-bill-card-"]')
+    .evaluateAll((cards) => cards.map((card) => card.getAttribute('data-testid')));
+  expect(billOrder).toEqual(['real-bill-card-2', 'real-bill-card-1']);
+  await secondBill.getByLabel('Collection amount', { exact: true }).fill('25');
+  await secondBill.getByRole('button', { name: 'Record partial / full collection' }).click();
+  await expect(secondBill.getByText('Partially paid', { exact: true })).toBeVisible({
+    timeout: 15000,
+  });
+  await secondBill.getByRole('button', { name: 'Open bill 2', exact: true }).click();
   const billDialog = page.getByRole('dialog');
   await expect(billDialog.getByText('Partially paid', { exact: true })).toBeVisible({
     timeout: 15000,
@@ -160,12 +175,14 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
       exact: true,
     }),
   ).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Mark remaining balance paid (method not recorded)' })
-    .click();
-  await expect(billDialog.getByText('Paid', { exact: true })).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: 'Close bill', exact: true }).click();
+  await secondBill.getByRole('button', { name: 'Mark paid without method' }).click();
+  await expect(secondBill.getByText('Paid', { exact: true })).toBeVisible({ timeout: 15000 });
+  await secondBill.getByRole('button', { name: 'Open bill 2', exact: true }).click();
+  const paidBillDialog = page.getByRole('dialog');
+  await expect(paidBillDialog.getByText('Paid', { exact: true })).toBeVisible();
   await expect(
-    billDialog.getByText('Source payable ₹100.00 · Recorded ₹100.00 · Remaining ₹0.00', {
+    paidBillDialog.getByText('Source payable ₹100.00 · Recorded ₹100.00 · Remaining ₹0.00', {
       exact: true,
     }),
   ).toBeVisible();

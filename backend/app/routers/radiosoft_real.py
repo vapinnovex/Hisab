@@ -3,8 +3,8 @@
 import re
 import secrets
 from datetime import date as Date
-from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from datetime import time, timedelta
+from decimal import ROUND_HALF_UP, Decimal, localcontext
 from zoneinfo import ZoneInfo
 
 from bson import BSON
@@ -728,7 +728,7 @@ def bills(
         query["snapshot.business_date"] = str(business_date)
     if search.strip():
         query["snapshot.key.invoice_no"] = {"$regex": re.escape(search.strip()), "$options": "i"}
-    rows = list(db.radiosoft_real_bills.find(query).sort("_id", 1).limit(2001))
+    rows = list(db.radiosoft_real_bills.find(query).limit(2001))
     if len(rows) > 2000:
         raise HTTPException(422, "Narrow the date or bill-number search to review this DEV register")
     ledgers = {
@@ -738,6 +738,7 @@ def bills(
         )
     }
     views = [{**view(bill, c), **collection_state(bill, c, ledgers.get(bill["_id"]))} for bill in rows]
+    views.sort(key=real_bill_order, reverse=True)
     counts = {"PENDING": 0, "PARTIAL": 0, "PAID": 0, "REVIEW": 0, "ALL": len(views)}
     for row in views:
         if row["collection_status"] in {"AWAITING_COLLECTION", "PARTIAL"}:
@@ -748,8 +749,19 @@ def bills(
             counts["PAID"] += 1
         elif row["collection_status"] not in {"AWAITING_COLLECTION"}:
             counts["REVIEW"] += 1
+    with localcontext() as context:
+        context.prec = 100
+        source_total = sum(
+            (
+                Decimal(row["signed_source_payable"])
+                for row in views
+                if row["signed_source_payable"] is not None
+            ),
+            Decimal(0),
+        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     summary = {
         "bill_count": len(views),
+        "source_total": format(source_total, "f"),
         "eligible_bill_count": sum(row["collection_eligible"] for row in views),
         "payable_paise": sum(
             row["collection_payable_paise"] or 0 for row in views if row["collection_eligible"]
@@ -784,6 +796,28 @@ def bills(
         "counts": counts,
         "summary": summary,
     }
+
+
+def real_bill_order(row):
+    source_time = row.get("source_time_raw", "").strip()
+    try:
+        parsed = time.fromisoformat(source_time)
+        time_key = (1, parsed.hour, parsed.minute, parsed.second, parsed.microsecond, "")
+    except ValueError:
+        time_key = (0, 0, 0, 0, 0, source_time.upper())
+    invoice_no = str(row["key"]["invoice_no"])
+    numeric_invoice = invoice_no.isdigit()
+    return (
+        row["business_date"],
+        *time_key,
+        int(numeric_invoice),
+        int(invoice_no) if numeric_invoice else 0,
+        invoice_no,
+        row["key"]["fyear"],
+        row["key"]["invoice_type"],
+        row["key"]["firm_code"],
+        row["id"],
+    )
 
 
 @router.get(shop_path + "/bills/{bill_id}")

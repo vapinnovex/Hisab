@@ -220,7 +220,7 @@ function RealPreview() {
       </Page>
     );
   return (
-    <Page>
+    <Page wide>
       <Heading
         title={t(worker ? 'My attributed sales (DEV)' : entryTitle)}
         subtitle={t('RadioSoft stays read-only. DEV collections are saved separately in Hishob.')}
@@ -301,13 +301,16 @@ function Bills({
   const [draftSearch, setDraftSearch] = useState('');
   const [after, setAfter] = useState('');
   const [billId, setBillId] = useState<string | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
   const [queue, setQueue] = useState<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW'>('ALL');
+  const columns = gridWidth >= 1120 ? 3 : gridWidth >= 720 ? 2 : 1;
   const bills = useResource<{
     bills: Bill[];
     next_cursor: string | null;
     counts: Record<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW', number>;
     summary: {
       bill_count: number;
+      source_total: string;
       eligible_bill_count: number;
       payable_paise: number;
       collected_paise: number;
@@ -405,18 +408,24 @@ function Bills({
       </Text>
       {bills.data && (
         <Card>
-          <Text style={styles.heading}>{t('Selected date collection summary')}</Text>
-          <Text>
-            {t('Eligible bills: {0} · Source total: {1}', [
-              bills.data.summary.eligible_bill_count,
-              moneyPaise(bills.data.summary.payable_paise),
-            ])}
-          </Text>
-          <Text>
-            {t('Recorded here: {0} · Remaining: {1}', [
-              moneyPaise(bills.data.summary.collected_paise),
-              moneyPaise(bills.data.summary.outstanding_paise),
-            ])}
+          <Text style={styles.heading}>{t('RadioSoft totals for selected date')}</Text>
+          <View style={realStyles.summaryGrid}>
+            {[
+              [t('RadioSoft bill total'), `₹${bills.data.summary.source_total}`],
+              [t('Bills imported'), String(bills.data.summary.bill_count)],
+              [t('Recorded here'), moneyPaise(bills.data.summary.collected_paise)],
+              [t('Remaining'), moneyPaise(bills.data.summary.outstanding_paise)],
+            ].map(([label, amount]) => (
+              <View key={label} style={realStyles.summaryCell}>
+                <Text style={styles.small}>{label}</Text>
+                <Text style={styles.heading}>{amount}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.small}>
+            {t(
+              'Imported totals may be incomplete while the shop PC is syncing. This source total is not added to Hishob cashbook sales.',
+            )}
           </Text>
         </Card>
       )}
@@ -437,29 +446,77 @@ function Bills({
           <Text>{sourceSummary(status, timezone)}</Text>
         </Card>
       )}
-      {bills.data?.bills.map((bill) => (
-        <Card key={bill.id}>
-          <Text style={styles.heading}>{t('Bill {0}', [bill.key.invoice_no])}</Text>
-          <Text>
-            {bill.business_date}
-            {bill.source_time_raw ? ` · ${bill.source_time_raw}` : ''}
-          </Text>
-          <BillAmount bill={bill} />
-          <Text>{t(collectionLabel(bill.collection_status))}</Text>
-          <Text>
-            {t('Recorded {0} · Remaining {1}', [
-              moneyPaise(bill.collection_collected_paise),
-              moneyPaise(bill.collection_outstanding_paise),
-            ])}
-          </Text>
-          {bill.source_changed && <Text>{t('Source edited; review the updated amount.')}</Text>}
-          <Button
-            title={t('Open bill {0}', [bill.key.invoice_no])}
-            secondary
-            onPress={() => setBillId(bill.id)}
-          />
-        </Card>
-      ))}
+      {!!bills.data?.bills.length && <Text style={styles.heading}>{t('Latest bills first')}</Text>}
+      <View
+        onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}
+      >
+        {bills.data?.bills.map((bill) => (
+          <View
+            key={bill.id}
+            testID={`real-bill-card-${bill.key.invoice_no}`}
+            style={{
+              width: gridWidth ? (gridWidth - 12 * (columns - 1)) / columns : '100%',
+              minWidth: 0,
+            }}
+          >
+            <View style={[styles.card, { padding: 14, gap: 8, borderRadius: 18 }]}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+              >
+                <Text style={[styles.heading, { flex: 1 }]}>
+                  {t('Bill {0}', [bill.key.invoice_no])}
+                </Text>
+                <Text
+                  style={[
+                    realStyles.badge,
+                    bill.collection_status === 'PAID'
+                      ? realStyles.paidBadge
+                      : bill.collection_eligible
+                        ? realStyles.pendingBadge
+                        : realStyles.reviewBadge,
+                  ]}
+                >
+                  {t(collectionLabel(bill.collection_status))}
+                </Text>
+              </View>
+              <Text style={styles.small}>
+                {bill.business_date}
+                {bill.source_time_raw ? ` · ${bill.source_time_raw}` : ''}
+              </Text>
+              <BillAmount bill={bill} />
+              <View style={realStyles.amounts}>
+                <View style={{ flex: 1, minWidth: 100, gap: 4 }}>
+                  <Text style={styles.small}>{t('Remaining')}</Text>
+                  <Text style={realStyles.balance}>
+                    {moneyPaise(bill.collection_outstanding_paise)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 100, gap: 4 }}>
+                  <Text style={styles.small}>{t('Recorded')}</Text>
+                  <Text style={[styles.heading, { fontSize: 16 }]}>
+                    {moneyPaise(bill.collection_collected_paise)}
+                  </Text>
+                </View>
+              </View>
+              {bill.source_changed && (
+                <Text style={styles.small}>{t('Source edited; review the updated amount.')}</Text>
+              )}
+              <RealQuickCollection
+                base={base}
+                bill={bill}
+                canCollect={status.can_collect}
+                refresh={bills.refresh}
+              />
+              <Button
+                title={t('Open bill {0}', [bill.key.invoice_no])}
+                secondary
+                onPress={() => setBillId(bill.id)}
+              />
+            </View>
+          </View>
+        ))}
+      </View>
       {!!after && <Button title={t('First page')} secondary onPress={() => setAfter('')} />}
       {bills.data?.next_cursor && (
         <Button title={t('Next bills')} onPress={() => setAfter(bills.data!.next_cursor!)} />
@@ -475,6 +532,111 @@ function Bills({
         />
       )}
     </>
+  );
+}
+function RealQuickCollection({
+  base,
+  bill,
+  canCollect,
+  refresh,
+}: {
+  base: string;
+  bill: Bill;
+  canCollect: boolean;
+  refresh: () => Promise<void>;
+}) {
+  const { api } = useAuth();
+  const action = useAction();
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const pending = useRef<Record<string, unknown> | null>(null);
+  const [uncertain, setUncertain] = useState(false);
+  useUnsavedChanges(uncertain);
+  const eligible =
+    canCollect && bill.collection_eligible && (bill.collection_outstanding_paise ?? 0) > 0;
+  let amountPaise = 0;
+  try {
+    amountPaise = parseCollectionAmount(amount);
+  } catch {
+    amountPaise = 0;
+  }
+  const send = (kind: 'RECEIVE' | 'MARK_PAID') =>
+    void action.run(async () => {
+      if (!pending.current) {
+        pending.current = {
+          request_id: `real_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+          revision: bill.collection_revision,
+          action: kind,
+          allocations: kind === 'RECEIVE' ? [{ method, amount_paise: amountPaise }] : [],
+        };
+      }
+      setUncertain(true);
+      try {
+        await api(`${base}/bills/${bill.id}/collections`, pending.current, 'POST');
+        pending.current = null;
+        setUncertain(false);
+        setAmount('');
+      } catch (error) {
+        if (error instanceof ApiError && error.status < 500) {
+          pending.current = null;
+          setUncertain(false);
+        }
+        throw error;
+      } finally {
+        await refresh();
+      }
+    });
+  if (!eligible && !uncertain) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <ErrorText message={action.error} />
+      {eligible && (
+        <>
+          <Text style={styles.heading}>{t('Record a collection')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['CASH', 'UPI', 'CARD'] as const).map((value) => (
+              <Button
+                key={value}
+                title={t(value === 'CASH' ? 'Cash' : value)}
+                secondary={method !== value}
+                disabled={uncertain || action.busy}
+                onPress={() => setMethod(value)}
+              />
+            ))}
+          </View>
+          <Field
+            label={t('Collection amount')}
+            value={amount}
+            keyboardType="decimal-pad"
+            editable={!uncertain && !action.busy}
+            onChangeText={setAmount}
+          />
+          <Button
+            title={t('Record partial / full collection')}
+            disabled={
+              !amountPaise || amountPaise > (bill.collection_outstanding_paise ?? 0) || uncertain
+            }
+            busy={action.busy}
+            onPress={() => send('RECEIVE')}
+          />
+          <Button
+            title={t('Mark paid without method')}
+            secondary
+            disabled={uncertain || action.busy}
+            busy={action.busy}
+            onPress={() => send('MARK_PAID')}
+          />
+        </>
+      )}
+      {uncertain && (
+        <Button
+          title={t('Retry the same request')}
+          secondary
+          busy={action.busy}
+          onPress={() => send(pending.current?.action === 'RECEIVE' ? 'RECEIVE' : 'MARK_PAID')}
+        />
+      )}
+    </View>
   );
 }
 function moneyPaise(value: number | null) {
@@ -779,6 +941,41 @@ function parseCollectionAmount(value: string) {
   const [whole, fraction = ''] = value.split('.');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
 }
+const realStyles = {
+  badge: {
+    overflow: 'hidden' as const,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  paidBadge: { backgroundColor: '#E8F0E8', color: '#145C45' },
+  pendingBadge: { backgroundColor: '#FFF1D6', color: '#8B5A08' },
+  reviewBadge: { backgroundColor: '#FCE8E8', color: '#A53535' },
+  amounts: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 16,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#FAF8F2',
+  },
+  summaryGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 10,
+  },
+  summaryCell: {
+    flexGrow: 1,
+    flexBasis: 140,
+    gap: 4,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#FAF8F2',
+  },
+  balance: { fontSize: 20, fontWeight: '700' as const, color: '#8B5A08' },
+};
 function Links({ base }: { base: string }) {
   const directory = useResource<Directory>(base + '/salespeople', 15000);
   const [filter, setFilter] = useState('needs');
