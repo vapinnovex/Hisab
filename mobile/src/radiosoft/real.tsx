@@ -38,11 +38,15 @@ type Status = {
   last_successful_sync: string | null;
   scan_request_id: string | null;
   scan_completed_id: string | null;
+  scan_failed_id?: string | null;
   scan_pending: boolean;
   health: {
     pending_observations: number;
     status: string;
     last_successful_source_read: string | null;
+    last_fast_source_read?: string | null;
+    source_error?: string | null;
+    connector_version?: string;
   } | null;
   coverage: string;
 };
@@ -178,7 +182,7 @@ function sourceSummary(status: Status, timezone: string) {
       'Today is outside the approved capture window (ends {0}, exclusive). Ask the DEV administrator to extend it.',
       [status.scope.capture_until],
     );
-  const last = status.health?.last_successful_source_read;
+  const last = status.health?.last_fast_source_read ?? status.health?.last_successful_source_read;
   if (!last) return t('Waiting for the first successful source read.');
   const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(last)) / 60000));
   const uploaded = status.last_successful_sync
@@ -199,7 +203,7 @@ function RealPreview() {
   const { selected, session } = useAuth();
   const base = `/shops/${selected!.shop_id}/radiosoft-real`;
   const worker = session?.role === 'WORKER';
-  const status = useResource<Status>(base + '/status', 15000, !worker);
+  const status = useResource<Status>(base + '/status', 5000, !worker);
   const [section, setSection] = useState<'bills' | 'links' | 'connection' | 'report'>('bills');
   if (!worker && (!status.data || denied(status.errorStatus)))
     return (
@@ -300,11 +304,28 @@ function Bills({
   const timezone = selected!.shop.timezone;
   const refreshAction = useAction();
   const [refreshMessage, setRefreshMessage] = useState('');
-  const [date, setDate] = useState(() => shopDate(timezone));
-  const [draftDate, setDraftDate] = useState(date);
+  const refreshMounted = useRef(true);
+  useEffect(() => {
+    refreshMounted.current = true;
+    return () => {
+      refreshMounted.current = false;
+    };
+  }, []);
+  const [dayMode, setDayMode] = useState<'today' | 'yesterday' | 'custom'>('today');
+  const [today, setToday] = useState(() => shopDate(timezone));
+  const [customDate, setCustomDate] = useState(today);
+  const date =
+    dayMode === 'custom' ? customDate : dayMode === 'today' ? today : shopDate(timezone, -1);
+  const [draftDate, setDraftDate] = useState(today);
+  useEffect(() => {
+    const timer = setInterval(() => setToday(shopDate(timezone)), 1000);
+    return () => clearInterval(timer);
+  }, [timezone]);
   const [search, setSearch] = useState('');
   const [draftSearch, setDraftSearch] = useState('');
-  const [after, setAfter] = useState('');
+  const [cursor, setCursor] = useState({ date, after: '' });
+  const after = cursor.date === date ? cursor.after : '';
+  const setAfter = (value: string) => setCursor({ date, after: value });
   const [billId, setBillId] = useState<string | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
   const [queue, setQueue] = useState<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW'>('ALL');
@@ -323,11 +344,12 @@ function Bills({
     };
   }>(
     `${base}/bills?business_date=${encodeURIComponent(date)}&search=${encodeURIComponent(search)}&collection_status=${queue}&after=${encodeURIComponent(after)}`,
-    15000,
+    3000,
   );
   const directory = useResource<Directory>(base + '/salespeople', 15000, status.can_map);
   const applyDate = (value: string) => {
-    setDate(value);
+    setCustomDate(value);
+    setDayMode('custom');
     setDraftDate(value);
     setAfter('');
   };
@@ -340,17 +362,6 @@ function Bills({
   ).length;
   const requestPcRefresh = () =>
     void refreshAction.run(async () => {
-      if (status.connection !== 'CONNECTED') {
-        await Promise.all([
-          refreshStatus(),
-          bills.refresh(),
-          ...(status.can_map ? [directory.refresh()] : []),
-        ]);
-        setRefreshMessage(
-          t('The shop PC is not connected. Showing the latest bills already received by Hishob.'),
-        );
-        return;
-      }
       setRefreshMessage(t('Requesting a fresh read from the paired shop PC…'));
       const { request_id: requestId } = await api<{ request_id: string }>(
         `${base}/refresh`,
@@ -358,14 +369,30 @@ function Bills({
         'POST',
       );
       let completed = false;
-      for (let attempt = 0; attempt < 30; attempt++) {
-        const latest = await api<Status>(`${base}/status`);
+      let failed = false;
+      const deadline = Date.now() + 30000;
+      for (let attempt = 0; attempt < 30 && Date.now() < deadline; attempt++) {
+        if (!refreshMounted.current) return;
+        let latest: Status;
+        try {
+          latest = await api<Status>(`${base}/status`);
+        } catch (error) {
+          if (error instanceof ApiError && denied(error.status)) await refreshStatus();
+          throw error;
+        }
+        if (latest.scan_failed_id === requestId) {
+          failed = true;
+          break;
+        }
         if (latest.scan_completed_id === requestId) {
           completed = true;
           break;
         }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        // Show arrivals while the PC continues its bounded scan/upload.
+        await bills.refresh();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+      if (!refreshMounted.current) return;
       await Promise.all([
         refreshStatus(),
         bills.refresh(),
@@ -373,9 +400,11 @@ function Bills({
       ]);
       setRefreshMessage(
         t(
-          completed
-            ? 'The shop PC scan finished. Showing the latest bills received by Hishob.'
-            : 'The shop PC has not confirmed the scan yet. Check its connector and connection status.',
+          failed
+            ? 'The PC could not finish reading RadioSoft. Open Connection settings for the source error; imported bills remain available.'
+            : completed
+              ? 'The latest-bills check finished. Older bills may still be catching up.'
+              : 'The shop PC has not confirmed the scan yet. Check its connector and connection status.',
         ),
       );
     });
@@ -438,14 +467,32 @@ function Bills({
         ))}
       </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Button title={t('Today')} secondary onPress={() => applyDate(shopDate(timezone))} />
+        <Button
+          title={t('Today')}
+          secondary
+          onPress={() => {
+            applyDate(shopDate(timezone));
+            setDayMode('today');
+          }}
+        />
         <Button
           title={t('Yesterday')}
           secondary
-          onPress={() => applyDate(shopDate(timezone, -1))}
+          onPress={() => {
+            applyDate(shopDate(timezone, -1));
+            setDayMode('yesterday');
+          }}
         />
       </View>
-      <Field label={t('Bill date (YYYY-MM-DD)')} value={draftDate} onChangeText={setDraftDate} />
+      <Field
+        label={t('Bill date (YYYY-MM-DD)')}
+        value={dayMode === 'custom' ? draftDate : date}
+        onChangeText={(value) => {
+          setDraftDate(value);
+          setCustomDate(date);
+          setDayMode('custom');
+        }}
+      />
       <Field label={t('Search bill number')} value={draftSearch} onChangeText={setDraftSearch} />
       <Button
         title={t('Find bills')}
@@ -777,7 +824,7 @@ function BillDetail({
   refresh: () => Promise<void>;
   close: () => void;
 }) {
-  const detail = useResource<Bill>(`${base}/bills/${id}`, 15000);
+  const detail = useResource<Bill>(`${base}/bills/${id}`, 3000);
   return (
     <Modal visible onRequestClose={close} animationType="slide">
       <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
@@ -1374,6 +1421,12 @@ function Connection({
         </Text>
         <Text>{t('Last server contact: {0}', [status.last_contact ?? t('None')])}</Text>
         <Text>{t('Last delivery: {0}', [status.last_successful_sync ?? t('None')])}</Text>
+        <Text>
+          {t('Connector version: {0}', [status.health?.connector_version ?? t('Unknown')])}
+        </Text>
+        {!!status.health?.source_error && (
+          <Text>{t('PC source error: {0}', [status.health.source_error])}</Text>
+        )}
         <Text>
           {t('Source status: {0} · Pending: {1}', [
             status.health?.status ?? t('Not read'),

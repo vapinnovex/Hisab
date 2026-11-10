@@ -29,7 +29,8 @@ def main():
     service.run = run
     parser = argparse.ArgumentParser(description="RadioSoft real DEV display-only pilot")
     parser.add_argument(
-        "command", choices=["init", "configure", "pair", "cancel-pair", "run", "service", "status"]
+        "command",
+        choices=["init", "configure", "pair", "cancel-pair", "run", "service", "status", "resume-health"],
     )
     parser.add_argument("--state", type=Path, default=service.default_directory())
     parser.add_argument("--binding", type=Path)
@@ -47,6 +48,14 @@ def main():
         from .pairing_ui import show
 
         show(args.state)
+    elif args.command == "resume-health":
+        with ProcessLock(args.state):
+            store = RealStore(args.state, DPAPI())
+            try:
+                RealEngine(store).resume_health_upgrade()
+                print("Health contract accepted. State preserved; start the existing service.")
+            finally:
+                store.close()
     elif args.command == "run":
         run(args.state, threading.Event())
     else:

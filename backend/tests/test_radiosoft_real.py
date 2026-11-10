@@ -515,3 +515,48 @@ def test_manager_mapping_delegation_does_not_grant_bill_access(client, setup_sho
         client.get(path + "/worker-sales?start=2026-11-01&end=2026-11-05", headers=manager).status_code == 403
     )
     assert client.post(path + "/pairing", headers=manager).status_code == 403
+
+
+def test_refresh_accepts_legacy_coverage_and_reports_source_failure(client, setup_shop):
+    path, auth, _ = configure(client, setup_shop)
+    owner = setup_shop[0]
+    request_id = client.post(path + "/refresh", headers=owner, json={}).json()["request_id"]
+    body = {
+        "status": "SCAN_INCOMPLETE",
+        "pending_observations": 0,
+        "coverage": {f"legacy_cursor_{i}": i for i in range(16)},
+        "scan_request_failed": request_id,
+        "source_error": "SQLSTATE_28000",
+        "connector_version": "0.3.0",
+    }
+    response = client.post("/api/radiosoft/real-connector/health", headers=auth, json=body)
+    assert response.status_code == 200, response.text
+    state = client.get(path + "/status", headers=owner).json()
+    assert state["scan_failed_id"] == request_id and state["scan_completed_id"] is None
+    assert state["health"]["source_error"] == "SQLSTATE_28000"
+    body.update(
+        status="OK",
+        scan_request_ack=request_id,
+        scan_request_failed=None,
+        source_error=None,
+        scan_request_sequence=1,
+    )
+    # No completion until the specified observation was actually delivered.
+    assert client.post("/api/radiosoft/real-connector/health", headers=auth, json=body).status_code == 200
+    assert client.get(path + "/status", headers=owner).json()["scan_completed_id"] is None
+    assert send(client, auth, envelope()).status_code == 200
+    assert client.post("/api/radiosoft/real-connector/health", headers=auth, json=body).status_code == 200
+    state = client.get(path + "/status", headers=owner).json()
+    assert state["scan_completed_id"] == request_id and state["scan_failed_id"] is None
+
+
+def test_concurrent_pc_refresh_requests_share_one_command(client, setup_shop):
+    from concurrent.futures import ThreadPoolExecutor
+
+    path, _, _ = configure(client, setup_shop)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        replies = list(
+            pool.map(lambda _: client.post(path + "/refresh", headers=setup_shop[0], json={}), range(2))
+        )
+    assert all(r.status_code == 200 for r in replies)
+    assert replies[0].json()["request_id"] == replies[1].json()["request_id"]

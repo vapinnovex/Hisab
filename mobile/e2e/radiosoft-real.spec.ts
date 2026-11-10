@@ -98,7 +98,7 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   });
   expect(completedScan.ok()).toBeTruthy();
   await expect(
-    page.getByText('The shop PC scan finished. Showing the latest bills received by Hishob.', {
+    page.getByText('The latest-bills check finished. Older bills may still be catching up.', {
       exact: true,
     }),
   ).toBeVisible({ timeout: 10000 });
@@ -291,7 +291,7 @@ test('status failure stays visible, retries, and access rejection hides protecte
       await route.fulfill({ status: failure, json: { detail: 'Fixture status failure' } });
     else await route.continue();
   });
-  await page.getByRole('button', { name: 'Open account', exact: true }).click();
+  await page.reload();
   await expect(
     page.getByText('RadioSoft status is unavailable. Eligibility could not be checked.'),
   ).toBeVisible();
@@ -329,4 +329,85 @@ test('status failure stays visible, retries, and access rejection hides protecte
   await expect(
     page.getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true }),
   ).toHaveCount(0);
+});
+
+test('Today follows the shop date; PC failures show diagnostics without hiding imported data', async ({
+  page,
+  request,
+}) => {
+  await login(page, 'Owner', '+919855555097');
+  await page.getByLabel('Shop name', { exact: true }).fill('Fast refresh fixture');
+  await page.getByRole('button', { name: 'Create shop', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Open Hishob', exact: true })).toBeVisible();
+  const session = await (await page.request.get(api + '/auth/me')).json();
+  const shop = session.memberships[0].shop.id;
+  const base = `${api}/shops/${shop}/radiosoft-real`;
+  const scope = await (
+    await page.request.post(`${api}/test-only/radiosoft-real/${shop}`, { headers: web })
+  ).json();
+  expect(
+    (
+      await page.request.post(base + '/setup', {
+        headers: web,
+        data: { scope, confirm_source_and_scope: true },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const { code } = await (
+    await page.request.post(base + '/pairing', { headers: web, data: {} })
+  ).json();
+  const credential = 't'.repeat(43);
+  expect(
+    (
+      await request.post(api + '/radiosoft/real-connector/pair', { data: { code, credential } })
+    ).ok(),
+  ).toBeTruthy();
+  await page.clock.install({ time: new Date('2026-11-09T18:29:40Z') });
+  await page
+    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .click();
+  await expect(page.getByLabel('Bill date (YYYY-MM-DD)', { exact: true })).toHaveValue(
+    '2026-11-09',
+  );
+  await page.clock.setSystemTime(new Date('2026-11-09T18:30:01Z'));
+  await expect(page.getByLabel('Bill date (YYYY-MM-DD)', { exact: true })).toHaveValue(
+    '2026-11-10',
+  );
+  // A deliberately selected old day stays put while Today rolls forward.
+  await page.getByLabel('Bill date (YYYY-MM-DD)', { exact: true }).fill('2026-11-03');
+  await page.getByRole('button', { name: 'Find bills', exact: true }).click();
+  await page.clock.setSystemTime(new Date('2026-11-10T18:30:01Z'));
+  await expect(page.getByLabel('Bill date (YYYY-MM-DD)', { exact: true })).toHaveValue(
+    '2026-11-03',
+  );
+  const reply = page.waitForResponse(
+    (response) => response.url() === base + '/refresh' && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Refresh from shop PC', exact: true }).click();
+  const { request_id } = await (await reply).json();
+  const health = await request.post(api + '/radiosoft/real-connector/health', {
+    headers: { Authorization: `Bearer ${credential}` },
+    data: {
+      status: 'SOURCE_UNAVAILABLE',
+      pending_observations: 0,
+      scan_request_failed: request_id,
+      source_error: 'SQLSTATE_28000',
+      connector_version: '0.3.0',
+    },
+  });
+  expect(health.ok()).toBeTruthy();
+  await expect(
+    page.getByText(
+      'The PC could not finish reading RadioSoft. Open Connection settings for the source error; imported bills remain available.',
+      { exact: true },
+    ),
+  ).toBeVisible({ timeout: 8000 });
+  await expect(
+    page.getByText('The latest-bills check finished. Older bills may still be catching up.', {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
+  await expect(page.getByText('PC source error: SQLSTATE_28000', { exact: true })).toBeVisible();
+  await expect(page.getByText('Connector version: 0.3.0', { exact: true })).toBeVisible();
 });

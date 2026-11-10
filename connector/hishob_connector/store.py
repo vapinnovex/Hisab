@@ -8,7 +8,14 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-from .contract import MAX_SEQUENCE, encoded, local_api, validate_observation, validate_pair
+from .contract import (
+    MAX_SEQUENCE,
+    encoded,
+    local_api,
+    normalize_pairing_code,
+    validate_observation,
+    validate_pair,
+)
 
 
 class Store:
@@ -88,8 +95,7 @@ class Store:
 
     def queue_pair(self, api, code):
         api = local_api(api)
-        if not isinstance(code, str) or not 32 <= len(code) <= 100:
-            raise ValueError("Enter the five-minute pairing code")
+        code = normalize_pairing_code(code)
         with self.transaction():
             old_api = self.get("api")
             if old_api and api != old_api:

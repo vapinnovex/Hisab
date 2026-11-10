@@ -395,8 +395,16 @@ def health(body: RealHealth, c=Depends(auth), db=Depends(get_db)):
     update = {
         "$set": {"health": body.model_dump(mode="json"), "last_contact": now()},
     }
-    if body.scan_request_ack and body.scan_request_ack == c.get("scan_request_id"):
+    if (
+        body.scan_request_ack
+        and body.scan_request_ack == c.get("scan_request_id")
+        and body.status == "OK"
+        and (body.scan_request_sequence is None or body.scan_request_sequence <= c.get("last_sequence", 0))
+    ):
         update["$set"]["scan_completed_id"] = body.scan_request_ack
+        update["$set"]["scan_failed_id"] = None
+    elif body.scan_request_failed and body.scan_request_failed == c.get("scan_request_id"):
+        update["$set"]["scan_failed_id"] = body.scan_request_failed
     db.radiosoft_real_integrations.update_one(
         {"_id": c["_id"], "credential_hash": c["credential_hash"]},
         update,
@@ -459,7 +467,10 @@ def status(shop_id: str, request: Request, identity=Depends(current_identity), d
         "last_successful_sync": c.get("last_successful_sync"),
         "scan_request_id": c.get("scan_request_id"),
         "scan_completed_id": c.get("scan_completed_id"),
-        "scan_pending": bool(c.get("scan_request_id") and c.get("scan_request_id") != c.get("scan_completed_id")),
+        "scan_failed_id": c.get("scan_failed_id"),
+        "scan_pending": bool(
+            c.get("scan_request_id") and c.get("scan_request_id") != c.get("scan_completed_id")
+        ),
         "health": c.get("health"),
         "accounting_available": False,
         "coverage": "Bounded polling; missing rows never imply deletion; repeated reads do not establish final save.",
@@ -481,10 +492,21 @@ def request_source_refresh(
         raise HTTPException(429, "Please wait before requesting another PC source scan")
     request_id = secrets.token_urlsafe(24)
     result = db.radiosoft_real_integrations.update_one(
-        {"_id": shop_id, "credential_hash": c["credential_hash"]},
-        {"$set": {"scan_request_id": request_id, "scan_requested_at": timestamp}},
+        {
+            "_id": shop_id,
+            "credential_hash": c["credential_hash"],
+            "enabled": True,
+            "scan_request_id": c.get("scan_request_id"),
+            "scan_requested_at": c.get("scan_requested_at"),
+        },
+        {"$set": {"scan_request_id": request_id, "scan_requested_at": timestamp, "scan_failed_id": None}},
     )
     if not result.modified_count:
+        latest = db.radiosoft_real_integrations.find_one(
+            {"_id": shop_id, "enabled": True, "credential_hash": c["credential_hash"]}
+        )
+        if latest and latest.get("scan_request_id") != latest.get("scan_completed_id"):
+            return {"request_id": latest["scan_request_id"], "pending": True}
         raise HTTPException(409, "Connector settings changed. Refresh and retry.")
     return {"request_id": request_id, "pending": True}
 

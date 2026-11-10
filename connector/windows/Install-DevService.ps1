@@ -9,7 +9,7 @@ if (-not [Environment]::Is64BitProcess) { throw 'x64 PowerShell required' }
 $name='HishobRadioSoftDev'
 $state=Join-Path $env:ProgramData 'HishobConnectorDev'
 $base=Join-Path $env:ProgramFiles 'HishobConnectorDev'
-$destination=Join-Path $base '0.2.0'
+$destination=Join-Path $base '0.3.0'
 if ($ServiceCredential.UserName -notmatch ('^'+[regex]::Escape($env:COMPUTERNAME)+'\\')) { throw 'Use the dedicated local non-administrator SQL reader account' }
 $id=New-Object Security.Principal.NTAccount($ServiceCredential.UserName)
 $sid=$id.Translate([Security.Principal.SecurityIdentifier]).Value
@@ -18,7 +18,7 @@ if ($sid -in @('S-1-5-18','S-1-5-19','S-1-5-20') -or $sid.EndsWith('-500')) { th
 if (Get-LocalGroupMember -SID 'S-1-5-32-544' | Where-Object { $_.SID.Value -eq $sid }) { throw 'Administrator account refused' }
 if (Get-Service -Name $name -ErrorAction SilentlyContinue) { throw 'Existing service: reviewed upgrade required' }
 $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
-if ($manifest.mode -ne 'REAL_DEV_DISPLAY_ONLY' -or $manifest.version -ne '0.2.0') { throw 'Wrong release' }
+if ($manifest.mode -ne 'REAL_DEV_DISPLAY_ONLY' -or $manifest.version -ne '0.3.0') { throw 'Wrong release' }
 Verify-Payload $PSScriptRoot $manifest @('HishobConnectorDev')
 foreach ($p in @($state,$base,$destination)) { Reject-Reparse $p }
 if (Test-Path -LiteralPath $state) { Get-ChildItem -LiteralPath $state -Recurse -Force | ForEach-Object { Reject-Reparse $_.FullName } }

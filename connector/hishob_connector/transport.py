@@ -14,12 +14,13 @@ class DeliveryError(Exception):
 
 class HttpTransport:
     prefix = "/api/radiosoft/connector/"
+    allowed_paths = {"pair", "observations", "health"}
 
     def __init__(self, api):
         self.api = local_api(api)
 
     def post(self, path, body, credential=None):
-        if path not in {"pair", "observations", "health"}:
+        if path not in self.allowed_paths:
             raise ValueError("Unsupported endpoint")
         headers = {"Content-Type": "application/json"}
         if credential:

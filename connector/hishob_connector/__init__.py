@@ -1,3 +1,3 @@
-"""Synthetic preview only. Real RadioSoft observations have no ingestion path."""
+"""Isolated synthetic and explicitly bound real DEV connector adapters."""
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

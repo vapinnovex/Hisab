@@ -146,8 +146,13 @@ class RealHealth(Contract):
     status: Literal["OK", "SOURCE_UNAVAILABLE", "SCHEMA_MISMATCH", "SCAN_INCOMPLETE", "OUTBOX_BLOCKED"]
     pending_observations: int = Field(ge=0, le=5000)
     last_successful_source_read: Optional[AwareDatetime] = None
-    coverage: dict = Field(default_factory=dict, max_length=10)
+    coverage: dict = Field(default_factory=dict, max_length=32)
     scan_request_ack: Optional[str] = Field(default=None, max_length=100)
+    scan_request_sequence: Optional[int] = Field(default=None, ge=0)
+    scan_request_failed: Optional[str] = Field(default=None, max_length=100)
+    source_error: Optional[str] = Field(default=None, pattern=r"^[A-Z0-9_]{1,100}$")
+    connector_version: Optional[str] = Field(default=None, max_length=30)
+    last_fast_source_read: Optional[AwareDatetime] = None
 
 
 class Mapping(Contract):

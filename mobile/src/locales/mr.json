@@ -1535,5 +1535,9 @@
   "Search bills, customers or notes": "बिले, ग्राहक किंवा नोंदी शोधा",
   "Bill number, customer or note": "बिल क्रमांक, ग्राहक किंवा नोंद",
   "Customer credit included in pending: {0}": "बाकीमध्ये समाविष्ट ग्राहक उधार: {0}",
-  "Split": "विभागून"
+  "Split": "विभागून",
+  "The PC could not finish reading RadioSoft. Open Connection settings for the source error; imported bills remain available.": "PC वरील RadioSoft वाचणे पूर्ण झाले नाही. स्रोताची त्रुटी पाहण्यासाठी कनेक्शन सेटिंग उघडा; आयात केलेली बिले उपलब्ध आहेत.",
+  "The latest-bills check finished. Older bills may still be catching up.": "नवीनतम बिलांची तपासणी पूर्ण झाली. जुन्या बिलांचे आयात अजून सुरू असू शकते.",
+  "Connector version: {0}": "कनेक्टर आवृत्ती: {0}",
+  "PC source error: {0}": "PC स्रोत त्रुटी: {0}"
 }

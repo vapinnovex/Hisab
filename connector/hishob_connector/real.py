@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 
 from jsonschema import Draft202012Validator, FormatChecker
 
+from . import __version__
 from .contract import MAX_SEQUENCE, encoded
 from .engine import Engine
 from .extractor import (
@@ -128,6 +129,7 @@ def map_bill(snapshot):
 
 class RealTransport(HttpTransport):
     prefix = "/api/radiosoft/real-connector/"
+    allowed_paths = HttpTransport.allowed_paths | {"command"}
 
     def __init__(self, api):
         self.api = https_origin(api)
@@ -231,6 +233,10 @@ class RealStore(Store):
 
         result["scm_service_state"] = service_state("HishobRadioSoftDev")
         result["source_error"] = self.get("source_error")
+        result["connector_version"] = __version__
+        result["last_capture_seconds"] = self.get("last_capture_seconds")
+        result["last_capture_queries"] = self.get("last_capture_queries")
+        result["last_fast_source_read"] = self.get("last_fast_source_read")
         result["historical_coverage"] = self.get("real_checkpoint", {})
         result["coverage_limit"] = (
             "Bounded cyclic rereads; absence is not deletion; stability is not final save"
@@ -249,7 +255,7 @@ class Poller:
     def __init__(self, store, reader):
         self.store, self.reader = store, reader
 
-    def capture(self, force_latest=False):
+    def capture(self, force_latest=False, restart_latest=False, request_id=None):
         b = self.store.get("binding")
         cp = self.store.get(
             "real_checkpoint",
@@ -272,21 +278,27 @@ class Poller:
             if not capture_from <= today < capture_until:
                 raise ExtractionReview("TODAY_OUTSIDE_CAPTURE_WINDOW")
             scopes = [(t, f) for f in b["firm_codes"] for t in b["invoice_types"]]
-            fingerprints = cp.setdefault("refresh_head_fingerprints", {})
-            records = []
-            for scope_index, (invoice_type, firm) in enumerate(scopes):
-                keys = self.reader.keys_page(
-                    invoice_type,
-                    firm,
-                    str(today),
-                    str(today + timedelta(days=1)),
-                    (2147483647, "ZZZZZZZZ"),
-                    1,
-                    newest_first=True,
-                )
-                if not keys:
-                    continue
-                key = keys[0]
+            # One scope / five newest bills per pass, rotated independently of history.
+            # Keep the complete small window, not just its head: bursts of sales and
+            # edits to the previous bill must not wait for the historical cursor.
+            restart_latest = restart_latest or (request_id and cp.get("fast_request_id") != request_id)
+            scope_index = 0 if restart_latest else cp.get("fast_scope", 0) % len(scopes)
+            if request_id:
+                cp["fast_request_id"] = request_id
+            invoice_type, firm = scopes[scope_index]
+            keys = self.reader.keys_page(
+                invoice_type,
+                firm,
+                str(today),
+                str(today + timedelta(days=1)),
+                (2147483647, "ZZZZZZZZ"),
+                5,
+                newest_first=True,
+            )
+            fingerprints = cp.setdefault("fast_fingerprints", {})
+            previous = fingerprints.get(str(scope_index), {})
+            window, records = {}, []
+            for key in keys:
                 record = map_bill(
                     self.reader.inspect_bill(
                         key["InvoiceNo"],
@@ -295,14 +307,19 @@ class Poller:
                         key["FirmCode"],
                     )
                 )
+                identity = hashlib.sha256(encoded(record["bill"]["key"])).hexdigest()
                 fingerprint = hashlib.sha256(encoded(record)).hexdigest()
-                if fingerprints.get(str(scope_index)) != fingerprint:
+                window[identity] = fingerprint
+                if previous.get(identity) != fingerprint:
                     records.append(record)
-                    fingerprints[str(scope_index)] = fingerprint
-            cp["refresh_head_fingerprints"] = fingerprints
+            fingerprints[str(scope_index)] = window
+            cp["fast_scope"] = (scope_index + 1) % len(scopes)
+            cp["fast_day"] = str(today)
             cp["complete_history_claim"] = False
-            self.store.enqueue_real(records, datetime.now(timezone.utc).isoformat(), cp)
-            return
+            if not self.store.enqueue_real(records, datetime.now(timezone.utc).isoformat(), cp):
+                raise ExtractionReview("SOURCE_CAPTURE_NOT_COMMITTED")
+            return cp["fast_scope"] == 0
+
         records = []
         turn = cp["turn"]
         if turn == 0 or turn % 10 == 0:
@@ -412,36 +429,68 @@ class RealEngine(Engine):
     def post(self, path, body, credential=None):
         return (self.transport or RealTransport(self.store.get("api"))).post(path, body, credential)
 
+    def resume_health_upgrade(self):
+        """Explicit recovery for the old 422 health contract defect, never for bad data/acks."""
+        store = self.store
+        credential = store.get("credential")
+        if (
+            store.get("mode") != "INCOMPATIBLE"
+            or store.get("error") != "HEALTH_HTTP_422"
+            or not credential
+            or store.get("pending_pair")
+            or store.get("binding") != store.get("expected_binding")
+        ):
+            raise ValueError("Only an unchanged binding blocked by HEALTH_HTTP_422 can resume here")
+        result = self.post(
+            "health",
+            encoded(
+                {
+                    "status": "SCAN_INCOMPLETE",
+                    "pending_observations": store.count(),
+                    "connector_version": __version__,
+                }
+            ),
+            credential,
+        )
+        if result != {"received": True}:
+            raise ValueError("Server did not confirm the upgraded health contract")
+        with store.transaction():
+            if store.get("mode") != "INCOMPATIBLE" or store.get("credential") != credential:
+                raise ValueError("State changed; preserve it and review recovery")
+            store.put("mode", "RUNNING")
+            store.put("error", None)
+            store.put("last_fast_attempt", 0)
+            store.put("last_real_attempt", 0)
+
     def tick(self, now=None):
         clock = time.time() if now is None else now
         if self.store.get("mode") == "RUNNING" and clock - self.store.get("last_command_poll", 0) >= 5:
             self.store.put("last_command_poll", clock)
             try:
-                command = self.post(
-                    "command", encoded({}), self.store.get("credential")
-                )
+                command = self.post("command", encoded({}), self.store.get("credential"))
                 if isinstance(command, dict):
                     request_id = command.get("scan_request_id")
                     if request_id:
                         self.store.put("requested_scan_id", request_id)
-            except DeliveryError:
-                pass
+            except DeliveryError as exc:
+                if exc.status in {401, 403}:
+                    self.blocked("REVOKED_OR_DISABLED", f"COMMAND_HTTP_{exc.status}")
+                    return
+                # An older backend may not implement command. Regular scans still work.
         requested_scan = self.store.get("requested_scan_id")
-        handled_scan = self.store.get("handled_scan_request_id")
-        force_scan = bool(
-            requested_scan
-            and requested_scan != handled_scan
-            and (
-                requested_scan != self.store.get("attempted_scan_request_id")
-                or clock - self.store.get("last_real_attempt", 0) >= 60
-            )
-        )
-        scan_due = clock - self.store.get("last_real_attempt", 0) >= 60
-        if self.store.get("mode") == "RUNNING" and (force_scan or scan_due):
-            self.store.put("last_real_attempt", clock)
-            if force_scan:
+        pending_request = bool(requested_scan and requested_scan != self.store.get("handled_scan_request_id"))
+        first_attempt = pending_request and requested_scan != self.store.get("attempted_scan_request_id")
+        fast_due = clock - self.store.get("last_fast_attempt", 0) >= 5
+        background_due = clock - self.store.get("last_real_attempt", 0) >= 60
+        fast_scan = first_attempt or fast_due
+        if clock < self.store.get("source_retry_at", 0):
+            fast_scan = background_due = False
+        if self.store.get("mode") == "RUNNING" and (fast_scan or background_due):
+            started = time.monotonic()
+            if pending_request:
                 self.store.put("attempted_scan_request_id", requested_scan)
             connection = None
+            reader = None
             try:
                 if self.store.count() > 4500:
                     raise RuntimeError("OUTBOX_CAPACITY")
@@ -452,31 +501,81 @@ class RealEngine(Engine):
                     b["firm_codes"],
                     b["capture_from"],
                     b["capture_until"],
-                    0.1,
+                    0.05,
                     max_queries=100,
-                    max_read_seconds=20,
+                    max_read_seconds=10 if fast_scan else 20,
                 )
                 reader.verify_schema()
-                Poller(self.store, reader).capture(force_latest=force_scan)
-                if force_scan:
-                    self.store.put("handled_scan_request_id", requested_scan)
-                    self.store.put("scan_request_sequence", self.store.get("sequence"))
-                    self.store.put("last_health_attempt", 0)
+                complete = Poller(self.store, reader).capture(
+                    force_latest=fast_scan,
+                    restart_latest=bool(first_attempt),
+                    request_id=requested_scan if pending_request else None,
+                )
+                if fast_scan:
+                    self.store.put("last_fast_source_read", self.store.get("last_source_observation"))
+                if pending_request and fast_scan:
+                    self.store.put("attempted_scan_request_id", requested_scan)
+                    if complete:
+                        self.store.put("handled_scan_request_id", requested_scan)
+                        self.store.put("scan_request_sequence", self.store.get("sequence"))
+                        self.store.put("failed_scan_request_id", None)
+                        self.store.put("last_health_attempt", 0)
                 self.store.put("source_health", "OK")
+                self.store.put("source_failures", 0)
+                self.store.put("source_retry_at", 0)
                 self.store.put("source_error", None)
             except ExtractionReview as exc:
                 self.store.put("source_health", "SCAN_INCOMPLETE")
                 self.store.put("source_error", str(exc)[:100])
+                if pending_request:
+                    self.store.put("failed_scan_request_id", requested_scan)
+                self.store.put("last_health_attempt", 0)
             except Exception as exc:
                 capacity = isinstance(exc, RuntimeError) and str(exc) == "OUTBOX_CAPACITY"
                 self.store.put("source_health", "OUTBOX_BLOCKED" if capacity else "SOURCE_UNAVAILABLE")
-                self.store.put("source_error", "OUTBOX_CAPACITY" if capacity else type(exc).__name__)
+                # SQLSTATE only; never include driver text, queries, names or credentials.
+                import re
+
+                sqlstate = str(exc.args[0]) if exc.args else ""
+                error = (
+                    "SQLSTATE_" + sqlstate if re.fullmatch(r"[A-Z0-9]{5}", sqlstate) else "SOURCE_READ_FAILED"
+                )
+                self.store.put("source_error", "OUTBOX_CAPACITY" if capacity else error)
+                failures = self.store.get("source_failures", 0) + 1
+                self.store.put("source_failures", failures)
+                self.store.put("source_retry_at", clock + min(60, 5 * 2 ** min(failures, 4)))
+                if pending_request:
+                    self.store.put("failed_scan_request_id", requested_scan)
+                self.store.put("last_health_attempt", 0)
             finally:
+                self.store.put("last_capture_seconds", round(time.monotonic() - started, 3))
+                self.store.put("last_capture_queries", reader.query_count if reader else 0)
+                # Wait after completion too: a slow/failing database must not be hammered.
+                self.store.put(
+                    "last_fast_attempt" if fast_scan else "last_real_attempt",
+                    clock + time.monotonic() - started,
+                )
                 if connection is not None:
                     connection.close()
         # Prevent the base engine's artificial generator; delivery/retry is shared.
         self.store.put("last_scan", clock)
         super().tick(clock)
+        # Drain a bounded burst in order, without a mandatory one-second gap per bill.
+        # Never skip a failed head or mint replacement envelopes.
+        deadline = time.monotonic() + 2
+        for _ in range(9):
+            head = self.store.head()
+            if (
+                self.store.get("mode") != "RUNNING"
+                or not head
+                or head["retry_at"] > clock
+                or time.monotonic() >= deadline
+            ):
+                break
+            previous = self.store.get("last_acknowledged_sequence", 0)
+            super().tick(clock)
+            if self.store.get("last_acknowledged_sequence", 0) == previous:
+                break
         sequence = self.store.get("scan_request_sequence")
         handled = self.store.get("handled_scan_request_id")
         if (
@@ -500,8 +599,27 @@ class RealEngine(Engine):
                     data = json.loads(body)
                     data.update(
                         last_successful_source_read=engine.store.get("last_source_observation"),
-                        coverage=engine.store.get("real_checkpoint", {}),
+                        coverage={
+                            k: v
+                            for k, v in engine.store.get("real_checkpoint", {}).items()
+                            if k
+                            in {
+                                "turn",
+                                "directory_after",
+                                "day",
+                                "scope",
+                                "recent_day",
+                                "fast_day",
+                                "fast_scope",
+                                "complete_history_claim",
+                            }
+                        },
                         scan_request_ack=engine.store.get("completed_scan_request_id"),
+                        scan_request_sequence=engine.store.get("scan_request_sequence"),
+                        scan_request_failed=engine.store.get("failed_scan_request_id"),
+                        source_error=engine.store.get("source_error"),
+                        connector_version=__version__,
+                        last_fast_source_read=engine.store.get("last_fast_source_read"),
                     )
                     body = encoded(data)
                 return (original or RealTransport(engine.store.get("api"))).post(path, body, credential)

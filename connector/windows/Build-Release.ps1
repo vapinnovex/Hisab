@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitProcess) { throw 'Build on Windows x64.' }
-$version = '0.2.0'
+$version = '0.3.0'
 $dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $root 'dist' }
 $build = Join-Path $root 'build'
 $mode = if ($RealDev) { 'REAL_DEV_DISPLAY_ONLY' } else { 'SYNTHETIC_LOOPBACK_ONLY' }
@@ -29,6 +29,7 @@ try {
         foreach ($doc in @('SHOP-PC-DEV-SETUP.md','RADIOSOFT-REAL-BUSINESS-RULES.md','RADIOSOFT-REAL-IMPLEMENTATION.md')) {
             Copy-Item -LiteralPath (Join-Path $root "../docs/$doc") -Destination $release
         }
+        Copy-Item -LiteralPath (Join-Path $root '../docs/dev/radiosoft-fast-refresh-2026-11-10.md') -Destination (Join-Path $release 'RADIOSOFT-FAST-REFRESH.md')
         Copy-Item -LiteralPath (Join-Path $root '../docs/dev/radiosoft-real-reviewed-files.json') -Destination $release
     } else {
         & $Python @common --name HishobConnector --console --hidden-import win32timezone --hidden-import servicemanager --hidden-import win32service --hidden-import win32serviceutil service_entry.py

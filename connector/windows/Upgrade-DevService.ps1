@@ -12,10 +12,10 @@ if ($service.StartName -notmatch ('^'+[regex]::Escape($env:COMPUTERNAME)+'\\|^\.
 $identity=New-Object Security.Principal.NTAccount($service.StartName)
 $sid=$identity.Translate([Security.Principal.SecurityIdentifier]).Value
 $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
-if ($manifest.mode -ne 'REAL_DEV_DISPLAY_ONLY' -or $manifest.version -ne '0.2.0') { throw 'Wrong release' }
+if ($manifest.mode -ne 'REAL_DEV_DISPLAY_ONLY' -or $manifest.version -ne '0.3.0') { throw 'Wrong release' }
 Verify-Payload $PSScriptRoot $manifest @('HishobConnectorDev')
 $base=Join-Path $env:ProgramFiles 'HishobConnectorDev'
-$destination=Join-Path $base '0.2.0'
+$destination=Join-Path $base '0.3.0'
 foreach ($p in @($base,$destination)) { Reject-Reparse $p }
 if (-not (Test-Path -LiteralPath $destination)) {
     New-Item -ItemType Directory -Path $destination | Out-Null
@@ -40,4 +40,4 @@ try {
     if ($wasRunning) { Start-Service $name }
     throw
 }
-Write-Output 'Upgraded binaries to 0.2.0. Existing credentials, queues, sequence, binding and delayed startup setting preserved. Working PCs do not need pairing.'
+Write-Output 'Upgraded binaries to 0.3.0. Existing credentials, queues, sequence, binding and delayed startup setting preserved. Working PCs do not need pairing.'

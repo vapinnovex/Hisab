@@ -405,11 +405,13 @@ def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(tmp_pat
     engine = real.RealEngine(store, transport)
 
     engine.tick(now=100)
+    assert store.get("completed_scan_request_id") is None
+    engine.tick(now=106)
 
     queries = [params for sql, params in source.calls if sql == RECENT_KEYS_SQL]
     assert len(queries) == 2
     assert all(
-        params[0] == 1
+        params[0] == 5
         and params[3:5] == ("2026-11-06", "2026-11-07")
         and params[-3:] == (2147483647, 2147483647, "ZZZZZZZZ")
         for params in queries
