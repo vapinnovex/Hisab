@@ -164,6 +164,9 @@ def test_health_recovery_requires_server_confirmation_and_preserves_stream(tmp_p
 def test_automatic_latest_reads_do_not_wait_for_minute_sweep(tmp_path, vault, monkeypatch):
     from test_extractor import FakeConnection
 
+    # tick(now=...) uses simulated wall time; elapsed capture time must be simulated too.
+    monkeypatch.setattr(real.time, "monotonic", lambda: 0.0)
+
     store = real_store(tmp_path, vault)
     source = FakeConnection()
     source.close = lambda: None
@@ -183,3 +186,39 @@ def test_automatic_latest_reads_do_not_wait_for_minute_sweep(tmp_path, vault, mo
     assert passes == [True, False, True]
     assert store.get("last_capture_queries") == 1
     store.close()
+
+
+@pytest.mark.parametrize("capture_seconds", [0.0, 2.0, 20.0])
+def test_fast_scan_waits_five_seconds_after_completion(tmp_path, vault, monkeypatch, capture_seconds):
+    from test_extractor import FakeConnection
+
+    elapsed = [0.0]
+    monkeypatch.setattr(real.time, "monotonic", lambda: elapsed[0])
+    store = real_store(tmp_path, vault)
+    store.put("last_real_attempt", 100)  # Background sweep is not due during this check.
+    source = FakeConnection()
+    source.close = lambda: None
+    monkeypatch.setattr(real, "open_local_readonly", lambda *_: source)
+    passes = []
+
+    def capture(self, **kwargs):
+        passes.append(kwargs["force_latest"])
+        elapsed[0] += capture_seconds
+        return False
+
+    monkeypatch.setattr(real.Poller, "capture", capture)
+
+    class Transport:
+        def post(self, path, body, credential=None):
+            return {"scan_request_id": None} if path == "command" else {"received": True}
+
+    try:
+        engine = real.RealEngine(store, Transport())
+        engine.tick(100)
+        assert store.get("last_fast_attempt") == 100 + capture_seconds
+        engine.tick(100 + capture_seconds + 4.9)
+        assert passes == [True]
+        engine.tick(100 + capture_seconds + 5)
+        assert passes == [True, True]
+    finally:
+        store.close()
