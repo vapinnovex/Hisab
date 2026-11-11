@@ -548,6 +548,15 @@ def test_local_demo_helper_pairs_and_simulates_changes(client, pilot, monkeypatc
         return response.json()
 
     monkeypatch.setattr(radiosoft_demo, "post", local_post)
+    # The demo's health probe must use this test's isolated in-process API too.
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    def local_health(url, timeout):
+        assert url == "http://localhost:8000/health" and timeout == 5
+        return nullcontext(SimpleNamespace(status=client.get("/health").status_code))
+
+    monkeypatch.setattr(radiosoft_demo, "urlopen", local_health)
     radiosoft_demo.demo("http://localhost:8000")
     rows = client.get(p["base"] + "/bills", headers=p["owner"]).json()["bills"]
     assert len(rows) == 3
@@ -758,6 +767,15 @@ def test_demo_auto_sync_and_outage_pause(client, pilot, monkeypatch):
         return response.json()
 
     monkeypatch.setattr(radiosoft_demo, "post", local_post)
+    # The demo's health probe must use this test's isolated in-process API too.
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    def local_health(url, timeout):
+        assert url == "http://localhost:8001/health" and timeout == 5
+        return nullcontext(SimpleNamespace(status=client.get("/health").status_code))
+
+    monkeypatch.setattr(radiosoft_demo, "urlopen", local_health)
     radiosoft_demo.demo("http://localhost:8001")
     assert statuses == ["OK", "OK", "SOURCE_UNAVAILABLE", "OK"]
     assert len(observations) == 9

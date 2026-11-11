@@ -1,4 +1,4 @@
-# Windows x64 Python 3.12.14; pinned build inputs, not a bit-for-bit build promise.
+# Windows x64 Python 3.12.10 (GitHub Actions); pinned build inputs, not a bit-for-bit build promise.
 altgraph==0.17.5
 anyio==4.16.0
 attrs==26.1.0

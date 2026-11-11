@@ -304,15 +304,15 @@ def test_reset_and_linked_mobile_change_requires_verified_account_flow(client, s
         client.put(attendance, headers=owner, json={"date": day, "status": "NOT_MARKED"}).status_code == 200
     )
     assert client.post(attendance + "/check-in", headers=owner).status_code == 200
-    assert client.patch(
-        base + "/workers/" + worker,
-        headers=owner,
-        json={"name": "Asha", "mobile": "+919876543255", "active": True},
-    ).status_code == 409
     assert (
-        client.get(base + "/me/attendance/today", headers=auth).json()["attendance"]["status"]
-        == "PRESENT"
+        client.patch(
+            base + "/workers/" + worker,
+            headers=owner,
+            json={"name": "Asha", "mobile": "+919876543255", "active": True},
+        ).status_code
+        == 409
     )
+    assert client.get(base + "/me/attendance/today", headers=auth).json()["attendance"]["status"] == "PRESENT"
 
 
 def test_manager_is_in_register_and_owner_can_record_their_attendance(client, setup_shop):

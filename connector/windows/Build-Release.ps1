@@ -47,7 +47,7 @@ try {
     $manifest = Get-ChildItem -LiteralPath $release -Recurse -File | ForEach-Object {
         [ordered]@{path=$_.FullName.Substring($release.Length+1).Replace('\','/');bytes=$_.Length;sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
     }
-    [ordered]@{version=$version;mode=$mode;source_revision=(& git rev-parse HEAD);source_dirty=([bool](& git status --porcelain));created_utc=[DateTime]::UtcNow.ToString('o');files=@($manifest)} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $release 'MANIFEST.json') -Encoding UTF8
+    [ordered]@{version=$version;mode=$mode;source_revision=(& git rev-parse HEAD);source_dirty=([bool](& git status --porcelain));created_utc=[DateTime]::UtcNow.ToString('o');python_version=(& $Python -c 'import platform; print(platform.python_version())');github_run_id=$env:GITHUB_RUN_ID;github_run_attempt=$env:GITHUB_RUN_ATTEMPT;files=@($manifest)} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $release 'MANIFEST.json') -Encoding UTF8
     Compress-Archive -LiteralPath $release -DestinationPath "$release.zip"
     Write-Output "$release.zip"
 } finally { Pop-Location }

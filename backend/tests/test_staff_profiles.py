@@ -83,14 +83,10 @@ def test_existing_account_requires_current_password_and_sets_new_password(client
     }
     assert client.post("/api/auth/staff/password/setup", json=body).status_code == 409
     assert db.memberships.find_one({"_id": member["id"]})["user_id"] is None
-    response = client.post(
-        "/api/auth/staff/password/setup", json={**body, "current_password": PASSWORD}
-    )
+    response = client.post("/api/auth/staff/password/setup", json={**body, "current_password": PASSWORD})
     assert response.status_code == 200, response.text
     assert (
-        client.post(
-            "/api/auth/staff/password/setup", json={**body, "current_password": PASSWORD}
-        ).status_code
+        client.post("/api/auth/staff/password/setup", json={**body, "current_password": PASSWORD}).status_code
         == 200
     )
     assert db.memberships.find_one({"_id": member["id"]})["user_id"] == "existing-account"

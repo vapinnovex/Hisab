@@ -3,13 +3,24 @@ param()
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'Verify-Payload.ps1')
+# Lookup-only normalization: never assign this value back to StartName or SCM.
+function ConvertTo-LocalSidAccount([string]$AccountName) {
+    if ($AccountName -notmatch ('^'+[regex]::Escape($env:COMPUTERNAME)+'\\|^\.\\')) {
+        throw 'Review the dedicated local service identity before upgrading.'
+    }
+    if ($AccountName.StartsWith('.\')) {
+        return $env:COMPUTERNAME + '\' + $AccountName.Substring(2)
+    }
+    return $AccountName
+}
+
 $admin=[Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $admin.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Administrator required' }
 $name='HishobRadioSoftDev'
 $service=Get-CimInstance Win32_Service -Filter "Name='$name'"
 if (-not $service) { throw 'No existing service. Use Install-DevService for a new installation.' }
-if ($service.StartName -notmatch ('^'+[regex]::Escape($env:COMPUTERNAME)+'\\|^\.\\')) { throw 'Review the dedicated local service identity before upgrading.' }
-$identity=New-Object Security.Principal.NTAccount($service.StartName)
+$sidAccount=ConvertTo-LocalSidAccount $service.StartName
+$identity=New-Object Security.Principal.NTAccount($sidAccount)
 $sid=$identity.Translate([Security.Principal.SecurityIdentifier]).Value
 $manifest=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
 if ($manifest.mode -ne 'REAL_DEV_DISPLAY_ONLY' -or $manifest.version -ne '0.3.0') { throw 'Wrong release' }
