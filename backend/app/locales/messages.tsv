@@ -274,3 +274,15 @@ Use a report window of at most 31 days|रिपोर्ट की अवधि
 Wait before creating another pairing code|दूसरा पेयरिंग कोड बनाने से पहले प्रतीक्षा करें|दुसरा पेअरिंग कोड तयार करण्यापूर्वी थांबा
 Waiver must not exceed an eligible bill's pending balance|छूट की राशि योग्य बिल की बाकी राशि से अधिक नहीं होनी चाहिए|माफीची रक्कम पात्र बिलाच्या शिल्लक रकमेपेक्षा जास्त नसावी
 Waiver not found or already reversed|छूट नहीं मिली या पहले ही रद्द की जा चुकी है|माफी सापडली नाही किंवा आधीच रद्द केली आहे
+Collection changed concurrently. Refresh and retry.|वसूली में उसी समय बदलाव हुआ। रीफ़्रेश करके फिर कोशिश करें।|वसुलीत त्याच वेळी बदल झाला. रीफ्रेश करून पुन्हा प्रयत्न करा.
+Collection record changed. Refresh before retrying.|वसूली का रिकॉर्ड बदल गया है। फिर कोशिश करने से पहले रीफ़्रेश करें।|वसुलीची नोंद बदलली आहे. पुन्हा प्रयत्न करण्यापूर्वी रीफ्रेश करा.
+Connector settings changed. Refresh and retry.|कनेक्टर की सेटिंग बदल गई हैं। रीफ़्रेश करके फिर कोशिश करें।|कनेक्टरच्या सेटिंग्ज बदलल्या आहेत. रीफ्रेश करून पुन्हा प्रयत्न करा.
+DEV collection history capacity reached; existing history was retained|DEV वसूली इतिहास की सीमा पूरी हो गई है; मौजूदा इतिहास सुरक्षित रखा गया है|DEV वसुली इतिहासाची मर्यादा गाठली आहे; सध्याचा इतिहास जतन केला आहे
+DEV connector must be enabled and paired before requesting a PC refresh|PC रीफ़्रेश का अनुरोध करने से पहले DEV कनेक्टर चालू और पेयर किया हुआ होना चाहिए|PC रीफ्रेशची विनंती करण्यापूर्वी DEV कनेक्टर सुरू आणि पेअर केलेला असणे आवश्यक आहे
+Managers who collect must also be allowed to view bills|वसूली करने वाले प्रबंधकों को बिल देखने की अनुमति भी होनी चाहिए|वसुली करणाऱ्या व्यवस्थापकांना बिले पाहण्याचीही परवानगी असणे आवश्यक आहे
+Managers who correct collections must also be allowed to collect|वसूली में सुधार करने वाले प्रबंधकों को वसूली करने की अनुमति भी होनी चाहिए|वसुलीत दुरुस्ती करणाऱ्या व्यवस्थापकांना वसुली करण्याचीही परवानगी असणे आवश्यक आहे
+Narrow the date or bill-number search to review this DEV register|इस DEV रजिस्टर की समीक्षा के लिए तारीख या बिल नंबर की खोज सीमित करें|हे DEV रजिस्टर तपासण्यासाठी तारीख किंवा बिल क्रमांकाचा शोध मर्यादित करा
+Please wait before requesting another PC source scan|PC स्रोत के अगले स्कैन का अनुरोध करने से पहले कृपया प्रतीक्षा करें|PC स्रोताच्या पुढील स्कॅनची विनंती करण्यापूर्वी कृपया थांबा
+This action is not available in the real DEV collection register|यह कार्रवाई वास्तविक DEV वसूली रजिस्टर में उपलब्ध नहीं है|ही कृती वास्तविक DEV वसुली रजिस्टरमध्ये उपलब्ध नाही
+This bill has no eligible outstanding balance|इस बिल में वसूली के लिए पात्र बकाया राशि नहीं है|या बिलात वसुलीसाठी पात्र थकबाकी नाही
+This bill is historical, changed, or has an ineligible source amount|यह बिल पुराना है, बदल गया है या इसकी स्रोत राशि पात्र नहीं है|हे बिल ऐतिहासिक आहे, बदलले आहे किंवा त्यातील स्रोत रक्कम पात्र नाही

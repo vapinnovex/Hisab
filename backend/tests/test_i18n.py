@@ -35,7 +35,8 @@ def test_catalog_covers_errors_and_preserves_placeholders():
         for translated in (hindi, CATALOG["mr"][source]):
             assert translated and translated != source
             assert sorted(re.findall(r"\{\w+\}", source)) == sorted(re.findall(r"\{\w+\}", translated))
-    for file in Path("app").rglob("*.py"):
+    missing = set()
+    for file in (Path(__file__).resolve().parents[1] / "app").rglob("*.py"):
         if file.name in {"config.py", "enroll_owner.py"}:
             continue  # Startup/operator errors, not API messages.
         for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
@@ -47,7 +48,9 @@ def test_catalog_covers_errors_and_preserves_placeholders():
             args += [kw.value for kw in node.keywords if kw.arg == "detail"]
             for arg in args:
                 if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    assert arg.value in CATALOG["hi"], (str(file), arg.value)
+                    if arg.value not in CATALOG["hi"]:
+                        missing.add((file.name, arg.value))
+    assert not missing, sorted(missing)
 
 
 def test_guest_errors_validation_headers_and_concurrent_languages(client):
