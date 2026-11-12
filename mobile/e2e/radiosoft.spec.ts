@@ -77,10 +77,13 @@ test('synthetic setup, pairing, backend polling, collections, stale warning and 
     const balance = page.getByLabel('Payable ₹1000.00 · Collected ₹0.00 · Outstanding ₹1000.00', {
       exact: true,
     });
-    const bounds = await balance.boundingBox();
-    expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    // React Native's onLayout updates the grid after the viewport resize.
+    await expect
+      .poll(async () => {
+        const bounds = await balance.boundingBox();
+        return bounds !== null && bounds.x >= 0 && bounds.x + bounds.width <= width;
+      })
+      .toBe(true);
     await page.screenshot({
       path: testInfo.outputPath(`radiosoft-bills-${width}.png`),
       fullPage: true,

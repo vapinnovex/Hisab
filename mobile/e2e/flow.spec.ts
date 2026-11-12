@@ -551,7 +551,7 @@ test('daily Hishob closing, preserved history, corrections and manager permissio
     .getByRole('textbox', { name: 'Correction reason', exact: true })
     .fill('Receipt says 450');
   await owner.getByRole('button', { name: 'Save correction', exact: true }).click();
-  await expect(owner.getByText('₹450', { exact: true })).toBeVisible();
+  await expect(owner.getByText('− ₹450', { exact: true })).toBeVisible();
   await cashEntry(owner, 'Expense', '0.10', 'Duplicate tea');
   await owner.getByRole('button', { name: 'Delete · Duplicate tea', exact: true }).click();
   await owner
