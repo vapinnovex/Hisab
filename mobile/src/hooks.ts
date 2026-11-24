@@ -3,13 +3,17 @@ import { AppState } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { onReconnect } from './connection';
 import { useAuth } from './auth';
+import { ApiError } from './api';
 
-export function useResource<T>(path: string, poll = false, enabled = true) {
+export function useResource<T>(path: string, poll: boolean | number = false, enabled = true) {
   const { api } = useAuth();
   const focused = useIsFocused();
-  const [result, setResult] = useState<{ path: string; data: T | null; error: string } | null>(
-    null,
-  );
+  const [result, setResult] = useState<{
+    path: string;
+    data: T | null;
+    error: string;
+    errorStatus?: number;
+  } | null>(null);
   const [refreshingPath, setRefreshingPath] = useState<string | null>(null);
   const sequenceRef = useRef({ value: 0, pending: false });
   const sequence = sequenceRef.current;
@@ -24,8 +28,14 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
       if (sequence.value === current)
         setResult((old) => ({
           path,
-          data: old?.path === path ? old.data : null,
+          data:
+            e instanceof ApiError && (e.status === 401 || e.status === 403)
+              ? null
+              : old?.path === path
+                ? old.data
+                : null,
           error: (e as Error).message,
+          errorStatus: e instanceof ApiError ? e.status : undefined,
         }));
     } finally {
       if (sequence.value === current) {
@@ -35,7 +45,11 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
     }
   }, [api, path, sequence]);
   useEffect(() => {
-    if (!focused || !enabled) return;
+    if (!enabled) {
+      setResult(null);
+      return;
+    }
+    if (!focused) return;
     void refresh();
     const reconnect = onReconnect(() => {
       if (!sequence.pending) void refresh();
@@ -44,9 +58,17 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
       if (state === 'active' && !sequence.pending) void refresh();
     });
     const timer = poll
-      ? setInterval(() => {
-          if (AppState.currentState === 'active' && !sequence.pending) void refresh();
-        }, 5000)
+      ? setInterval(
+          () => {
+            if (
+              AppState.currentState === 'active' &&
+              (typeof document === 'undefined' || document.visibilityState !== 'hidden') &&
+              !sequence.pending
+            )
+              void refresh();
+          },
+          typeof poll === 'number' ? poll : 5000,
+        )
       : undefined;
     return () => {
       reconnect();
@@ -57,7 +79,8 @@ export function useResource<T>(path: string, poll = false, enabled = true) {
     };
   }, [focused, refresh, poll, sequence, enabled]);
   return {
-    data: result?.path === path ? result.data : null,
+    data: enabled && result?.path === path ? result.data : null,
+    errorStatus: result?.path === path ? result.errorStatus : undefined,
     error: result?.path === path ? result.error : '',
     loading: result?.path !== path,
     refreshing: refreshingPath === path,

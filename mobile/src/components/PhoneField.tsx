@@ -21,9 +21,11 @@ function countryFor(number: string, preferred: typeof india) {
 export function PhoneField({
   value,
   onChange,
+  optional = false,
   label = t('Mobile number'),
   helperText = t('Use this number to sign in to Hishob'),
 }: {
+  optional?: boolean;
   value: string;
   onChange: (value: string) => void;
   label?: string;
@@ -41,7 +43,7 @@ export function PhoneField({
   const insets = useSafeAreaInsets();
   const country = countryFor(value, preferred);
   const national = value.startsWith(country.code) ? value.slice(country.code.length) : value;
-  const validation = phoneError(value, country.region);
+  const validation = optional && !national ? '' : phoneError(value, country.region);
   useFieldValidation(validation, () => {
     setTouched(true);
     input.current?.focus();

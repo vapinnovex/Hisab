@@ -29,6 +29,7 @@ class EmailPassword(OTPVerify, NewPassword):
 
 
 class StaffPassword(OTPRequest, NewPassword):
+    current_password: str = Field(default="", max_length=128, repr=False)
     setup_code: str = Field(min_length=8, max_length=100)
 
 

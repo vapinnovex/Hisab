@@ -1,3 +1,4 @@
+import { MoneyTone, moneyTones, transactionTone } from '../components/moneyTone';
 import { localeTag, original, t, useLocale } from './../i18n';
 import React, { useRef, useState } from 'react';
 import { Platform, ScrollView, Text, View } from 'react-native';
@@ -13,12 +14,14 @@ export function MoneyField({
   onChange,
   required = true,
   error,
+  tone,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   error?: string;
+  tone?: MoneyTone;
 }) {
   useLocale();
   const caret = useRef({ start: 0, end: 0 });
@@ -69,7 +72,15 @@ export function MoneyField({
         keyboardType="decimal-pad"
         autoCorrect={false}
         placeholder="0.00"
-        style={[styles.input, { fontSize: 24, fontWeight: '600', fontVariant: ['tabular-nums'] }]}
+        style={[
+          styles.input,
+          {
+            fontSize: 24,
+            fontWeight: '600',
+            fontVariant: ['tabular-nums'],
+            ...(tone ? { color: moneyTones[tone].ink } : {}),
+          },
+        ]}
       />
     </View>
   );
@@ -83,16 +94,22 @@ export function Breakdown({ day }: { day: Totals }) {
         <Text style={styles.heading}>{money(day.opening_cash)}</Text>
       </View>
       {[
-        [t('+ Cash sales'), day.cash_sales],
-        [t('+ Other cash in'), day.other_cash_in],
-        [t('− Cash expenses'), day.cash_expenses ?? day.expenses_total],
-        [t('− Cash supplier payments'), day.cash_supplier_payments ?? day.supplier_payments],
-        [t('− Bank deposit'), day.bank_deposit],
-        [t('− Take-home / withdrawal'), day.withdrawals],
-      ].map(([label, value]) => (
+        [t('+ Cash sales'), day.cash_sales, 'CASH_SALE'],
+        [t('+ Other cash in'), day.other_cash_in, 'OTHER_CASH_IN'],
+        [t('− Cash expenses'), day.cash_expenses ?? day.expenses_total, 'EXPENSE'],
+        [
+          t('− Cash supplier payments'),
+          day.cash_supplier_payments ?? day.supplier_payments,
+          'SUPPLIER_PAYMENT',
+        ],
+        [t('− Bank deposit'), day.bank_deposit, 'BANK_DEPOSIT'],
+        [t('− Take-home / withdrawal'), day.withdrawals, 'WITHDRAWAL'],
+      ].map(([label, value, type]) => (
         <View style={styles.row} key={label}>
           <Text style={styles.small}>{label}</Text>
-          <Text style={styles.heading}>{money(value)}</Text>
+          <Text style={[styles.heading, { color: moneyTones[transactionTone(type!)].ink }]}>
+            {money(value)}
+          </Text>
         </View>
       ))}
       <Text style={styles.label}>{t('Outside the galla')}</Text>
@@ -245,7 +262,11 @@ export function TransactionTypeFilter({
         onChange={onChange}
         options={[
           { value: 'ALL', label: t('All types') },
-          ...transactionTypes.map((item) => ({ value: item.type, label: item.label })),
+          ...transactionTypes.map((item) => ({
+            value: item.type,
+            label: item.label,
+            tone: transactionTone(item.type),
+          })),
         ]}
       />
     </ScrollView>

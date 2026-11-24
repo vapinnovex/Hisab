@@ -92,7 +92,7 @@ export function AppHeader({
           minWidth: 0,
           paddingVertical: 10,
           gap: 10,
-          maxWidth: 720,
+          maxWidth: 1600,
           // Shared by tab roots and every nested screen.
           width: '100%',
           alignSelf: 'center',

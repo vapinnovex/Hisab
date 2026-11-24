@@ -89,13 +89,30 @@ class ShopCreate(Input):
         return value
 
 
-class WorkerCreate(MobileInput):
+class ManagerCreate(MobileInput):
     name: str = Field(min_length=2, max_length=100)
     salary: Optional[ReferenceSalary] = None
 
 
+class ManagerUpdate(ManagerCreate):
+    active: bool
+
+
+class WorkerCreate(Input):
+    name: str = Field(min_length=2, max_length=100)
+    mobile: Optional[str] = None
+    salary: Optional[ReferenceSalary] = None
+    request_id: Optional[str] = Field(default=None, min_length=8, max_length=100)
+
+    @field_validator("mobile")
+    @classmethod
+    def optional_mobile(cls, value):
+        return MobileInput.valid_mobile(value) if value else None
+
+
 class WorkerUpdate(WorkerCreate):
     active: bool
+    revision: Optional[int] = Field(default=None, ge=0)
 
 
 class AttendanceUpdate(Input):

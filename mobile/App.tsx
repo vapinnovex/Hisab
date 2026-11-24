@@ -55,6 +55,8 @@ import {
 
 import { CustomerDues } from './src/financial/dues';
 import { HishobSearch } from './src/financial/search';
+import { RadioSoftBills, RadioSoftSetup } from './src/radiosoft/screens';
+import { RadioSoftReal } from './src/radiosoft/real';
 
 const Stack = createNativeStackNavigator<Routes>();
 const Tabs = createBottomTabNavigator<TabRoutes>();
@@ -124,6 +126,7 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
         selected!.shop.settings.attendance_enabled &&
         selected!.permissions.view_hishob &&
         root !== 'Hishob' && <Stack.Screen name="MyAttendance" component={MyAttendance} />}
+      {root !== 'Hishob' && <Stack.Screen name="RadioSoftReal" component={RadioSoftReal} />}
       {session!.role !== 'WORKER' && (
         <>
           {root === 'Hishob' && selected!.permissions.view_hishob && (
@@ -141,6 +144,10 @@ function SectionStack({ root }: { root: keyof TabRoutes }) {
               <Stack.Screen name="HishobTransactions" component={HishobTransactions} />
               <Stack.Screen name="HishobClose" component={HishobClose} />
             </>
+          )}
+          {root !== 'Hishob' && <Stack.Screen name="RadioSoftBills" component={RadioSoftBills} />}
+          {root !== 'Hishob' && session!.role === 'OWNER' && (
+            <Stack.Screen name="RadioSoftSetup" component={RadioSoftSetup} />
           )}
           {selected!.shop.settings.attendance_enabled && (
             <>
@@ -380,7 +387,7 @@ function Navigation() {
           busy={action.busy}
           onPress={() => void action.run(reload)}
         />
-        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
+        <Button danger title={t('Sign out')} onPress={() => void action.run(signOut)} />
       </Page>
     );
   return (

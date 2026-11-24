@@ -65,6 +65,8 @@ export type Session = {
   memberships: Membership[];
 };
 export type Worker = {
+  login_enabled: boolean;
+  revision: number;
   id: string;
   role: 'MANAGER' | 'WORKER';
   password_ready: boolean;
@@ -152,6 +154,9 @@ export type TabRoutes = {
   Profile: undefined;
 };
 export type Routes = HishobRoutes & {
+  RadioSoftReal: undefined;
+  RadioSoftSetup: undefined;
+  RadioSoftBills: undefined;
   StaffDetails: { staffId: string } | undefined;
   StaffReference: { staffId: string };
   StaffNote: { staffId: string; name: string };

@@ -3,6 +3,8 @@ from functools import lru_cache
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .radiosoft_real_schemas import RealScope
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
@@ -24,9 +26,18 @@ class Settings(BaseSettings):
     face_match_threshold: float = Field(default=0.50, ge=0.363, le=0.95)
     face_match_margin: float = Field(default=0.08, ge=0.02, le=0.5)
     cors_origins: list[str] = ["http://localhost:8081"]
+    # Foundation only: an explicit deployment allowlist, never shop-name matching.
+    radiosoft_real_enabled: bool = False
+    radiosoft_real_pilots: list[RealScope] = []
+    radiosoft_synthetic_enabled: bool = False
+    radiosoft_pilots: list[dict] = []
 
     @model_validator(mode="after")
     def production_safety(self):
+        if self.radiosoft_real_enabled and self.app_env not in {"development", "test"}:
+            raise ValueError("RadioSoft real preview cannot run in production")
+        if self.radiosoft_synthetic_enabled and self.app_env not in {"development", "test"}:
+            raise ValueError("RadioSoft synthetic preview cannot run in production")
         if "*" in self.cors_origins:
             raise ValueError("CORS_ORIGINS must list exact trusted app origins")
         if self.email_provider not in {"dev", "brevo"}:

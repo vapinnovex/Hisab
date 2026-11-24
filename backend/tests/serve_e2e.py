@@ -7,11 +7,13 @@ from pathlib import Path
 from uuid import uuid4
 
 import uvicorn
+from fastapi import Depends, HTTPException
 from pymongo import MongoClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.config import Settings  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.security import current_identity, shop_access  # noqa: E402
 
 settings = Settings(
     _env_file=None,
@@ -25,6 +27,49 @@ settings = Settings(
 # Only this isolated test server replaces camera inference. Production has no bypass.
 app = create_app(settings)
 real_lifespan = app.router.lifespan_context
+
+
+@app.post("/api/test-only/radiosoft/{shop_id}")
+def approve_synthetic_pilot(shop_id: str, identity=Depends(current_identity)):
+    # Exists only in this isolated E2E server, never in create_app / production.
+    if identity.role != "OWNER":
+        raise HTTPException(403, "Owner required")
+    shop_access(shop_id, app.state.db, identity, {"OWNER"})
+    settings.radiosoft_synthetic_enabled = True
+    settings.radiosoft_pilots.append(
+        {
+            "shop_id": shop_id,
+            "owner_id": identity.user["_id"],
+            "source_id": "synthetic-installation",
+            "firm_codes": [0],
+            "tracking_from": "2026-11-01",
+        }
+    )
+    return {"synthetic_only": True}
+
+
+@app.post("/api/test-only/radiosoft-real/{shop_id}")
+def approve_real_fixture(shop_id: str, identity=Depends(current_identity)):
+    from app.radiosoft_real_schemas import RealScope
+
+    if identity.role != "OWNER":
+        raise HTTPException(403, "Owner required")
+    shop_access(shop_id, app.state.db, identity, {"OWNER"})
+    settings.radiosoft_real_enabled = True
+    scope = RealScope(
+        shop_id=shop_id,
+        owner_id=identity.user["_id"],
+        source_id="e2e-fixture-pc",
+        generation="e2e-fixture-db",
+        database="RsDB",
+        firm_codes=[0],
+        invoice_types=[0, 1],
+        tracking_from="2026-11-03",
+        capture_from="2026-01-01",
+        capture_until="2027-01-01",
+    )
+    settings.radiosoft_real_pilots.append(scope)
+    return scope.model_dump(mode="json")
 
 
 class TestCamera:
@@ -45,7 +90,7 @@ async def test_lifespan(application):
 
 app.router.lifespan_context = test_lifespan
 try:
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=int(os.getenv("HISHOB_E2E_API_PORT", "8001")))
 finally:
     with MongoClient(settings.mongodb_uri) as client:
         client.drop_database(settings.mongodb_database)

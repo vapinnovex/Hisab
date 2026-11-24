@@ -21,7 +21,10 @@ test('staff page, payments, purchases, notes, closing and private worker history
   await owner.getByRole('button', { name: 'Add worker', exact: true }).click();
   await owner.getByLabel('Worker name', { exact: true }).fill('Payment Asha');
   await owner.getByLabel('Mobile number', { exact: true }).fill(workerMobile);
+  await expect(owner.getByRole('switch', { name: 'Add salary now (optional)' })).not.toBeChecked();
   await owner.getByRole('switch', { name: 'Add salary now (optional)' }).check();
+  await expect(owner.getByRole('switch', { name: 'Add salary now (optional)' })).toBeChecked();
+  await owner.screenshot({ path: info.outputPath('salary-toggle.png'), fullPage: true });
   await owner.getByLabel('Reference salary (₹)', { exact: true }).fill('15000');
   await expect(owner.getByLabel('Salary starts / joining date', { exact: true })).toHaveCount(0);
   const added = owner.waitForResponse(
@@ -66,6 +69,17 @@ test('staff page, payments, purchases, notes, closing and private worker history
     if (method)
       await owner.getByRole('button', { name: `Payment method: ${method}`, exact: true }).click();
     await owner.getByLabel('What was this for?', { exact: true }).fill(note);
+    const flowColor =
+      kind === 'Money received'
+        ? 'rgb(20, 92, 69)'
+        : kind === 'Shop purchase · unpaid'
+          ? 'rgb(121, 86, 17)'
+          : 'rgb(165, 53, 53)';
+    await expect(owner.getByRole('button', { name: 'Save payment', exact: true })).toHaveCSS(
+      'background-color',
+      flowColor,
+    );
+    await expect(owner.getByLabel('Amount (₹)', { exact: true })).toHaveCSS('color', flowColor);
     await owner.getByRole('button', { name: 'Save payment', exact: true }).click();
     await expect(owner.getByText(note, { exact: true })).toBeVisible();
   }
@@ -179,4 +193,28 @@ test('uncertain staff payment save is recovered without posting twice', async ({
   const day = (await (await page.request.get(`${endpoint}/hishob/today`, { headers })).json()).day;
   expect(day.transactions).toHaveLength(1);
   expect(day.expected_closing_cash).toBe('900.00');
+});
+
+test('optional worker mobile remains optional after changing country', async ({ page }) => {
+  const suffix = String(Date.now()).slice(-8);
+  await login(page, 'Owner', '+9194' + suffix);
+  await page.getByLabel('Shop name', { exact: true }).fill('Optional Mobile Shop');
+  await page.getByRole('button', { name: 'Create shop', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Add worker', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Add worker', exact: true }).click();
+  await page.getByLabel('Worker name', { exact: true }).fill('No Mobile Worker');
+  await page.getByRole('button', { name: 'Country code: India +91', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Search countries', exact: true }).fill('United Kingdom');
+  await page.getByRole('button', { name: 'United Kingdom +44', exact: true }).click();
+  const added = page.waitForResponse(
+    (response) => response.request().method() === 'POST' && response.url().endsWith('/workers'),
+  );
+  await page.getByRole('button', { name: 'Add worker', exact: true }).click();
+  const response = await added;
+  expect(response.ok()).toBeTruthy();
+  expect(response.request().postDataJSON().mobile).toBeNull();
+  await page.getByLabel('Team tab', { exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Open profile · No Mobile Worker', exact: true }),
+  ).toBeVisible();
 });

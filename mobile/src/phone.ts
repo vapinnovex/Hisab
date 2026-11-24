@@ -1,9 +1,17 @@
 import { t, countryName } from './i18n';
 import countries from './data/countries.json';
 import rules from './data/phone-rules.json';
+const countriesByPrefix = [...countries].sort((a, b) => b.code.length - a.code.length);
+
 export function phoneRule(region: string) {
   return (rules as Record<string, { lengths: number[]; pattern: string; prefix: string }>)[region];
 }
+
+export function hasNationalNumber(value: string): boolean {
+  const country = countriesByPrefix.find((item) => value.startsWith(item.code));
+  return !!country && /\d/.test(value.slice(country.code.length));
+}
+
 export function phoneError(value: string, region?: string): string {
   const candidates = region
     ? countries.filter((c) => c.code === countries.find((item) => item.region === region)?.code)

@@ -202,6 +202,7 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
           <>
             <MoneyField
               error={invalidSplit ? 'UPI/card and unpaid sales exceed the billing total.' : ''}
+              tone="in"
               label={t('UPI / card sales')}
               value={digital}
               onChange={setDigital}
@@ -326,12 +327,14 @@ export function CloseForm({ initial: loaded, done }: { initial: Day; done: () =>
         <MoneyField
           required={false}
           error={transferError ? t('Bank and home amounts cannot exceed the cash counted.') : ''}
+          tone="transfer"
           label={t('Cash removed for bank at closing')}
           value={bank}
           onChange={setBank}
         />
         <MoneyField
           required={false}
+          tone="out"
           label={t('Cash taken home at closing')}
           value={home}
           onChange={setHome}

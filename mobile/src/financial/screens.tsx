@@ -1,3 +1,5 @@
+import { moneyTones, transactionTone } from '../components/moneyTone';
+import { MoneyFlow } from '../components/MoneyFlow';
 import { t, useLocale, roleLabel } from './../i18n';
 import { auditAction, auditValues } from './audit';
 import { InfoHelp } from '../components/InfoHelp';
@@ -99,7 +101,11 @@ function TransactionForm({
                 initial.mode === 'ENTRIES' ||
                 !['CASH_SALE', 'DIGITAL_SALE'].includes(item.type)),
           )
-          .map((item) => ({ value: item.type, label: item.label }))}
+          .map((item) => ({
+            value: item.type,
+            label: item.label,
+            tone: transactionTone(item.type),
+          }))}
         value={type}
         onChange={setType}
       />
@@ -132,7 +138,13 @@ function TransactionForm({
             placeholder={t('e.g. Ravi · Bill 42')}
           />
         )}
-        <MoneyField label={t('Amount (₹)')} value={amount} onChange={setAmount} />
+        <MoneyFlow tone={transactionTone(type)} />
+        <MoneyField
+          tone={transactionTone(type)}
+          label={t('Amount (₹)')}
+          value={amount}
+          onChange={setAmount}
+        />
         <Field
           required
           label={t('Description')}
@@ -162,6 +174,7 @@ function TransactionForm({
         />
       )}
       <Button
+        tone={transactionTone(type)}
         title={entryId ? t('Save correction') : t('Save transaction')}
         busy={action.busy}
         disabled={
@@ -250,8 +263,16 @@ export function EntryCard({
         <Text accessibilityRole="header" style={[styles.heading, { flex: 1 }]}>
           {entry.description}
         </Text>
-        <Text style={styles.heading}>{money(entry.amount)}</Text>
+        <Text
+          style={[
+            styles.heading,
+            { color: moneyTones[entry.deleted ? 'neutral' : transactionTone(entry.type)].ink },
+          ]}
+        >
+          {moneyTones[transactionTone(entry.type)].sign} {money(entry.amount)}
+        </Text>
       </View>
+      {!entry.deleted && <MoneyFlow tone={transactionTone(entry.type)} />}
       <Text style={styles.small}>
         {entry.staff_kind === 'RECEIVED'
           ? t('Money received')

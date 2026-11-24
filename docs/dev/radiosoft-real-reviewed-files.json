@@ -1,0 +1,142 @@
+{
+  "base_revision": "7e3737e50434b8802f8bab89cf705357db9ca1ff",
+  "description": "Reviewed changed files for real DEV display pilot. Pre-existing user files and this manifest are excluded. Build from the reviewed base plus these changes or a clean commit containing identical bytes.",
+  "files": [
+    {
+      "path": ".github/workflows/connector.yml",
+      "sha256": "08f914a1f8cdfc5caf0f7dd20d05a851fa1f021eb96703ed05f78391e5f53685"
+    },
+    {
+      "path": "backend/app/config.py",
+      "sha256": "aaa7d9a37506d3eb62a740aba6c7860fdb9b5b0a574d3df8fa8875a1438085c9"
+    },
+    {
+      "path": "backend/app/db.py",
+      "sha256": "404bbe862955e24a2d58a54e74baf9d180bfce942ee1c0c1c7590575501a018c"
+    },
+    {
+      "path": "backend/app/main.py",
+      "sha256": "ca1b7ac644d310322182a0a2be494fa0c1e3dbd37b416b54aa5f31b1c5e8e834"
+    },
+    {
+      "path": "backend/app/radiosoft_real_schemas.py",
+      "sha256": "3aa42329e3f81a2aba75d2380cce2698b1b8671a570b83675f2e9a4039539329"
+    },
+    {
+      "path": "backend/app/routers/radiosoft_real.py",
+      "sha256": "5a744dcb1c312e47002fa2496f1eb7b60fbeaeeab06c1f29334f5c3cee6a0264"
+    },
+    {
+      "path": "backend/tests/serve_e2e.py",
+      "sha256": "71f3747ff6174c5484370d24e3a3f31cc8c503bf9f09960d3da84e94a1fe1216"
+    },
+    {
+      "path": "backend/tests/test_radiosoft_real.py",
+      "sha256": "8b2e6edc0e898ee4760e2ef909e4edab7a20b5963235515ad1e524864de37c02"
+    },
+    {
+      "path": "connector/README.md",
+      "sha256": "979391d3aaff518735c750abdd8fc042664d60abd27237b86b83743d662b5d38"
+    },
+    {
+      "path": "connector/SOURCE-MAPPING.md",
+      "sha256": "d1c128d81dbe267a186f8d1de37d74e4475e6067767ebb7ab9f90c6794c3c300"
+    },
+    {
+      "path": "connector/hishob_connector/extractor.py",
+      "sha256": "dfbec3daaceec6fea6a504b85eb35fe131df85bb4e5ed6f51ffa0e575b869b45"
+    },
+    {
+      "path": "connector/hishob_connector/real-observation.schema.json",
+      "sha256": "f5b0c29c6d17e85ca6808e704765d7907e70af68eb601544b31a73addc131bcb"
+    },
+    {
+      "path": "connector/hishob_connector/real.py",
+      "sha256": "c611109eefe380463f2d75309928e58509afc0b960e8c16ab2b336cb7cee2b20"
+    },
+    {
+      "path": "connector/hishob_connector/real_main.py",
+      "sha256": "8e6463b09f5d8298bac3f59a9723b34ec11c1c15223369c212bc199b7bdd7c49"
+    },
+    {
+      "path": "connector/hishob_connector/security.py",
+      "sha256": "225198f67efb56f850f4c4b0130cfc5acf9fad8cc44deeeeba029c2fc9ee6fe6"
+    },
+    {
+      "path": "connector/hishob_connector/service.py",
+      "sha256": "91e8db9a9e857c2f6cd46c5963fe142eb2db7ad07c54f0ed42fe72316a9d06d7"
+    },
+    {
+      "path": "connector/hishob_connector/transport.py",
+      "sha256": "dea587555a822a6b94bbb0b97d1f5cb1eb0a1f10abb8de1106fd14c566fecfa5"
+    },
+    {
+      "path": "connector/pyproject.toml",
+      "sha256": "365d661257748f8152b50e648c3df4fc24044bdf31e8690214b990090a08dccb"
+    },
+    {
+      "path": "connector/real_entry.py",
+      "sha256": "308df3faa675f57151439f5d95e917673a66cfad1aef40b14e8ed0710e7fadd1"
+    },
+    {
+      "path": "connector/tests/test_real.py",
+      "sha256": "80feafca414ce75385af657d9c8a09106ef7878fa7fb9ff007c10abf85d4ce66"
+    },
+    {
+      "path": "connector/tests/test_source_access.py",
+      "sha256": "2895cb8cceba3c483e5b30174105b2c0471b42c338474c0e4212ac8e527e09de"
+    },
+    {
+      "path": "connector/windows/Build-Release.ps1",
+      "sha256": "c616d9fa42dd6eea47555076f97f004c37bd6d1918fee74fa156dcbaea15d044"
+    },
+    {
+      "path": "connector/windows/Install-DevService.ps1",
+      "sha256": "5232b71efc96df740e0272f54f10b070ec923a57f53d5c13b3833e93f3db39e7"
+    },
+    {
+      "path": "connector/windows/Install-Service.ps1",
+      "sha256": "a774a6e09e9c8439aa62a716e7aa75f663e7b4b498c65d92bb1b994ef7635f99"
+    },
+    {
+      "path": "connector/windows/Verify-Payload.ps1",
+      "sha256": "1656996fa10db646916b2adb8d4f20276597b861b2e17b3310f70b9f0c95d0fa"
+    },
+    {
+      "path": "docs/RADIOSOFT-REAL-BUSINESS-RULES.md",
+      "sha256": "0a221fe5b6c6f5c96014446b4386634863306b86e629b56db044776ef2d8ef21"
+    },
+    {
+      "path": "docs/RADIOSOFT-REAL-IMPLEMENTATION.md",
+      "sha256": "1ae48d3ba485c4daecc481d64bf60d361b84d6ce92753dd9ac09e4c4bc4dad4e"
+    },
+    {
+      "path": "docs/SHOP-PC-DEV-SETUP.md",
+      "sha256": "f64776ca6b5addd3721fd8c23c1a0aa6dcb139433a0a262af5fe96d568b01ee9"
+    },
+    {
+      "path": "docs/radiosoft-real-observation.schema.json",
+      "sha256": "f5b0c29c6d17e85ca6808e704765d7907e70af68eb601544b31a73addc131bcb"
+    },
+    {
+      "path": "mobile/App.tsx",
+      "sha256": "75b1fb0f038b4905d03cee9eef8e3ab8975813582cc7ae02db5be7eb8a17071a"
+    },
+    {
+      "path": "mobile/e2e/radiosoft-real.spec.ts",
+      "sha256": "c9acd463f753029a43262ece71a76a1daa07f66a5cfe45aeb85b2589088894b8"
+    },
+    {
+      "path": "mobile/src/radiosoft/real.tsx",
+      "sha256": "c298e0ccb9b7dc689739cf69dea0b751249189b1121e309d4b85d3a000ac81a3"
+    },
+    {
+      "path": "mobile/src/screens/AccountScreens.tsx",
+      "sha256": "b1737929e3019e5aaf59f3a0b55256b5e55925599a81f7e78d06ab895505be73"
+    },
+    {
+      "path": "mobile/src/types.ts",
+      "sha256": "5b9e83597e867b8a98f953b03cde779ff76190fe4c1cd76918d8079a878b4f58"
+    }
+  ]
+}

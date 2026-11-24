@@ -1,3 +1,4 @@
+import { MoneyTone, moneyTones } from './moneyTone';
 import { t, useLocale } from './../i18n';
 import React from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
@@ -72,7 +73,7 @@ export function FilterChips<T extends string>({
   onChange,
 }: {
   label: string;
-  options: { value: T; label: string; count?: number }[];
+  options: { value: T; label: string; count?: number; tone?: MoneyTone }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -81,6 +82,7 @@ export function FilterChips<T extends string>({
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {options.map((option) => {
         const active = value === option.value;
+        const palette = moneyTones[option.tone || 'in'];
         return (
           <Pressable
             key={option.value}
@@ -96,14 +98,17 @@ export function FilterChips<T extends string>({
               paddingHorizontal: 14,
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: active ? colors.green : colors.line,
-              backgroundColor: active ? colors.green : colors.white,
+              borderColor: active ? palette.ink : colors.line,
+              backgroundColor: active ? palette.ink : option.tone ? palette.soft : colors.white,
             }}
           >
             <Text
               style={[
                 styles.small,
-                { color: active ? colors.white : colors.ink, fontWeight: '600' },
+                {
+                  color: active ? colors.white : option.tone ? palette.ink : colors.ink,
+                  fontWeight: '600',
+                },
               ]}
             >
               {option.label}

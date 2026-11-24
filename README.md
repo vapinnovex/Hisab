@@ -30,6 +30,8 @@ Hishob can be installed from a web link with persistent browser login, connectio
 
 ## Run locally
 
+The separate [Windows connector](connector/README.md) is integrated for synthetic loopback development only. Its RadioSoft reader remains local-only. See the [integration review and validation](docs/CONNECTOR-INTEGRATION-REVIEW.md) and [proposed Lalpotu HTTPS implementation plan](docs/CONNECTOR-HTTPS-PLAN.md) before any Windows installation or real-source work.
+
 Prerequisites: **Node 22.13+ (22 LTS recommended)**, Python 3.9+ (3.12 recommended), and MongoDB 7+ or Docker. `.nvmrc` selects Node 22. Python dependencies and the npm lockfile are checked in.
 
 ### 1. MongoDB
@@ -51,10 +53,9 @@ Both use `mongodb://127.0.0.1:27018`. The local script persists data under `.loc
 ```sh
 cd backend
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.lock.txt
+./.venv/bin/python -m pip install -r requirements.lock.txt
 cp .env.example .env
-uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
+./.venv/bin/python -m uvicorn app.main:create_app --factory --reload --host 0.0.0.0 --port 8000
 ```
 
 Health: http://localhost:8000/health · interactive API: http://localhost:8000/docs

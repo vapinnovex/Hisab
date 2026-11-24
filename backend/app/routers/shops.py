@@ -3,7 +3,15 @@ from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
 from ..db import get_db, new_id, now
-from ..schemas import ShopCreate, ShopSettings, ShopSettingsUpdate, WorkerCreate, WorkerUpdate
+from ..schemas import (
+    ManagerCreate,
+    ManagerUpdate,
+    ShopCreate,
+    ShopSettings,
+    ShopSettingsUpdate,
+    WorkerCreate,
+    WorkerUpdate,
+)
 from ..security import current_identity, require_owner, shop_access, worker_in_shop
 from ..shop_policy import require_permission, settings_for, shop_view
 from ..staff import initial_reference
@@ -13,12 +21,14 @@ router = APIRouter(prefix="/shops", tags=["Shops and workers"])
 
 def worker_view(db, membership):
     profile = db.worker_profiles.find_one({"membership_id": membership["_id"]})
-    user = db.users.find_one({"_id": membership["user_id"]})
+    user = db.users.find_one({"_id": membership.get("user_id")}) or {}
     return {
         "id": membership["_id"],
-        "name": profile["name"] if profile else membership.get("name", ""),
+        "name": membership.get("name") or (profile["name"] if profile else ""),
         "role": "MANAGER" if membership["role"] == "ADMIN" else membership["role"],
-        "mobile": user["mobile"],
+        "mobile": user.get("mobile") or membership.get("contact_mobile") or "",
+        "login_enabled": bool(user),
+        "revision": membership.get("revision", 0),
         "active": membership["active"],
         "password_ready": bool(user.get("password_hash")),
         "password_reset_requested": bool(user.get("password_reset_requested_at")),
@@ -94,28 +104,44 @@ def add_worker(shop_id: str, body: WorkerCreate, identity=Depends(current_identi
         if identity.role != "OWNER" and body.mobile == identity.user["mobile"]:
             raise HTTPException(403, "You do not have permission to access this staff record.")
         salary = initial_reference(body.salary)
-    user = ensure_user(db, body.mobile)
-    membership_id = new_id()
-    membership = {
+    # Existing phone-based creation remains compatible. A phone-less profile has
+    # no user/account; later contact edits cannot grant account access.
+    user = ensure_user(db, body.mobile) if body.mobile else None
+    from ..radiosoft import digest
+
+    payload = body.model_dump(mode="json", exclude={"request_id"})
+    membership_id = digest([shop_id, identity.user["_id"], body.request_id]) if body.request_id else new_id()
+    old = db.memberships.find_one({"_id": membership_id})
+    if old:
+        if old.get("creation") != payload:
+            raise HTTPException(409, "This creation request was already used. Refresh and retry.")
+        return worker_view(db, old)
+    record = {
         "_id": membership_id,
         "shop_id": shop_id,
-        "user_id": user["_id"],
+        "user_id": user["_id"] if user else None,
         "role": "WORKER",
+        "name": body.name,
         "active": True,
         "created_at": now(),
+        "revision": 0,
+        "creation": payload,
     }
-    # Publish membership only after its profile exists.
     if salary:
-        membership["pay_reference"] = salary
-    db.worker_profiles.insert_one(
-        {"_id": membership_id, "membership_id": membership_id, "name": body.name, "created_at": now()}
-    )
+        record["pay_reference"] = salary
     try:
-        db.memberships.insert_one(membership)
+        db.memberships.insert_one(record)
     except DuplicateKeyError:
-        db.worker_profiles.delete_one({"_id": membership_id})
+        old = db.memberships.find_one({"_id": membership_id})
+        if old and old.get("creation") == payload:
+            return worker_view(db, old)
         raise HTTPException(409, "Worker already exists. Edit their profile to reactivate them.")
-    return worker_view(db, membership)
+    db.worker_profiles.update_one(
+        {"membership_id": membership_id},
+        {"$setOnInsert": {"_id": membership_id, "name": body.name, "created_at": now()}},
+        upsert=True,
+    )
+    return worker_view(db, record)
 
 
 @router.patch("/{shop_id}/workers/{worker_id}")
@@ -126,19 +152,26 @@ def edit_worker(
     require_permission(member, shop, "edit_workers")
     if body.salary is not None:
         raise HTTPException(422, "Use the staff page to change reference salary.")
-    worker_in_shop(db, shop_id, worker_id)
-    user = ensure_user(db, body.mobile)
-    try:
-        membership = db.memberships.find_one_and_update(
-            {"_id": worker_id, "shop_id": shop_id},
-            {"$set": {"user_id": user["_id"], "active": body.active, "updated_at": now()}},
-            return_document=ReturnDocument.AFTER,
-        )
-    except DuplicateKeyError:
-        raise HTTPException(409, "This mobile number already belongs to a worker in this shop")
-    db.worker_profiles.update_one(
-        {"membership_id": worker_id}, {"$set": {"name": body.name, "updated_at": now()}}
-    )
+    target = worker_in_shop(db, shop_id, worker_id)
+    current_mobile = worker_view(db, target)["mobile"]
+    if target.get("user_id") and (body.mobile or "") != current_mobile:
+        raise HTTPException(409, "Change a linked login number through verified account settings.")
+    revision = target.get("revision", 0)
+    if body.revision is not None and body.revision != revision:
+        raise HTTPException(409, "This staff record changed. Refresh before saving again.")
+    query = {
+        "_id": worker_id,
+        "shop_id": shop_id,
+        **({"revision": revision} if "revision" in target else {"revision": {"$exists": False}}),
+    }
+    patch = {"$set": {"name": body.name, "active": body.active, "updated_at": now()}, "$inc": {"revision": 1}}
+    if not target.get("user_id"):
+        patch["$set"]["contact_mobile"] = body.mobile
+        if (body.mobile or "") != current_mobile or not body.active:
+            patch["$unset"] = {"login_invite": ""}
+    membership = db.memberships.find_one_and_update(query, patch, return_document=ReturnDocument.AFTER)
+    if not membership:
+        raise HTTPException(409, "This staff record changed. Refresh before saving again.")
     return worker_view(db, membership)
 
 
@@ -182,7 +215,7 @@ def list_managers(shop_id: str, identity=Depends(current_identity), db=Depends(g
 
 
 @router.post("/{shop_id}/managers", status_code=201)
-def add_manager(shop_id: str, body: WorkerCreate, identity=Depends(current_identity), db=Depends(get_db)):
+def add_manager(shop_id: str, body: ManagerCreate, identity=Depends(current_identity), db=Depends(get_db)):
     _, shop = shop_access(shop_id, db, identity, {"OWNER"})
     salary = initial_reference(body.salary) if body.salary else None
     user = ensure_user(db, body.mobile)
@@ -210,7 +243,7 @@ def add_manager(shop_id: str, body: WorkerCreate, identity=Depends(current_ident
 
 @router.patch("/{shop_id}/managers/{manager_id}")
 def edit_manager(
-    shop_id: str, manager_id: str, body: WorkerUpdate, identity=Depends(current_identity), db=Depends(get_db)
+    shop_id: str, manager_id: str, body: ManagerUpdate, identity=Depends(current_identity), db=Depends(get_db)
 ):
     shop_access(shop_id, db, identity, {"OWNER"})
     if body.salary is not None:

@@ -1,3 +1,4 @@
+import { moneyTones } from '../components/moneyTone';
 import { t, useLocale } from './../i18n';
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -191,11 +192,15 @@ export function HishobSearch({ navigation }: NativeStackScreenProps<Routes, 'His
             <View style={styles.row}>
               <View>
                 <Text style={styles.small}>{t('Cash in')}</Text>
-                <Text style={styles.heading}>{money(result.cash_in)}</Text>
+                <Text style={[styles.heading, { color: moneyTones.in.ink }]}>
+                  {money(result.cash_in)}
+                </Text>
               </View>
               <View>
                 <Text style={styles.small}>{t('Cash out')}</Text>
-                <Text style={styles.heading}>{money(result.cash_out)}</Text>
+                <Text style={[styles.heading, { color: moneyTones.out.ink }]}>
+                  {money(result.cash_out)}
+                </Text>
               </View>
             </View>
             <Text style={styles.small}>

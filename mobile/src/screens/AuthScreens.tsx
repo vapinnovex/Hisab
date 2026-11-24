@@ -156,6 +156,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
   const language = getLanguage();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [existingPassword, setExistingPassword] = useState('');
   const [code, setCode] = useState('');
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [message, setMessage] = useState('');
@@ -392,6 +393,11 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
               autoCorrect={false}
               maxLength={100}
             />
+            <PasswordField
+              label={t('Current password (only for an existing account invitation)')}
+              value={existingPassword}
+              onChange={setExistingPassword}
+            />
             <NewPasswordFields
               mobile={mobile}
               email={email}
@@ -411,6 +417,7 @@ export function MobileLogin({ route }: NativeStackScreenProps<Routes, 'MobileLog
                   mobile,
                   role,
                   setup_code: code,
+                  current_password: existingPassword,
                   password,
                   confirm_password: confirm,
                 }),

@@ -147,9 +147,7 @@ export function PasswordSecurity() {
         </Text>
       )}
       <ErrorText message={action.error} />
-      {enroll && (
-        <Button title={t('Sign out')} secondary onPress={() => void action.run(signOut)} />
-      )}
+      {enroll && <Button danger title={t('Sign out')} onPress={() => void action.run(signOut)} />}
       {!enroll && !session!.user.password_ready && (
         <Text style={styles.small}>
           {' '}
@@ -164,6 +162,7 @@ export function PasswordSecurity() {
 
 export function StaffPasswordAccess({
   route,
+  navigation,
 }: NativeStackScreenProps<Routes, 'StaffPasswordAccess'>) {
   useLocale();
   const { api, selected } = useAuth();
@@ -182,6 +181,12 @@ export function StaffPasswordAccess({
         title={t('Team password access')}
         subtitle={`${route.params.worker.name} · ${route.params.worker.mobile}`}
       />
+      {worker && !worker.mobile && (
+        <Button
+          title={t('Add mobile')}
+          onPress={() => navigation.navigate('WorkerForm', { worker })}
+        />
+      )}
       {worker && (
         <Card>
           <Text style={styles.heading}>
@@ -200,6 +205,7 @@ export function StaffPasswordAccess({
             )}{' '}
           </Text>
           {worker.active &&
+            !!worker.mobile &&
             (!worker.password_ready ||
               worker.password_reset_requested ||
               worker.password_reset_required) && (

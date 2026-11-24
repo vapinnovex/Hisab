@@ -91,6 +91,15 @@ def options(body: OTPRequest, request: Request, db=Depends(get_db)):
     throttle(request, db, "options:" + body.mobile, 60)
     user = db.users.find_one({"mobile": body.mobile})
     if body.role != "OWNER" and not eligible_staff(db, body.mobile, body.role):
+        if body.role == "WORKER" and db.memberships.find_one(
+            {
+                "contact_mobile": body.mobile,
+                "active": True,
+                "login_invite.expires_at": {"$gt": now()},
+                "user_id": None,
+            }
+        ):
+            return {"step": "SETUP"}
         raise HTTPException(403, NOT_ADDED)
     owner = is_owner(db, user)
     if body.role == "OWNER" and not user:
@@ -296,6 +305,8 @@ def approve_staff(
 ):
     actor, shop = shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN"})
     target = staff_in_shop(db, shop_id, staff_id, active_only=True)
+    if not target.get("user_id"):
+        return approve_profile_login(db, request, identity, actor, shop, target)
     user = db.users.find_one({"_id": target["user_id"]})
     initial = not user.get("password_hash")
     staff_authority(db, actor, shop, target, user, initial)
@@ -358,6 +369,13 @@ def deny_staff(
 @router.post("/auth/staff/password/setup")
 def staff_setup(body: StaffPassword, request: Request, response: Response, db=Depends(get_db)):
     throttle(request, db, "setup:" + body.mobile, 10)
+    invitation = code_hash(
+        request.app.state.settings.jwt_secret, "staff-profile", body.setup_code.strip().upper()
+    )
+    target = db.memberships.find_one({"contact_mobile": body.mobile, "login_invite.hash": invitation})
+    if target and body.role == "WORKER":
+        user = claim_profile_login(db, request, body, target)
+        return browser_session(request, response, create_session(request, db, user, body.role.value))
     if body.role == "OWNER" or not eligible_staff(db, body.mobile, body.role):
         raise HTTPException(403, NOT_ADDED)
     user = db.users.find_one({"mobile": body.mobile})
@@ -384,3 +402,108 @@ def staff_setup(body: StaffPassword, request: Request, response: Response, db=De
     staff_authority(db, actor, shop, target, user, grant["initial"])
     user = replace_password(db, user, body, condition={"password_setup.hash": grant["hash"]})
     return browser_session(request, response, create_session(request, db, user, body.role.value))
+
+
+def approve_profile_login(db, request, identity, actor, shop, target):
+    if target["role"] != "WORKER" or (
+        actor["role"] != "OWNER" and not permissions_for(actor, shop)["add_workers"]
+    ):
+        raise HTTPException(403, "Your owner must handle this password request.")
+    if not target.get("contact_mobile"):
+        raise HTTPException(409, "Add a contact mobile before setting up login.")
+    throttle(request, db, "approve:" + identity.user["_id"], 60)
+    code = secrets.token_hex(6).upper()
+    expiry = now() + timedelta(hours=24)
+    result = db.memberships.update_one(
+        {"_id": target["_id"], "user_id": None, "active": True, "revision": target.get("revision", 0)},
+        {
+            "$set": {
+                "login_invite": {
+                    "hash": code_hash(request.app.state.settings.jwt_secret, "staff-profile", code),
+                    "expires_at": expiry,
+                    "issuer_id": actor["_id"],
+                }
+            },
+            "$inc": {"revision": 1},
+        },
+    )
+    if not result.modified_count:
+        raise HTTPException(409, "This staff record changed. Refresh before saving again.")
+    return {
+        "setup_code": code,
+        "expires_at": expiry,
+        "message": "Share this code directly with this person. Login begins only after they accept it. Existing accounts must prove their current password.",
+    }
+
+
+def claim_profile_login(db, request, body, target):
+    grant = target["login_invite"]
+    if not target["active"] or grant["expires_at"] <= now():
+        raise HTTPException(400, "Invalid or expired setup code. Ask your owner for a new one.")
+    actor = db.memberships.find_one({"_id": grant["issuer_id"], "shop_id": target["shop_id"], "active": True})
+    shop = db.shops.find_one({"_id": target["shop_id"]})
+    if (
+        not actor
+        or not shop
+        or (
+            actor["role"] != "OWNER"
+            and (actor["role"] not in {"MANAGER", "ADMIN"} or not permissions_for(actor, shop)["add_workers"])
+        )
+    ):
+        raise HTTPException(403, "This setup approval is no longer valid.")
+    user = db.users.find_one({"mobile": body.mobile})
+    created = False
+    if not user:
+        validate_password(body.password, body.confirm_password, body.mobile)
+        candidate = {
+            "_id": new_id(),
+            "mobile": body.mobile,
+            "created_at": now(),
+            "password_hash": hash_password(body.password),
+        }
+        try:
+            db.users.insert_one(candidate)
+            user = candidate
+            created = True
+        except DuplicateKeyError:
+            user = db.users.find_one({"mobile": body.mobile})
+    claimed = grant.get("claimed_user") == user["_id"]
+    if not created:
+        has_password = bool(user.get("password_hash"))
+        proof_matches = has_password and any(
+            verify_password(user["password_hash"], proof)
+            for proof in (body.current_password, body.password if claimed else "")
+            if proof
+        )
+        if has_password and not proof_matches:
+            raise HTTPException(
+                409,
+                "An account already uses this number. Enter its current password to accept the staff invitation.",
+            )
+        validate_password(body.password, body.confirm_password, body.mobile, user.get("email", ""))
+    if target.get("user_id") not in (None, user["_id"]):
+        raise HTTPException(409, "This staff record changed. Refresh before saving again.")
+    try:
+        attached = db.memberships.update_one(
+            {
+                "_id": target["_id"],
+                "active": True,
+                "contact_mobile": body.mobile,
+                "login_invite.hash": grant["hash"],
+                "revision": target.get("revision", 0),
+                "user_id": target.get("user_id"),
+            },
+            {
+                "$set": {"user_id": user["_id"], "login_invite.claimed_user": user["_id"]},
+                "$inc": {"revision": 1},
+            },
+        )
+    except DuplicateKeyError:
+        raise HTTPException(
+            409, "This account already has a worker profile in this shop. Ask the owner to review it."
+        )
+    if not attached.modified_count:
+        raise HTTPException(409, "This staff record changed. Refresh before saving again.")
+    if not created and not (claimed and verify_password(user.get("password_hash"), body.password)):
+        user = replace_password(db, user, body)
+    return user

@@ -1,0 +1,1690 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { ApiError } from '../api';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAuth } from '../auth';
+import { useAction, useResource } from '../hooks';
+import { Routes, Worker } from '../types';
+import { t, useLocale } from '../i18n';
+import { Button, Card, ErrorText, Field, Heading, Page, styles } from '../components/ui';
+import { useUnsavedChanges } from '../pwa';
+
+type Scope = {
+  source_id: string;
+  generation: string;
+  database: string;
+  firm_codes: number[];
+  invoice_types: number[];
+  tracking_from: string;
+  capture_from: string;
+  capture_until: string;
+};
+type Status = {
+  connection: string;
+  can_map: boolean;
+  can_view: boolean;
+  can_collect: boolean;
+  can_correct: boolean;
+  scope: Scope;
+  enabled: boolean;
+  paired: boolean;
+  manager_view: boolean;
+  manager_map: boolean;
+  manager_collect: boolean;
+  manager_correct: boolean;
+  last_contact: string | null;
+  last_successful_sync: string | null;
+  scan_request_id: string | null;
+  scan_completed_id: string | null;
+  scan_failed_id?: string | null;
+  scan_pending: boolean;
+  health: {
+    pending_observations: number;
+    status: string;
+    last_successful_source_read: string | null;
+    last_fast_source_read?: string | null;
+    source_error?: string | null;
+    connector_version?: string;
+  } | null;
+  coverage: string;
+};
+type Person = {
+  id: string;
+  ref: string;
+  name: string;
+  worker_id: string | null;
+  revision: number;
+  not_used?: boolean;
+};
+type Directory = {
+  people: Person[];
+  workers: { id: string; name: string }[];
+  history_policy: string;
+};
+type Bill = {
+  id: string;
+  key: { invoice_no: string };
+  business_date: string;
+  source_time_raw?: string;
+  signed_source_payable: string | null;
+  owed_to_customer: string | null;
+  settlement_status: string;
+  collection_revision: number;
+  collection_status: string;
+  collection_payable_paise: number | null;
+  collection_collected_paise: number;
+  collection_outstanding_paise: number | null;
+  collection_method_totals: Record<string, number>;
+  collection_eligible: boolean;
+  collection_events: {
+    id: string;
+    action: string;
+    allocations: { method: string; amount_paise: number }[];
+    reversed: boolean;
+    at: string;
+    actor_role: string;
+  }[];
+  collection_notes?: { id: string; text: string; at: string }[];
+  historical: boolean;
+  source_changed: boolean;
+  lines?: {
+    raw: Record<string, string | number | null>;
+    salesperson_ref: string | null;
+    salesperson_name: string;
+    attribution_status: string;
+    worker_name?: string | null;
+  }[];
+};
+type Report = {
+  rows: {
+    bill_id: string;
+    line_index: number;
+    item: string;
+    source_item_net: string;
+    salesperson_name: string;
+  }[];
+  policy: string;
+};
+const denied = (status?: number) => status === 401 || status === 403;
+const entryTitle = 'Live RadioSoft bills & collections (DEV)';
+
+export function RealRadioSoftEntry() {
+  useLocale();
+  const { selected, session } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
+  const resource = useResource<{ enabled: boolean }>(
+    `/shops/${selected?.shop_id ?? ''}/radiosoft-real/${session?.role === 'WORKER' ? 'availability' : 'status'}`,
+    15000,
+    !!selected,
+  );
+  if (!selected) return null;
+  if (resource.loading || resource.error)
+    return (
+      <Card>
+        <Text style={styles.heading}>{t(entryTitle)}</Text>
+        <Text>
+          {t(
+            resource.loading
+              ? 'Checking RadioSoft access…'
+              : denied(resource.errorStatus)
+                ? 'RadioSoft preview access was rejected. No preview data is shown.'
+                : 'RadioSoft status is unavailable. Eligibility could not be checked.',
+          )}
+        </Text>
+        <ErrorText message={resource.error} />
+        {!!resource.error && (
+          <Button
+            title={t('Retry RadioSoft status')}
+            busy={resource.refreshing}
+            onPress={resource.refresh}
+          />
+        )}
+      </Card>
+    );
+  if (!resource.data || (session?.role === 'WORKER' && !resource.data.enabled)) return null;
+  return (
+    <Button
+      title={t(session?.role === 'WORKER' ? 'My attributed sales (DEV)' : entryTitle)}
+      secondary
+      onPress={() => navigation.navigate('RadioSoftReal')}
+    />
+  );
+}
+
+function shopDate(timezone: string, offset = 0) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const value = ['year', 'month', 'day']
+    .map((k) => parts.find((p) => p.type === k)!.value)
+    .join('-');
+  const date = new Date(value + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+function sourceSummary(status: Status, timezone: string) {
+  if (!status.enabled) return t('DEV connector is disabled. Open Connection settings to resume.');
+  if (!status.paired) return t('PC is unpaired. Open Connection settings to pair it.');
+  if (status.connection === 'OFFLINE')
+    return t('PC is disconnected. Check the shop PC and internet connection.');
+  if (status.health?.status && status.health.status !== 'OK')
+    return t('Source read failed or is incomplete. Open Connection settings for details.');
+  const today = shopDate(timezone);
+  if (today < status.scope.capture_from)
+    return t('Live capture starts on {0}.', [status.scope.capture_from]);
+  if (today >= status.scope.capture_until)
+    return t(
+      'Today is outside the approved capture window (ends {0}, exclusive). Ask the DEV administrator to extend it.',
+      [status.scope.capture_until],
+    );
+  const last = status.health?.last_fast_source_read ?? status.health?.last_successful_source_read;
+  if (!last) return t('Waiting for the first successful source read.');
+  const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(last)) / 60000));
+  const uploaded = status.last_successful_sync
+    ? `${Math.max(0, Math.floor((Date.now() - Date.parse(status.last_successful_sync)) / 60000))} min ago`
+    : t('Never');
+  return t('PC read {0} min ago · last server upload: {1} · {2} queued. Bills may be partial.', [
+    minutes,
+    uploaded,
+    status.health?.pending_observations ?? 0,
+  ]);
+}
+export function RadioSoftReal() {
+  const { selected, session } = useAuth();
+  return <RealPreview key={`${selected?.shop_id}:${session?.role}`} />;
+}
+function RealPreview() {
+  useLocale();
+  const { selected, session } = useAuth();
+  const base = `/shops/${selected!.shop_id}/radiosoft-real`;
+  const worker = session?.role === 'WORKER';
+  const status = useResource<Status>(base + '/status', 5000, !worker);
+  const [section, setSection] = useState<'bills' | 'links' | 'connection' | 'report'>('bills');
+  if (!worker && (!status.data || denied(status.errorStatus)))
+    return (
+      <Page>
+        <Heading title={t(entryTitle)} />
+        <Text>
+          {t(
+            status.loading
+              ? 'Loading connection status…'
+              : denied(status.errorStatus)
+                ? 'RadioSoft preview access was rejected. No preview data is shown.'
+                : 'Connection status is unavailable. Eligibility could not be checked.',
+          )}
+        </Text>
+        <ErrorText message={status.error} />
+        <Button
+          title={t('Retry RadioSoft status')}
+          busy={status.refreshing}
+          onPress={status.refresh}
+        />
+      </Page>
+    );
+  return (
+    <Page wide>
+      <Heading
+        title={t(worker ? 'My attributed sales (DEV)' : entryTitle)}
+        subtitle={t('RadioSoft stays read-only. DEV collections are saved separately in Hishob.')}
+      />
+      {!worker && (
+        <>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {status.data?.can_view && (
+              <Button title={t('Bills')} secondary onPress={() => setSection('bills')} />
+            )}
+            {status.data?.can_map && (
+              <Button title={t('Manage links')} secondary onPress={() => setSection('links')} />
+            )}
+            <Button
+              title={t('Connection settings')}
+              secondary
+              onPress={() => setSection('connection')}
+            />
+          </View>
+          {!!status.error && (
+            <Text>
+              {t(
+                'Connection status could not refresh. Showing previously authorized data; it may be stale.',
+              )}
+            </Text>
+          )}
+          <ErrorText message={status.error} />
+          {status.data && <Text>{sourceSummary(status.data, selected!.shop.timezone)}</Text>}
+        </>
+      )}
+      {!worker && section === 'bills' && status.data?.can_view && (
+        <Bills
+          base={base}
+          status={status.data}
+          refreshStatus={status.refresh}
+          onLinks={() => setSection('links')}
+        />
+      )}
+      {!worker && section === 'bills' && !status.data?.can_view && (
+        <Text>
+          {t('Bill viewing is not enabled for this account. Connection settings remain available.')}
+        </Text>
+      )}
+      {!worker && section === 'links' && status.data?.can_map && <Links base={base} />}
+      {!worker && section === 'connection' && status.data && (
+        <Connection base={base} status={status.data} refresh={status.refresh} />
+      )}
+      {(worker || (section === 'report' && status.data?.can_view)) && <SalesReport base={base} />}
+      {!worker && section === 'bills' && status.data?.can_view && (
+        <Button title={t('Attributed item sales')} secondary onPress={() => setSection('report')} />
+      )}
+      {!worker && (
+        <Text style={styles.small}>
+          {t(
+            'RadioSoft is never changed. Collection records stay in a separate Hishob DEV register, not the cashbook.',
+          )}
+        </Text>
+      )}
+    </Page>
+  );
+}
+function Bills({
+  base,
+  status,
+  refreshStatus,
+  onLinks,
+}: {
+  base: string;
+  status: Status;
+  refreshStatus: () => Promise<void>;
+  onLinks: () => void;
+}) {
+  const { api, selected } = useAuth();
+  const timezone = selected!.shop.timezone;
+  const refreshAction = useAction();
+  const [refreshMessage, setRefreshMessage] = useState('');
+  const refreshMounted = useRef(true);
+  useEffect(() => {
+    refreshMounted.current = true;
+    return () => {
+      refreshMounted.current = false;
+    };
+  }, []);
+  const [dayMode, setDayMode] = useState<'today' | 'yesterday' | 'custom'>('today');
+  const [today, setToday] = useState(() => shopDate(timezone));
+  const [customDate, setCustomDate] = useState(today);
+  const date =
+    dayMode === 'custom' ? customDate : dayMode === 'today' ? today : shopDate(timezone, -1);
+  const [draftDate, setDraftDate] = useState(today);
+  useEffect(() => {
+    const timer = setInterval(() => setToday(shopDate(timezone)), 1000);
+    return () => clearInterval(timer);
+  }, [timezone]);
+  const [search, setSearch] = useState('');
+  const [draftSearch, setDraftSearch] = useState('');
+  const [cursor, setCursor] = useState({ date, after: '' });
+  const after = cursor.date === date ? cursor.after : '';
+  const setAfter = (value: string) => setCursor({ date, after: value });
+  const [billId, setBillId] = useState<string | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+  const [queue, setQueue] = useState<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW'>('ALL');
+  const columns = gridWidth >= 1120 ? 3 : gridWidth >= 720 ? 2 : 1;
+  const bills = useResource<{
+    bills: Bill[];
+    next_cursor: string | null;
+    counts: Record<'ALL' | 'PENDING' | 'PARTIAL' | 'PAID' | 'REVIEW', number>;
+    summary: {
+      bill_count: number;
+      source_total: string;
+      eligible_bill_count: number;
+      payable_paise: number;
+      collected_paise: number;
+      outstanding_paise: number;
+    };
+  }>(
+    `${base}/bills?business_date=${encodeURIComponent(date)}&search=${encodeURIComponent(search)}&collection_status=${queue}&after=${encodeURIComponent(after)}`,
+    3000,
+  );
+  const directory = useResource<Directory>(base + '/salespeople', 15000, status.can_map);
+  const applyDate = (value: string) => {
+    setCustomDate(value);
+    setDayMode('custom');
+    setDraftDate(value);
+    setAfter('');
+  };
+  const applyQueue = (value: typeof queue) => {
+    setQueue(value);
+    setAfter('');
+  };
+  const needs = directory.data?.people.filter(
+    (p) => !p.not_used && !directory.data!.workers.some((w) => w.id === p.worker_id),
+  ).length;
+  const requestPcRefresh = () =>
+    void refreshAction.run(async () => {
+      setRefreshMessage(t('Requesting a fresh read from the paired shop PC…'));
+      const { request_id: requestId } = await api<{ request_id: string }>(
+        `${base}/refresh`,
+        {},
+        'POST',
+      );
+      let completed = false;
+      let failed = false;
+      const deadline = Date.now() + 30000;
+      for (let attempt = 0; attempt < 30 && Date.now() < deadline; attempt++) {
+        if (!refreshMounted.current) return;
+        let latest: Status;
+        try {
+          latest = await api<Status>(`${base}/status`);
+        } catch (error) {
+          if (error instanceof ApiError && denied(error.status)) await refreshStatus();
+          throw error;
+        }
+        if (latest.scan_failed_id === requestId) {
+          failed = true;
+          break;
+        }
+        if (latest.scan_completed_id === requestId) {
+          completed = true;
+          break;
+        }
+        // Show arrivals while the PC continues its bounded scan/upload.
+        await bills.refresh();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      if (!refreshMounted.current) return;
+      await Promise.all([
+        refreshStatus(),
+        bills.refresh(),
+        ...(status.can_map ? [directory.refresh()] : []),
+      ]);
+      setRefreshMessage(
+        t(
+          failed
+            ? 'The PC could not finish reading RadioSoft. Open Connection settings for the source error; imported bills remain available.'
+            : completed
+              ? 'The latest-bills check finished. Older bills may still be catching up.'
+              : 'The shop PC has not confirmed the scan yet. Check its connector and connection status.',
+        ),
+      );
+    });
+  return (
+    <>
+      <Button
+        title={t('Refresh from shop PC')}
+        secondary
+        busy={refreshAction.busy}
+        onPress={requestPcRefresh}
+      />
+      <Button
+        title={t('Refresh imported bills')}
+        secondary
+        disabled={refreshAction.busy}
+        onPress={async () => {
+          await Promise.all([
+            refreshStatus(),
+            bills.refresh(),
+            ...(status.can_map ? [directory.refresh()] : []),
+          ]);
+        }}
+      />
+      <ErrorText message={refreshAction.error} />
+      {!!refreshMessage && <Text style={styles.small}>{refreshMessage}</Text>}
+      {status.can_map && needs !== undefined && (
+        <Card>
+          <Text>
+            {t(
+              needs
+                ? '{0} salespeople need linking.'
+                : 'All salespeople are linked or marked not used.',
+              [needs],
+            )}
+          </Text>
+          <Button title={t('Manage links')} secondary onPress={onLinks} />
+        </Card>
+      )}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {(['ALL', 'PENDING', 'PARTIAL', 'PAID', 'REVIEW'] as const).map((value) => (
+          <Button
+            key={value}
+            title={t('{0} ({1})', [
+              t(
+                value === 'ALL'
+                  ? 'All bills'
+                  : value === 'PENDING'
+                    ? 'Pending'
+                    : value === 'PARTIAL'
+                      ? 'Partially paid'
+                      : value === 'PAID'
+                        ? 'Paid'
+                        : 'Needs review',
+              ),
+              bills.data?.counts[value] ?? '…',
+            ])}
+            secondary={queue !== value}
+            onPress={() => applyQueue(value)}
+          />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Button
+          title={t('Today')}
+          secondary
+          onPress={() => {
+            applyDate(shopDate(timezone));
+            setDayMode('today');
+          }}
+        />
+        <Button
+          title={t('Yesterday')}
+          secondary
+          onPress={() => {
+            applyDate(shopDate(timezone, -1));
+            setDayMode('yesterday');
+          }}
+        />
+      </View>
+      <Field
+        label={t('Bill date (YYYY-MM-DD)')}
+        value={dayMode === 'custom' ? draftDate : date}
+        onChangeText={(value) => {
+          setDraftDate(value);
+          setCustomDate(date);
+          setDayMode('custom');
+        }}
+      />
+      <Field label={t('Search bill number')} value={draftSearch} onChangeText={setDraftSearch} />
+      <Button
+        title={t('Find bills')}
+        disabled={!/^\d{4}-\d{2}-\d{2}$/.test(draftDate)}
+        onPress={() => {
+          applyDate(draftDate);
+          setSearch(draftSearch.trim());
+        }}
+      />
+      <Text style={styles.small}>
+        {t(
+          'RadioSoft is read-only. Collections below are local DEV test records; they do not update RadioSoft or Hishob cashbook totals.',
+        )}
+      </Text>
+      {bills.data && (
+        <Card>
+          <Text style={styles.heading}>{t('RadioSoft totals for selected date')}</Text>
+          <View style={realStyles.summaryGrid}>
+            {[
+              [t('RadioSoft bill total'), `₹${bills.data.summary.source_total}`],
+              [t('Bills imported'), String(bills.data.summary.bill_count)],
+              [t('Recorded here'), moneyPaise(bills.data.summary.collected_paise)],
+              [t('Remaining'), moneyPaise(bills.data.summary.outstanding_paise)],
+            ].map(([label, amount]) => (
+              <View key={label} style={realStyles.summaryCell}>
+                <Text style={styles.small}>{label}</Text>
+                <Text style={styles.heading}>{amount}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.small}>
+            {t(
+              'Imported totals may be incomplete while the shop PC is syncing. This source total is not added to Hishob cashbook sales.',
+            )}
+          </Text>
+        </Card>
+      )}
+      <ErrorText message={bills.error} />
+      {!!bills.error && bills.data && (
+        <Text>{t('Could not refresh. These imported bills may be stale.')}</Text>
+      )}
+      {bills.loading && <Text>{t('Loading imported bills…')}</Text>}
+      {bills.data?.bills.length === 0 && (
+        <Card>
+          <Text>
+            {t(
+              search
+                ? 'No imported bills match this number and date.'
+                : 'No imported bills for this date yet.',
+            )}
+          </Text>
+          <Text>{sourceSummary(status, timezone)}</Text>
+        </Card>
+      )}
+      {!!bills.data?.bills.length && <Text style={styles.heading}>{t('Latest bills first')}</Text>}
+      <View
+        onLayout={(event) => setGridWidth(event.nativeEvent.layout.width)}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}
+      >
+        {bills.data?.bills.map((bill) => (
+          <View
+            key={bill.id}
+            testID={`real-bill-card-${bill.key.invoice_no}`}
+            style={{
+              width: gridWidth ? (gridWidth - 12 * (columns - 1)) / columns : '100%',
+              minWidth: 0,
+            }}
+          >
+            <View style={[styles.card, { padding: 14, gap: 8, borderRadius: 18 }]}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+              >
+                <Text style={[styles.heading, { flex: 1 }]}>
+                  {t('Bill {0}', [bill.key.invoice_no])}
+                </Text>
+                <Text
+                  style={[
+                    realStyles.badge,
+                    bill.collection_status === 'PAID'
+                      ? realStyles.paidBadge
+                      : bill.collection_eligible
+                        ? realStyles.pendingBadge
+                        : realStyles.reviewBadge,
+                  ]}
+                >
+                  {t(collectionLabel(bill.collection_status))}
+                </Text>
+              </View>
+              <Text style={styles.small}>
+                {bill.business_date}
+                {bill.source_time_raw ? ` · ${bill.source_time_raw}` : ''}
+              </Text>
+              <BillAmount bill={bill} />
+              <View style={realStyles.amounts}>
+                <View style={{ flex: 1, minWidth: 100, gap: 4 }}>
+                  <Text style={styles.small}>{t('Remaining')}</Text>
+                  <Text style={realStyles.balance}>
+                    {moneyPaise(bill.collection_outstanding_paise)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, minWidth: 100, gap: 4 }}>
+                  <Text style={styles.small}>{t('Recorded')}</Text>
+                  <Text style={[styles.heading, { fontSize: 16 }]}>
+                    {moneyPaise(bill.collection_collected_paise)}
+                  </Text>
+                </View>
+              </View>
+              {bill.source_changed && (
+                <Text style={styles.small}>{t('Source edited; review the updated amount.')}</Text>
+              )}
+              <RealQuickCollection
+                base={base}
+                bill={bill}
+                canCollect={status.can_collect}
+                refresh={bills.refresh}
+              />
+              <Button
+                title={t('Open bill {0}', [bill.key.invoice_no])}
+                secondary
+                onPress={() => setBillId(bill.id)}
+              />
+            </View>
+          </View>
+        ))}
+      </View>
+      {!!after && <Button title={t('First page')} secondary onPress={() => setAfter('')} />}
+      {bills.data?.next_cursor && (
+        <Button title={t('Next bills')} onPress={() => setAfter(bills.data!.next_cursor!)} />
+      )}
+      {billId && (
+        <BillDetail
+          base={base}
+          id={billId}
+          canCollect={status.can_collect}
+          canCorrect={status.can_correct}
+          refresh={bills.refresh}
+          close={() => setBillId(null)}
+        />
+      )}
+    </>
+  );
+}
+function RealQuickCollection({
+  base,
+  bill,
+  canCollect,
+  refresh,
+}: {
+  base: string;
+  bill: Bill;
+  canCollect: boolean;
+  refresh: () => Promise<void>;
+}) {
+  const { api } = useAuth();
+  const action = useAction();
+  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD' | 'SPLIT'>('CASH');
+  const [amounts, setAmounts] = useState({ CASH: '', UPI: '', CARD: '' });
+  const pending = useRef<Record<string, unknown> | null>(null);
+  const [uncertain, setUncertain] = useState(false);
+  useUnsavedChanges(uncertain);
+  const eligible =
+    canCollect && bill.collection_eligible && (bill.collection_outstanding_paise ?? 0) > 0;
+  let allocations: { method: 'CASH' | 'UPI' | 'CARD'; amount_paise: number }[] = [];
+  let validAmounts = true;
+  try {
+    allocations = Object.entries(amounts)
+      .filter(([, value]) => value !== '')
+      .map(([valueMethod, value]) => ({
+        method: valueMethod as 'CASH' | 'UPI' | 'CARD',
+        amount_paise: parseCollectionAmount(value),
+      }))
+      .filter((allocation) => allocation.amount_paise > 0);
+  } catch {
+    validAmounts = false;
+  }
+  const amountPaise = allocations.reduce((sum, item) => sum + item.amount_paise, 0);
+  const send = (kind: 'RECEIVE' | 'MARK_PAID') =>
+    void action.run(async () => {
+      if (!pending.current) {
+        pending.current = {
+          request_id: `real_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+          revision: bill.collection_revision,
+          action: kind,
+          allocations: kind === 'RECEIVE' ? allocations : [],
+        };
+      }
+      setUncertain(true);
+      try {
+        await api(`${base}/bills/${bill.id}/collections`, pending.current, 'POST');
+        pending.current = null;
+        setUncertain(false);
+        setAmounts({ CASH: '', UPI: '', CARD: '' });
+      } catch (error) {
+        if (error instanceof ApiError && error.status < 500) {
+          pending.current = null;
+          setUncertain(false);
+        }
+        throw error;
+      } finally {
+        await refresh();
+      }
+    });
+  if (!eligible && !uncertain) return null;
+  return (
+    <View style={{ gap: 8 }}>
+      <ErrorText message={action.error} />
+      {eligible && (
+        <>
+          <Text style={styles.heading}>{t('Record a collection')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['CASH', 'UPI', 'CARD', 'SPLIT'] as const).map((value) => (
+              <Button
+                key={value}
+                title={t(value === 'SPLIT' ? 'Split' : value === 'CASH' ? 'Cash' : value)}
+                secondary={method !== value}
+                disabled={uncertain || action.busy}
+                onPress={() => {
+                  setMethod(value);
+                  setAmounts({ CASH: '', UPI: '', CARD: '' });
+                }}
+              />
+            ))}
+          </View>
+          {method === 'SPLIT' ? (
+            (['CASH', 'UPI', 'CARD'] as const).map((value) => (
+              <Field
+                key={value}
+                label={t('{0} amount', [t(value === 'CASH' ? 'Cash' : value)])}
+                value={amounts[value]}
+                keyboardType="decimal-pad"
+                editable={!uncertain && !action.busy}
+                onChangeText={(text) => setAmounts((old) => ({ ...old, [value]: text }))}
+              />
+            ))
+          ) : (
+            <>
+              <Field
+                label={t('Collection amount')}
+                value={amounts[method]}
+                keyboardType="decimal-pad"
+                editable={!uncertain && !action.busy}
+                onChangeText={(text) => setAmounts({ CASH: '', UPI: '', CARD: '', [method]: text })}
+              />
+              <Button
+                title={t('Use full balance')}
+                secondary
+                disabled={uncertain || action.busy}
+                onPress={() =>
+                  setAmounts({
+                    CASH: '',
+                    UPI: '',
+                    CARD: '',
+                    [method]: ((bill.collection_outstanding_paise ?? 0) / 100).toFixed(2),
+                  })
+                }
+              />
+            </>
+          )}
+          <Button
+            title={t('Record partial / full collection')}
+            disabled={
+              !validAmounts ||
+              !amountPaise ||
+              amountPaise > (bill.collection_outstanding_paise ?? 0) ||
+              uncertain
+            }
+            busy={action.busy}
+            onPress={() => send('RECEIVE')}
+          />
+          <Button
+            title={t('Mark paid without method')}
+            secondary
+            disabled={uncertain || action.busy}
+            busy={action.busy}
+            onPress={() => send('MARK_PAID')}
+          />
+        </>
+      )}
+      {uncertain && (
+        <Button
+          title={t('Retry the same request')}
+          secondary
+          busy={action.busy}
+          onPress={() => send(pending.current?.action === 'RECEIVE' ? 'RECEIVE' : 'MARK_PAID')}
+        />
+      )}
+    </View>
+  );
+}
+function moneyPaise(value: number | null) {
+  return value === null ? t('Needs amount review') : `₹${(value / 100).toFixed(2)}`;
+}
+function collectionLabel(status: string) {
+  return (
+    {
+      AWAITING_COLLECTION: 'Pending',
+      PARTIAL: 'Partially paid',
+      PAID: 'Paid',
+      OVERCOLLECTED: 'Excess / adjustment to review',
+      HISTORICAL_REVIEW: 'Historical bill — review',
+      AMOUNT_REVIEW: 'Needs amount review',
+      SOURCE_REVIEW: 'Source changed — review before collection',
+    }[status] || status
+  );
+}
+function BillAmount({ bill }: { bill: Bill }) {
+  return (
+    <Text style={styles.heading}>
+      {bill.signed_source_payable === null
+        ? t('Source payable unknown')
+        : Number(bill.signed_source_payable) < 0
+          ? t('Amount owed to customer: ₹{0}', [bill.owed_to_customer])
+          : t('Source payable: ₹{0}', [bill.signed_source_payable])}
+    </Text>
+  );
+}
+function BillDetail({
+  base,
+  id,
+  canCollect,
+  canCorrect,
+  refresh,
+  close,
+}: {
+  base: string;
+  id: string;
+  canCollect: boolean;
+  canCorrect: boolean;
+  refresh: () => Promise<void>;
+  close: () => void;
+}) {
+  const detail = useResource<Bill>(`${base}/bills/${id}`, 3000);
+  return (
+    <Modal visible onRequestClose={close} animationType="slide">
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+        <Button title={t('Close bill')} secondary onPress={close} />
+        <ErrorText message={detail.error} />
+        {detail.loading && <Text>{t('Loading imported bills…')}</Text>}
+        {!!detail.error && detail.data && (
+          <Text>{t('Could not refresh. These imported bills may be stale.')}</Text>
+        )}
+        <Button title={t('Refresh bill')} secondary onPress={detail.refresh} />
+        {detail.data && (
+          <>
+            <Heading
+              title={t('Bill {0}', [detail.data.key.invoice_no])}
+              subtitle={detail.data.business_date}
+            />
+            <BillAmount bill={detail.data} />
+            <Card>
+              <Text style={styles.heading}>{t('DEV collection register')}</Text>
+              <Text>{t(collectionLabel(detail.data.collection_status))}</Text>
+              <Text>
+                {t('Source payable {0} · Recorded {1} · Remaining {2}', [
+                  moneyPaise(detail.data.collection_payable_paise),
+                  moneyPaise(detail.data.collection_collected_paise),
+                  moneyPaise(detail.data.collection_outstanding_paise),
+                ])}
+              </Text>
+              <Text style={styles.small}>
+                {t(
+                  'Entries are stored in Hishob DEV only. They are not written to RadioSoft or the cashbook.',
+                )}
+              </Text>
+            </Card>
+            <RealCollectionEditor
+              base={base}
+              bill={detail.data}
+              canCollect={canCollect}
+              canCorrect={canCorrect}
+              refresh={async () => {
+                await Promise.all([detail.refresh(), refresh()]);
+              }}
+            />
+            <Text>
+              {t(
+                'Review only. Source item amounts are provisional; discounts, rounding and exchanges remain unallocated.',
+              )}
+            </Text>
+            {detail.data.lines?.map((line, i) => (
+              <Card key={i}>
+                <Text style={styles.heading}>{String(line.raw.ItemName ?? t('Item'))}</Text>
+                <Text>
+                  {t('Quantity: {0} · Source amount: ₹{1}', [
+                    line.raw.Qty ?? t('Unknown'),
+                    line.raw.NetAmt ?? t('Unknown'),
+                  ])}
+                </Text>
+                <Text>
+                  {t('RadioSoft salesperson: {0} · {1}', [
+                    line.salesperson_ref ?? t('Unresolved'),
+                    line.salesperson_name || t('Unresolved'),
+                  ])}
+                </Text>
+                <Text>
+                  {t('Attributed staff: {0}', [
+                    line.worker_name || t('Not linked at first import'),
+                  ])}
+                </Text>
+                <Text>
+                  {t(
+                    'Staff attribution was frozen at first import; later links do not change this bill.',
+                  )}
+                </Text>
+              </Card>
+            ))}
+          </>
+        )}
+      </ScrollView>
+    </Modal>
+  );
+}
+function RealCollectionEditor({
+  base,
+  bill,
+  canCollect,
+  canCorrect,
+  refresh,
+}: {
+  base: string;
+  bill: Bill;
+  canCollect: boolean;
+  canCorrect: boolean;
+  refresh: () => Promise<void>;
+}) {
+  const { api } = useAuth();
+  const action = useAction();
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<'CASH' | 'UPI' | 'CARD'>('CASH');
+  const [reason, setReason] = useState('');
+  const pending = useRef<Record<string, unknown> | null>(null);
+  const [uncertain, setUncertain] = useState(false);
+  useUnsavedChanges(uncertain);
+  const send = (kind: 'RECEIVE' | 'MARK_PAID' | 'REVERSE', receiptId?: string) =>
+    void action.run(async () => {
+      if (!pending.current) {
+        const requestId = `real_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        const body: Record<string, unknown> = {
+          request_id: requestId,
+          revision: bill.collection_revision,
+          action: kind,
+          allocations:
+            kind === 'RECEIVE' ? [{ method, amount_paise: parseCollectionAmount(amount) }] : [],
+        };
+        if (kind === 'REVERSE') {
+          body.collection_id = receiptId;
+          body.reason = reason.trim();
+        }
+        pending.current = body;
+      }
+      setUncertain(true);
+      try {
+        await api(`${base}/bills/${bill.id}/collections`, pending.current, 'POST');
+        pending.current = null;
+        setUncertain(false);
+        setAmount('');
+        setReason('');
+      } catch (error) {
+        if (error instanceof ApiError && error.status < 500) {
+          pending.current = null;
+          setUncertain(false);
+        }
+        throw error;
+      } finally {
+        await refresh();
+      }
+    });
+  let amountValid = false;
+  let amountPaise = 0;
+  try {
+    amountPaise = parseCollectionAmount(amount);
+    amountValid = true;
+  } catch {
+    amountValid = false;
+  }
+  const eligible = bill.collection_eligible && (bill.collection_outstanding_paise ?? 0) > 0;
+  return (
+    <View style={{ gap: 10 }}>
+      <ErrorText message={action.error} />
+      {canCollect && eligible && (
+        <>
+          <Text style={styles.heading}>{t('Record a collection')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {(['CASH', 'UPI', 'CARD'] as const).map((value) => (
+              <Button
+                key={value}
+                title={t(value === 'CASH' ? 'Cash' : value)}
+                secondary={method !== value}
+                disabled={uncertain || action.busy}
+                onPress={() => setMethod(value)}
+              />
+            ))}
+          </View>
+          <Field
+            label={t('Collection amount')}
+            value={amount}
+            keyboardType="decimal-pad"
+            editable={!uncertain && !action.busy}
+            onChangeText={setAmount}
+          />
+          <Button
+            title={t('Record partial / full collection')}
+            disabled={
+              !amountValid ||
+              amountPaise <= 0 ||
+              amountPaise > (bill.collection_outstanding_paise ?? 0) ||
+              uncertain
+            }
+            busy={action.busy}
+            onPress={() => send('RECEIVE')}
+          />
+          <Button
+            title={t('Mark remaining balance paid (method not recorded)')}
+            secondary
+            disabled={uncertain}
+            busy={action.busy}
+            onPress={() => send('MARK_PAID')}
+          />
+        </>
+      )}
+      {!bill.collection_eligible && (
+        <Text style={styles.small}>
+          {t(
+            'Collection entry is blocked: only unchanged, positive, in-period bills can be recorded.',
+          )}
+        </Text>
+      )}
+      {uncertain && (
+        <Button
+          title={t('Retry the same request')}
+          busy={action.busy}
+          onPress={() =>
+            send((pending.current?.action as 'RECEIVE' | 'MARK_PAID' | 'REVERSE') || 'RECEIVE')
+          }
+        />
+      )}
+      {!!bill.collection_events.length && (
+        <View style={{ gap: 8 }}>
+          <Text style={styles.heading}>{t('Collection history')}</Text>
+          {bill.collection_events.map((receipt) => (
+            <Card key={receipt.id}>
+              <Text>
+                {receipt.action === 'MARK_PAID'
+                  ? t('Marked paid · method not recorded')
+                  : t('Collected {0}', [
+                      moneyPaise(
+                        receipt.allocations.reduce((sum, item) => sum + item.amount_paise, 0),
+                      ),
+                    ])}
+                {receipt.reversed ? ` · ${t('Reversed')}` : ''}
+              </Text>
+              {receipt.allocations.map((allocation, index) => (
+                <Text key={index} style={styles.small}>
+                  {t(
+                    allocation.method === 'UNSPECIFIED' ? 'Method not recorded' : allocation.method,
+                  )}{' '}
+                  · {moneyPaise(allocation.amount_paise)}
+                </Text>
+              ))}
+              <Text style={styles.small}>{new Date(receipt.at).toLocaleString()}</Text>
+              {canCorrect && !receipt.reversed && (
+                <>
+                  <Field
+                    label={t('Correction reason')}
+                    value={reason}
+                    editable={!uncertain && !action.busy}
+                    onChangeText={setReason}
+                    maxLength={500}
+                  />
+                  <Button
+                    title={t('Reverse collection')}
+                    secondary
+                    disabled={reason.trim().length < 2 || uncertain}
+                    busy={action.busy}
+                    onPress={() => send('REVERSE', receipt.id)}
+                  />
+                </>
+              )}
+            </Card>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+function parseCollectionAmount(value: string) {
+  if (!/^\d{1,10}(\.\d{1,2})?$/.test(value))
+    throw new Error(t('Enter a valid amount with up to two decimal places.'));
+  const [whole, fraction = ''] = value.split('.');
+  return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+}
+const realStyles = {
+  badge: {
+    overflow: 'hidden' as const,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    fontSize: 12,
+    fontWeight: '700' as const,
+  },
+  paidBadge: { backgroundColor: '#E8F0E8', color: '#145C45' },
+  pendingBadge: { backgroundColor: '#FFF1D6', color: '#8B5A08' },
+  reviewBadge: { backgroundColor: '#FCE8E8', color: '#A53535' },
+  amounts: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 16,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#FAF8F2',
+  },
+  summaryGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 10,
+  },
+  summaryCell: {
+    flexGrow: 1,
+    flexBasis: 140,
+    gap: 4,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#FAF8F2',
+  },
+  balance: { fontSize: 20, fontWeight: '700' as const, color: '#8B5A08' },
+};
+function Links({ base }: { base: string }) {
+  const directory = useResource<Directory>(base + '/salespeople', 15000);
+  const [filter, setFilter] = useState('needs');
+  const [editing, setEditing] = useState<Person | null>(null);
+  const category = (p: Person) =>
+    p.not_used
+      ? 'unused'
+      : directory.data?.workers.some((w) => w.id === p.worker_id)
+        ? 'linked'
+        : 'needs';
+  return (
+    <>
+      <Heading
+        title={t('Link salespeople to staff')}
+        subtitle={t('Links affect future first-imported bills. Imported history stays unchanged.')}
+      />
+      <Button title={t('Refresh links')} secondary onPress={directory.refresh} />
+      <ErrorText message={directory.error} />
+      {directory.loading && <Text>{t('Loading salesperson directory…')}</Text>}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {[
+          ['needs', 'Needs linking'],
+          ['linked', 'Linked'],
+          ['unused', 'Not used'],
+        ].map(([key, label]) => (
+          <Button key={key} title={t(label)} secondary onPress={() => setFilter(key)} />
+        ))}
+      </View>
+      {!denied(directory.errorStatus) && directory.data && (
+        <>
+          {directory.data.people.filter((p) => category(p) === filter).length === 0 && (
+            <Text>
+              {t(
+                filter === 'needs'
+                  ? 'No salespeople need linking. New source entries will appear here.'
+                  : 'No salespeople in this list.',
+              )}
+            </Text>
+          )}
+          {directory.data.people
+            .filter((p) => category(p) === filter)
+            .map((person) => (
+              <Card key={person.id}>
+                <Text style={styles.heading}>
+                  {person.ref} · {person.name || t('Unnamed salesperson')}
+                </Text>
+                <Text>
+                  {directory.data!.workers.find((w) => w.id === person.worker_id)?.name ??
+                    t(
+                      person.not_used
+                        ? 'Not used'
+                        : person.worker_id
+                          ? 'Linked worker is inactive. Choose an active worker.'
+                          : 'Not linked',
+                    )}
+                </Text>
+                <Button
+                  title={t(person.worker_id || person.not_used ? 'Change link' : 'Link to staff')}
+                  secondary
+                  onPress={() => setEditing(person)}
+                />
+              </Card>
+            ))}
+          {editing && (
+            <LinkEditor
+              key={editing.id}
+              person={editing}
+              base={base}
+              close={() => setEditing(null)}
+              saved={async () => {
+                setEditing(null);
+                await directory.refresh();
+              }}
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+}
+function LinkEditor({
+  person,
+  base,
+  saved,
+  close,
+}: {
+  person: Person;
+  base: string;
+  saved: () => Promise<void>;
+  close: () => void;
+}) {
+  const { api, selected } = useAuth();
+  const staff = useResource<Worker[]>(`/shops/${selected!.shop_id}/workers`);
+  const action = useAction();
+  const [query, setQuery] = useState('');
+  const [chosen, setChosen] = useState(person.worker_id);
+  const [reason, setReason] = useState('');
+  const [create, setCreate] = useState(false);
+  const [name, setName] = useState(person.name);
+  const [created, setCreated] = useState<Worker | null>(null);
+  const [revision, setRevision] = useState(person.revision);
+  const [current, setCurrent] = useState(person);
+  const [conflict, setConflict] = useState(false);
+  const established = !!current.worker_id || !!current.not_used;
+  const save = (notUsed = false, unlink = false) =>
+    action.run(async () => {
+      let workerId = unlink || notUsed ? null : chosen;
+      if (create && !notUsed && !unlink) {
+        const worker =
+          created ??
+          (await api<Worker>(
+            `/shops/${selected!.shop_id}/workers`,
+            { name, request_id: `radiosoft:${person.id}:${person.revision}` },
+            'POST',
+          ));
+        setCreated(worker);
+        setChosen(worker.id);
+        workerId = worker.id;
+      }
+      try {
+        await api(
+          `${base}/salespeople/${person.id}/mapping`,
+          { revision, worker_id: workerId, not_used: notUsed, reason },
+          'PUT',
+        );
+        await saved();
+      } catch (error) {
+        setConflict(true);
+        throw error;
+      }
+    });
+  return (
+    <Modal visible onRequestClose={close} animationType="slide">
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+        <Heading
+          title={t('Link {0} · {1}', [person.ref, person.name])}
+          subtitle={t(
+            'Links affect future first-imported bills. Imported history stays unchanged.',
+          )}
+        />
+        <Button title={t('Close linking')} secondary onPress={close} />
+        <ErrorText message={action.error || staff.error} />
+        {conflict && (
+          <Button
+            title={t('Refresh current link before retry')}
+            secondary
+            onPress={() =>
+              void action.run(async () => {
+                const latest = await api<Directory>(base + '/salespeople');
+                const p = latest.people.find((p) => p.id === person.id);
+                if (p) {
+                  setRevision(p.revision);
+                  setCurrent(p);
+                  setConflict(false);
+                }
+              })
+            }
+          />
+        )}
+        {current.worker_id && (
+          <Text>
+            {t('Current link: {0}', [
+              staff.data?.find((w) => w.id === current.worker_id)?.name ?? t('Inactive worker'),
+            ])}
+          </Text>
+        )}
+        {created && (
+          <Text>
+            {t('Staff created: {0}. Retry linking this same profile; do not create another.', [
+              created.name,
+            ])}
+          </Text>
+        )}
+        {!create && (
+          <>
+            <Field label={t('Search staff')} value={query} onChangeText={setQuery} />
+            <Text>
+              {t(
+                'Select the correct profile when names repeat. Search to narrow the first 20 matches.',
+              )}
+            </Text>
+            {staff.data
+              ?.filter(
+                (w) =>
+                  w.active && `${w.name} ${w.mobile}`.toLowerCase().includes(query.toLowerCase()),
+              )
+              .slice(0, 20)
+              .map((w) => (
+                <Pressable
+                  key={w.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${w.name} · ${w.mobile || t('Login not enabled')}`}
+                  accessibilityState={{ selected: chosen === w.id }}
+                  onPress={() => setChosen(w.id)}
+                  style={{
+                    padding: 16,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    backgroundColor: chosen === w.id ? '#E5F3EC' : '#FFFFFF',
+                  }}
+                >
+                  <Text style={styles.heading}>
+                    {chosen === w.id ? '✓ ' : ''}
+                    {w.name}
+                  </Text>
+                  <Text>
+                    {w.mobile || t('Login not enabled')} ·{' '}
+                    {t('Staff profile {0}', [staff.data!.findIndex((p) => p.id === w.id) + 1])}
+                  </Text>
+                  <Text style={styles.small}>{w.created_at.slice(0, 16).replace('T', ' ')}</Text>
+                </Pressable>
+              ))}
+          </>
+        )}
+        {selected!.permissions.add_workers && !created && (
+          <Button
+            title={t(create ? 'Choose existing staff' : 'Create a worker and link')}
+            secondary
+            onPress={() => setCreate(!create)}
+          />
+        )}
+        {create && !created && (
+          <Field label={t('Worker name')} value={name} onChangeText={setName} />
+        )}
+        {(established || conflict) && (
+          <Field label={t('Reason for changing link')} value={reason} onChangeText={setReason} />
+        )}
+        <Button
+          title={t('Save link')}
+          busy={action.busy}
+          disabled={
+            conflict ||
+            (established && reason.trim().length < 2) ||
+            (create ? name.trim().length < 2 : !chosen)
+          }
+          onPress={() => void save()}
+        />
+        <Button
+          title={t('Mark not used')}
+          secondary
+          busy={action.busy}
+          disabled={conflict || (established && reason.trim().length < 2)}
+          onPress={() => void save(true)}
+        />
+        {established && (
+          <Button
+            title={t('Remove link')}
+            secondary
+            busy={action.busy}
+            disabled={conflict || reason.trim().length < 2}
+            onPress={() => void save(false, true)}
+          />
+        )}
+      </ScrollView>
+    </Modal>
+  );
+}
+
+function Connection({
+  base,
+  status,
+  refresh,
+}: {
+  base: string;
+  status: Status;
+  refresh: () => Promise<void>;
+}) {
+  const { api, session } = useAuth();
+  const action = useAction();
+  const [setup, setSetup] = useState(!status.enabled);
+  const [confirmed, setConfirmed] = useState(false);
+  const [managerView, setManagerView] = useState(status.manager_view);
+  const [managerMap, setManagerMap] = useState(status.manager_map);
+  const [managerCollect, setManagerCollect] = useState(status.manager_collect);
+  const [managerCorrect, setManagerCorrect] = useState(status.manager_correct);
+  const [showBinding, setShowBinding] = useState(false);
+  const [revoke, setRevoke] = useState(false);
+  const [pairing, setPairing] = useState<{ code: string; expires_at: string } | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const remaining = pairing
+    ? Math.max(0, Math.ceil((Date.parse(pairing.expires_at) - now) / 1000))
+    : 0;
+  return (
+    <>
+      <Heading
+        title={t('Connection settings')}
+        subtitle={t('Real DEV preview. Use recovery controls only when needed.')}
+      />
+      <Button title={t('Refresh connection')} secondary onPress={refresh} />
+      <ErrorText message={action.error} />
+      <Card>
+        <Text>{t('Connection: {0}', [status.connection])}</Text>
+        <Text>
+          {t('Last source read: {0}', [status.health?.last_successful_source_read ?? t('None')])}
+        </Text>
+        <Text>{t('Last server contact: {0}', [status.last_contact ?? t('None')])}</Text>
+        <Text>{t('Last delivery: {0}', [status.last_successful_sync ?? t('None')])}</Text>
+        <Text>
+          {t('Connector version: {0}', [status.health?.connector_version ?? t('Unknown')])}
+        </Text>
+        {!!status.health?.source_error && (
+          <Text>{t('PC source error: {0}', [status.health.source_error])}</Text>
+        )}
+        <Text>
+          {t('Source status: {0} · Pending: {1}', [
+            status.health?.status ?? t('Not read'),
+            status.health?.pending_observations ?? t('Unknown'),
+          ])}
+        </Text>
+      </Card>
+      {session?.role === 'OWNER' && (
+        <>
+          <Button
+            title={t('Review setup and manager permissions')}
+            secondary
+            onPress={() => setSetup(!setup)}
+          />
+          {setup && (
+            <Card>
+              <Text>
+                {t('Source: {0} / {1}', [status.scope.source_id, status.scope.generation])}
+              </Text>
+              <Text>{t('Tracking starts: {0}', [status.scope.tracking_from])}</Text>
+              <Text>
+                {t('Capture: {0} to {1} (exclusive)', [
+                  status.scope.capture_from,
+                  status.scope.capture_until,
+                ])}
+              </Text>
+              <Text>
+                {t('Firm codes: {0} · Invoice types: {1}', [
+                  status.scope.firm_codes.join(', '),
+                  status.scope.invoice_types.join(', '),
+                ])}
+              </Text>
+              <Text>{t('Confirm this PC, database generation, scope and tracking date.')}</Text>
+              <Switch
+                accessibilityLabel={t('Confirm source scope and tracking date')}
+                value={confirmed}
+                onValueChange={setConfirmed}
+              />
+              <Text>{t('Allow managers to view')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager view')}
+                value={managerView}
+                onValueChange={(value) => {
+                  setManagerView(value || managerCollect || managerCorrect);
+                }}
+              />
+              <Text>{t('Allow managers to link salespeople')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager mapping')}
+                value={managerMap}
+                onValueChange={setManagerMap}
+              />
+              <Text>{t('Allow managers to record full and partial DEV collections')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager collections')}
+                value={managerCollect}
+                onValueChange={(value) => {
+                  setManagerCollect(value);
+                  if (value) setManagerView(true);
+                  else setManagerCorrect(false);
+                }}
+              />
+              <Text>{t('Allow managers to reverse or correct collection entries')}</Text>
+              <Switch
+                accessibilityLabel={t('Manager collection corrections')}
+                value={managerCorrect}
+                onValueChange={(value) => {
+                  setManagerCorrect(value);
+                  if (value) {
+                    setManagerCollect(true);
+                    setManagerView(true);
+                  }
+                }}
+              />
+              <Text style={styles.small}>
+                {t(
+                  'These entries stay in Hishob DEV; nothing is sent to RadioSoft or the cashbook.',
+                )}
+              </Text>
+              <Button
+                title={t('Confirm DEV setup')}
+                disabled={!confirmed}
+                busy={action.busy}
+                onPress={() =>
+                  void action.run(async () => {
+                    await api(
+                      base + '/setup',
+                      {
+                        scope: status.scope,
+                        confirm_source_and_scope: true,
+                        manager_view: managerView,
+                        manager_map: managerMap,
+                        manager_collect: managerCollect,
+                        manager_correct: managerCorrect,
+                      },
+                      'POST',
+                    );
+                    await refresh();
+                    setSetup(false);
+                  })
+                }
+              />
+            </Card>
+          )}
+          <Button
+            title={t('Show nonsecret PC binding')}
+            secondary
+            onPress={() => setShowBinding(!showBinding)}
+          />
+          {showBinding && (
+            <Text selectable>
+              {JSON.stringify(
+                {
+                  version: 2,
+                  ...status.scope,
+                  synthetic_only: false,
+                  next_action: 'SEND_REAL_REVIEW_OBSERVATIONS',
+                },
+                null,
+                2,
+              )}
+            </Text>
+          )}
+          <Text>
+            {t(
+              'Eight-digit codes require Windows connector 0.2.0 or later. Already paired PCs do not need to pair again.',
+            )}
+          </Text>
+          {pairing && (
+            <Card>
+              {remaining > 0 ? (
+                <>
+                  <Text
+                    selectable
+                    accessibilityLabel={t('Pairing code')}
+                    style={{
+                      fontSize: 40,
+                      fontWeight: '700',
+                      letterSpacing: 4,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {pairing.code.replace(/^(\d{4})(\d{4})$/, '$1 $2')}
+                  </Text>
+                  <Text>{t('Enter this code on your shop PC.')}</Text>
+                  <Text>
+                    {t('Valid for {0}:{1}', [
+                      Math.floor(remaining / 60),
+                      String(remaining % 60).padStart(2, '0'),
+                    ])}
+                  </Text>
+                  <Button
+                    title={t(copied ? 'Copied' : 'Copy code')}
+                    secondary
+                    onPress={() =>
+                      void action.run(async () => {
+                        await Clipboard.setStringAsync(pairing.code);
+                        setCopied(true);
+                      })
+                    }
+                  />
+                </>
+              ) : (
+                <Text>
+                  {t('Code expired. Create a replacement below, then enter it on the PC.')}
+                </Text>
+              )}
+            </Card>
+          )}
+          <Button
+            title={t(
+              pairing ? 'Create replacement pairing code' : 'Create five-minute pairing code',
+            )}
+            disabled={!status.enabled}
+            busy={action.busy}
+            onPress={() =>
+              void action.run(async () => {
+                const result = await api<{ code: string; expires_at: string }>(
+                  base + '/pairing',
+                  {},
+                  'POST',
+                );
+                setPairing(result);
+                setNow(Date.now());
+                setCopied(false);
+              })
+            }
+          />
+          <Button
+            title={t('Stop and revoke DEV connector')}
+            secondary
+            onPress={() => setRevoke(true)}
+          />
+          {revoke && (
+            <Card>
+              <Text>
+                {t(
+                  'Revoke this PC connection? Imports will stop. Queued bills and history are preserved; pairing is required to reconnect.',
+                )}
+              </Text>
+              <Button
+                title={t('Confirm revoke')}
+                danger
+                busy={action.busy}
+                onPress={() =>
+                  void action.run(async () => {
+                    await api(base + '/revoke', {}, 'POST');
+                    setPairing(null);
+                    setRevoke(false);
+                    await refresh();
+                  })
+                }
+              />
+              <Button title={t('Cancel')} secondary onPress={() => setRevoke(false)} />
+            </Card>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+function SalesReport({ base }: { base: string }) {
+  const { api } = useAuth();
+  const action = useAction();
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [report, setReport] = useState<Report | null>(null);
+  return (
+    <Card>
+      <Heading
+        title={t('Attributed item sales')}
+        subtitle={t(
+          'Item observations only, not exact worker net sales. Discounts, rounding and exchanges remain unallocated.',
+        )}
+      />
+      <Field label={t('From (YYYY-MM-DD)')} value={start} onChangeText={setStart} />
+      <Field label={t('Until, exclusive (YYYY-MM-DD)')} value={end} onChangeText={setEnd} />
+      <ErrorText message={action.error} />
+      <Button
+        title={t('Load attributed sales')}
+        busy={action.busy}
+        onPress={() =>
+          void action.run(async () => {
+            setReport(null);
+            setReport(
+              await api(
+                `${base}/worker-sales?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+              ),
+            );
+          })
+        }
+      />
+      {report?.rows.map((r) => (
+        <Text key={`${r.bill_id}:${r.line_index}`}>
+          {r.item || t('Item')} · {r.salesperson_name || t('Unresolved')} · ₹
+          {r.source_item_net ?? t('Unknown')}
+        </Text>
+      ))}
+    </Card>
+  );
+}
