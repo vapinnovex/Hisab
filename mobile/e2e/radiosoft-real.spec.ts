@@ -22,12 +22,12 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   });
   expect(workerResponse.ok()).toBeTruthy();
   await page
-    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true })
     .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await expect(page.getByText('Tracking starts: 2026-11-03', { exact: true })).toBeVisible();
   await page.getByLabel('Confirm source scope and tracking date').click();
-  await page.getByRole('button', { name: 'Confirm DEV setup', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm setup', exact: true }).click();
   await expect(page.getByText('Connection: UNPAIRED', { exact: true })).toBeVisible();
   await expect(
     page.getByText('PC is unpaired. Open Connection settings to pair it.'),
@@ -266,10 +266,10 @@ test('real preview owner confirms scope, pairs, sees negative bill and maps zero
   await expect(page.getByRole('button', { name: 'Record payment', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /back/i }).first().click();
   await page
-    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true })
     .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Stop and revoke DEV connector', exact: true }).click();
+  await page.getByRole('button', { name: 'Stop and revoke connector', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Confirm revoke', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm revoke', exact: true }).click();
   await expect(page.getByText('Connection: DISABLED', { exact: true })).toBeVisible();
@@ -296,12 +296,12 @@ test('status failure stays visible, retries, and access rejection hides protecte
     page.getByText('RadioSoft status is unavailable. Eligibility could not be checked.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true }),
+    page.getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true }),
   ).toHaveCount(0);
   failure = 0;
   await page.getByRole('button', { name: 'Retry RadioSoft status', exact: true }).click();
   await page
-    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true })
     .click();
   await page.getByRole('button', { name: 'Connection settings', exact: true }).click();
   await expect(page.getByText('Tracking starts: 2026-11-03', { exact: true })).toBeVisible();
@@ -321,13 +321,13 @@ test('status failure stays visible, retries, and access rejection hides protecte
     page.getByText('RadioSoft preview access was rejected. No preview data is shown.'),
   ).toBeVisible();
   await expect(page.getByText('Tracking starts: 2026-11-03', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Confirm DEV setup', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirm setup', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: /back/i }).first().click();
   await expect(
     page.getByText('RadioSoft preview access was rejected. No preview data is shown.'),
   ).toBeVisible();
   await expect(
-    page.getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true }),
+    page.getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true }),
   ).toHaveCount(0);
 });
 
@@ -364,7 +364,7 @@ test('Today follows the shop date; PC failures show diagnostics without hiding i
   ).toBeTruthy();
   await page.clock.install({ time: new Date('2026-11-09T18:29:40Z') });
   await page
-    .getByRole('button', { name: 'Live RadioSoft bills & collections (DEV)', exact: true })
+    .getByRole('button', { name: 'Live RadioSoft bills & collections', exact: true })
     .click();
   await expect(page.getByLabel('Bill date (YYYY-MM-DD)', { exact: true })).toHaveValue(
     '2026-11-09',

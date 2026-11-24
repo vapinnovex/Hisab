@@ -1,4 +1,4 @@
-"""DEV-only real preview. Separate collections, credentials and routes from v1."""
+"""Real RadioSoft display connector. Separate collections, credentials and routes from v1."""
 
 import re
 import secrets
@@ -22,6 +22,7 @@ from ..radiosoft_real_schemas import (
     RealHealth,
     RealObservation,
     RealPairRequest,
+    RealScope,
     Setup,
 )
 from ..radiosoft_schemas import CollectionAction
@@ -35,20 +36,39 @@ def get_db(db=Depends(application_db)):
     return db.with_options(write_concern=WriteConcern(w="majority", j=True))
 
 
-router = APIRouter(tags=["RadioSoft real DEV preview"])
+router = APIRouter(tags=["RadioSoft real connector"])
 shop_path = "/shops/{shop_id}/radiosoft-real"
 connector_path = "/radiosoft/real-connector"
 bearer = HTTPBearer(auto_error=False)
 
 
-def scope(request, db, shop_id):
+def configured_scope(request, db, shop_id):
+    """The approved scope for this shop, or None when the shop has none.
+
+    A database scope (created by the operator command) wins in every environment; a
+    revoked one disables the shop even if a development allowlist entry exists. The
+    environment allowlist is honoured only in development and test.
+    """
     settings = request.app.state.settings
-    if not settings.radiosoft_real_enabled or settings.app_env not in {"development", "test"}:
-        raise HTTPException(403, "Real DEV preview disabled")
+    if not settings.radiosoft_real_enabled:
+        return None
+    stored = db.radiosoft_real_scopes.find_one({"_id": shop_id})
+    if stored:
+        if stored.get("revoked"):
+            return None
+        return RealScope.model_validate(stored["scope"]).model_dump(mode="json")
+    if settings.app_env not in {"development", "test"}:
+        return None
     scopes = [s.model_dump(mode="json") for s in settings.radiosoft_real_pilots if s.shop_id == shop_id]
-    if len(scopes) != 1:
+    if len(scopes) > 1:
         raise HTTPException(403, "Exactly one deployment scope is required")
-    s = scopes[0]
+    return scopes[0] if scopes else None
+
+
+def scope(request, db, shop_id):
+    s = configured_scope(request, db, shop_id)
+    if s is None:
+        raise HTTPException(403, "RadioSoft is not set up for this shop")
     shop = db.shops.find_one({"_id": shop_id, "created_by": s["owner_id"]})
     if not shop or not db.memberships.find_one(
         {"shop_id": shop_id, "user_id": s["owner_id"], "role": "OWNER", "active": True}
@@ -436,15 +456,26 @@ def revoke(shop_id: str, request: Request, identity=Depends(current_identity), d
 
 @router.get(shop_path + "/availability")
 def availability(shop_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)):
+    if not_set_up(request, db, shop_id, identity):
+        return {"available": False, "enabled": False}
     _, _, c = access(request, db, shop_id, identity, "report")
-    return {"enabled": bool(c and c.get("enabled"))}
+    return {"available": True, "enabled": bool(c and c.get("enabled"))}
+
+
+def not_set_up(request, db, shop_id, identity):
+    # Membership is checked first so a non-member learns nothing about the shop.
+    shop_access(shop_id, db, identity, {"OWNER", "MANAGER", "ADMIN", "WORKER"})
+    return configured_scope(request, db, shop_id) is None
 
 
 @router.get(shop_path + "/status")
 def status(shop_id: str, request: Request, identity=Depends(current_identity), db=Depends(get_db)):
+    if not_set_up(request, db, shop_id, identity):
+        return {"available": False, "enabled": False}
     _, s, c = access(request, db, shop_id, identity, "status")
     c = c or {}
     return {
+        "available": True,
         "connection": "DISABLED"
         if not c.get("enabled")
         else "UNPAIRED"
@@ -483,7 +514,7 @@ def request_source_refresh(
 ):
     _, _, c = access(request, db, shop_id, identity, "view")
     if not c or not c.get("enabled") or not c.get("credential_hash"):
-        raise HTTPException(409, "DEV connector must be enabled and paired before requesting a PC refresh")
+        raise HTTPException(409, "Connector must be enabled and paired before requesting a PC refresh")
     if c.get("scan_request_id") != c.get("scan_completed_id"):
         return {"request_id": c["scan_request_id"], "pending": True}
     timestamp = now()
@@ -665,7 +696,7 @@ def collection_state(bill, c, ledger=None):
 
 def apply_real_collection(db, bill, c, body, identity, shop):
     if body.action not in REAL_COLLECTION_ACTIONS:
-        raise HTTPException(422, "This action is not available in the real DEV collection register")
+        raise HTTPException(422, "This action is not available in the RadioSoft collection register")
     ledger_id = bill["_id"]
     ledger = db.radiosoft_real_collections.find_one({"_id": ledger_id})
     revision = ledger["revision"] if ledger else 1
@@ -733,7 +764,7 @@ def apply_real_collection(db, bill, c, body, identity, shop):
         "updated_at": now(),
     }
     if len(BSON.encode(replacement)) > 8_000_000:
-        raise HTTPException(409, "DEV collection history capacity reached; existing history was retained")
+        raise HTTPException(409, "Collection history capacity reached; existing history was retained")
     if ledger:
         saved = db.radiosoft_real_collections.replace_one(
             {"_id": ledger_id, "revision": revision}, replacement
@@ -791,7 +822,7 @@ def bills(
         query["snapshot.key.invoice_no"] = {"$regex": re.escape(search.strip()), "$options": "i"}
     rows = list(db.radiosoft_real_bills.find(query).limit(2001))
     if len(rows) > 2000:
-        raise HTTPException(422, "Narrow the date or bill-number search to review this DEV register")
+        raise HTTPException(422, "Narrow the date or bill-number search to review this register")
     ledgers = {
         row["_id"]: row
         for row in db.radiosoft_real_collections.find(

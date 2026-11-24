@@ -1,4 +1,5 @@
 import pytest
+from conftest import pair_origin
 from test_real import binding
 
 from hishob_connector.pairing_ui import normalize_code, pairing_state
@@ -22,13 +23,13 @@ def test_reject_malformed(code):
         normalize_code(code)
 
 
-def test_confirmed_exchange_and_retry_preserve_proof_and_state(tmp_path, vault):
+def test_confirmed_exchange_and_retry_preserve_proof_and_state(tmp_path, vault, flavour):
     store = RealStore.initialize(tmp_path / "state", vault)
-    store.put("pilot_kind", "REAL_DEV")
+    store.put("pilot_kind", flavour.kind)
     store.put("expected_binding", binding())
     store.put("sequence", 12)
     store.put("real_checkpoint", {"unchanged": 1})
-    store.queue_pair("https://dev.example.test", "0000 1234")
+    store.queue_pair(pair_origin(flavour), "0000 1234")
     pending = store.get("pending_pair")
     assert pending["body"]["code"] == "00001234"
     assert len(pending["body"]["credential"]) >= 43
@@ -56,11 +57,11 @@ def test_confirmed_exchange_and_retry_preserve_proof_and_state(tmp_path, vault):
     store.close()
 
 
-def test_expiry_never_reports_queued_as_connected(tmp_path, vault):
+def test_expiry_never_reports_queued_as_connected(tmp_path, vault, flavour):
     store = RealStore.initialize(tmp_path / "state", vault)
-    store.put("pilot_kind", "REAL_DEV")
+    store.put("pilot_kind", flavour.kind)
     store.put("expected_binding", binding())
-    store.queue_pair("https://dev.example.test", "12345678")
+    store.queue_pair(pair_origin(flavour), "12345678")
 
     class Expired:
         def post(self, *args):

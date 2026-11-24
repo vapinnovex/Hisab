@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hishob_connector.real import REAL_DEV, REAL_PROD
 from hishob_connector.security import DPAPI
 from hishob_connector.store import Store
 
@@ -139,3 +140,13 @@ def pair(store, backend, transport):
     engine.tick()
     assert store.get("mode") == "RUNNING"
     return engine
+
+
+@pytest.fixture(params=[REAL_DEV, REAL_PROD], ids=lambda f: f.kind)
+def flavour(request):
+    """Real connector flavours share one binding JSON and store; only constants differ."""
+    return request.param
+
+
+def pair_origin(flavour):
+    return flavour.fixed_origin or "https://dev.example.test"

@@ -388,9 +388,24 @@ def test_binding_revocation_and_continuity(client, setup_shop):
     assert client.get(path + "/status", headers=owner).status_code == 403
 
 
-def test_production_guard():
-    with pytest.raises(ValueError, match="cannot run in production"):
-        Settings(_env_file=None, app_env="production", jwt_secret="x" * 32, radiosoft_real_enabled=True)
+def test_production_refuses_environment_allowlist():
+    base = {"_env_file": None, "app_env": "production", "jwt_secret": "x" * 32, "email_provider": "brevo"}
+    base |= {"brevo_api_key": "k", "brevo_sender_name": "Hishob", "brevo_sender_email": "a@b.co"}
+    assert Settings(**base, radiosoft_real_enabled=True).radiosoft_real_enabled
+    pilot = RealScope(
+        shop_id="s",
+        owner_id="o",
+        source_id="pc",
+        generation="g",
+        database="RsDB",
+        firm_codes=[0],
+        invoice_types=[0],
+        tracking_from="2026-11-03",
+        capture_from="2026-01-01",
+        capture_until="2027-01-01",
+    )
+    with pytest.raises(ValueError, match="development only"):
+        Settings(**base, radiosoft_real_enabled=True, radiosoft_real_pilots=[pilot])
 
 
 def test_crash_fence_recovery_and_historical_review(client, setup_shop):

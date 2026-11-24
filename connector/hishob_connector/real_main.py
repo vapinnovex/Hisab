@@ -6,39 +6,41 @@ import threading
 from pathlib import Path
 
 from . import service
-from .real import RealEngine, RealStore, https_origin, validate_binding
+from .real import REAL_DEV, RealEngine, RealStore, validate_binding
 from .security import DPAPI, ProcessLock
 
 
-def run(directory, stop):
+def run(directory, stop, flavour=REAL_DEV):
     with ProcessLock(directory):
         store = RealStore(directory, DPAPI())
         try:
-            if store.get("pilot_kind") != "REAL_DEV":
+            if store.get("pilot_kind") != flavour.kind:
                 raise ValueError("Wrong state kind")
             RealEngine(store).run(stop)
         finally:
             store.close()
 
 
-def main():
-    service.SERVICE_NAME = "HishobRadioSoftDev"
-    service.default_directory = lambda: (
-        Path(__import__("os").environ.get("PROGRAMDATA", r"C:\ProgramData")) / "HishobConnectorDev"
-    )
-    service.run = run
-    parser = argparse.ArgumentParser(description="RadioSoft real DEV display-only pilot")
+def main(flavour=REAL_DEV):
+    service.SERVICE_NAME = flavour.service_name
+    service.default_directory = flavour.default_directory
+    service.run = lambda directory, stop: run(directory, stop, flavour)
+    parser = argparse.ArgumentParser(description=flavour.description)
     parser.add_argument(
         "command",
         choices=["init", "configure", "pair", "cancel-pair", "run", "service", "status", "resume-health"],
     )
     parser.add_argument("--state", type=Path, default=service.default_directory())
     parser.add_argument("--binding", type=Path)
-    parser.add_argument("--origin")
+    fixed = flavour.fixed_origin
+    parser.add_argument(
+        "--origin",
+        help=f"Optional; fixed to {fixed}, any other value is refused" if fixed else "Exact HTTPS origin",
+    )
     args = parser.parse_args()
     if args.command == "init":
         store = RealStore.initialize(args.state, DPAPI())
-        store.put("pilot_kind", "REAL_DEV")
+        store.put("pilot_kind", flavour.kind)
         store.close()
     elif args.command == "service":
         if args.state != service.default_directory():
@@ -63,7 +65,7 @@ def main():
         try:
             if args.command == "configure":
                 b = validate_binding(json.loads(args.binding.read_text(encoding="utf-8-sig")))
-                origin = https_origin(args.origin)
+                origin = flavour.origin(args.origin)
                 with store.transaction():
                     if store.get("expected_binding") not in (None, b) or store.get("api") not in (
                         None,
