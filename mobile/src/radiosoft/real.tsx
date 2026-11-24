@@ -108,13 +108,13 @@ type Report = {
   policy: string;
 };
 const denied = (status?: number) => status === 401 || status === 403;
-const entryTitle = 'Live RadioSoft bills & collections (DEV)';
+const entryTitle = 'Live RadioSoft bills & collections';
 
 export function RealRadioSoftEntry() {
   useLocale();
   const { selected, session } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<Routes>>();
-  const resource = useResource<{ enabled: boolean }>(
+  const resource = useResource<{ available?: boolean; enabled: boolean }>(
     `/shops/${selected?.shop_id ?? ''}/radiosoft-real/${session?.role === 'WORKER' ? 'availability' : 'status'}`,
     15000,
     !!selected,
@@ -143,10 +143,16 @@ export function RealRadioSoftEntry() {
         )}
       </Card>
     );
-  if (!resource.data || (session?.role === 'WORKER' && !resource.data.enabled)) return null;
+  // The server answers `available: false` for shops without an approved RadioSoft scope.
+  if (
+    !resource.data ||
+    resource.data.available === false ||
+    (session?.role === 'WORKER' && !resource.data.enabled)
+  )
+    return null;
   return (
     <Button
-      title={t(session?.role === 'WORKER' ? 'My attributed sales (DEV)' : entryTitle)}
+      title={t(session?.role === 'WORKER' ? 'My attributed sales' : entryTitle)}
       secondary
       onPress={() => navigation.navigate('RadioSoftReal')}
     />
@@ -168,7 +174,7 @@ function shopDate(timezone: string, offset = 0) {
   return date.toISOString().slice(0, 10);
 }
 function sourceSummary(status: Status, timezone: string) {
-  if (!status.enabled) return t('DEV connector is disabled. Open Connection settings to resume.');
+  if (!status.enabled) return t('Connector is disabled. Open Connection settings to resume.');
   if (!status.paired) return t('PC is unpaired. Open Connection settings to pair it.');
   if (status.connection === 'OFFLINE')
     return t('PC is disconnected. Check the shop PC and internet connection.');
@@ -179,7 +185,7 @@ function sourceSummary(status: Status, timezone: string) {
     return t('Live capture starts on {0}.', [status.scope.capture_from]);
   if (today >= status.scope.capture_until)
     return t(
-      'Today is outside the approved capture window (ends {0}, exclusive). Ask the DEV administrator to extend it.',
+      'Today is outside the approved capture window (ends {0}, exclusive). Contact Hishob support.',
       [status.scope.capture_until],
     );
   const last = status.health?.last_fast_source_read ?? status.health?.last_successful_source_read;
@@ -229,8 +235,8 @@ function RealPreview() {
   return (
     <Page wide>
       <Heading
-        title={t(worker ? 'My attributed sales (DEV)' : entryTitle)}
-        subtitle={t('RadioSoft stays read-only. DEV collections are saved separately in Hishob.')}
+        title={t(worker ? 'My attributed sales' : entryTitle)}
+        subtitle={t('RadioSoft stays read-only. Collections are saved separately in Hishob.')}
       />
       {!worker && (
         <>
@@ -282,7 +288,7 @@ function RealPreview() {
       {!worker && (
         <Text style={styles.small}>
           {t(
-            'RadioSoft is never changed. Collection records stay in a separate Hishob DEV register, not the cashbook.',
+            'RadioSoft is never changed. Collection records stay in a separate Hishob register, not the cashbook.',
           )}
         </Text>
       )}
@@ -504,7 +510,7 @@ function Bills({
       />
       <Text style={styles.small}>
         {t(
-          'RadioSoft is read-only. Collections below are local DEV test records; they do not update RadioSoft or Hishob cashbook totals.',
+          'RadioSoft is read-only. Collections below are kept in Hishob only; they do not update RadioSoft or Hishob cashbook totals.',
         )}
       </Text>
       {bills.data && (
@@ -843,7 +849,7 @@ function BillDetail({
             />
             <BillAmount bill={detail.data} />
             <Card>
-              <Text style={styles.heading}>{t('DEV collection register')}</Text>
+              <Text style={styles.heading}>{t('RadioSoft collection register')}</Text>
               <Text>{t(collectionLabel(detail.data.collection_status))}</Text>
               <Text>
                 {t('Source payable {0} · Recorded {1} · Remaining {2}', [
@@ -854,7 +860,7 @@ function BillDetail({
               </Text>
               <Text style={styles.small}>
                 {t(
-                  'Entries are stored in Hishob DEV only. They are not written to RadioSoft or the cashbook.',
+                  'Entries are stored in Hishob only. They are not written to RadioSoft or the cashbook.',
                 )}
               </Text>
             </Card>
@@ -1410,7 +1416,7 @@ function Connection({
     <>
       <Heading
         title={t('Connection settings')}
-        subtitle={t('Real DEV preview. Use recovery controls only when needed.')}
+        subtitle={t('RadioSoft connector. Use recovery controls only when needed.')}
       />
       <Button title={t('Refresh connection')} secondary onPress={refresh} />
       <ErrorText message={action.error} />
@@ -1479,7 +1485,7 @@ function Connection({
                 value={managerMap}
                 onValueChange={setManagerMap}
               />
-              <Text>{t('Allow managers to record full and partial DEV collections')}</Text>
+              <Text>{t('Allow managers to record full and partial collections')}</Text>
               <Switch
                 accessibilityLabel={t('Manager collections')}
                 value={managerCollect}
@@ -1502,12 +1508,10 @@ function Connection({
                 }}
               />
               <Text style={styles.small}>
-                {t(
-                  'These entries stay in Hishob DEV; nothing is sent to RadioSoft or the cashbook.',
-                )}
+                {t('These entries stay in Hishob; nothing is sent to RadioSoft or the cashbook.')}
               </Text>
               <Button
-                title={t('Confirm DEV setup')}
+                title={t('Confirm setup')}
                 disabled={!confirmed}
                 busy={action.busy}
                 onPress={() =>
@@ -1616,7 +1620,7 @@ function Connection({
             }
           />
           <Button
-            title={t('Stop and revoke DEV connector')}
+            title={t('Stop and revoke connector')}
             secondary
             onPress={() => setRevoke(true)}
           />

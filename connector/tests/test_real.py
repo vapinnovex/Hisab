@@ -2,9 +2,18 @@ import json
 from datetime import datetime, timezone
 
 import pytest
+from conftest import pair_origin
 from test_extractor import FakeConnection, read
 
-from hishob_connector.real import RealStore, RealTransport, https_origin, map_bill, validate_binding
+from hishob_connector.real import (
+    REAL_DEV,
+    REAL_PROD,
+    RealStore,
+    RealTransport,
+    https_origin,
+    map_bill,
+    validate_binding,
+)
 from hishob_connector.transport import DeliveryError
 
 
@@ -27,16 +36,16 @@ def binding():
     }
 
 
-def real_store(tmp_path, vault):
+def real_store(tmp_path, vault, flavour=REAL_DEV):
     store = RealStore.initialize(tmp_path / "real", vault)
-    store.put("pilot_kind", "REAL_DEV")
+    store.put("pilot_kind", flavour.kind)
     store.put("expected_binding", binding())
-    store.queue_pair("https://dev.example.test", "A" * 32)
+    store.queue_pair(pair_origin(flavour), "A" * 32)
     store.finish_pair(store.get("pending_pair")["id"], binding())
     return store
 
 
-def test_zero_missing_and_signed_duplicate_mapping(tmp_path, vault):
+def test_zero_missing_and_signed_duplicate_mapping(tmp_path, vault, flavour):
     source = FakeConnection()
     source.header.update(InvoiceDate="2026-11-03", NetAmt=-61, ExchangeAmt=1800)
     source.people[0] = "Confirmed zero"
@@ -48,7 +57,7 @@ def test_zero_missing_and_signed_duplicate_mapping(tmp_path, vault):
     assert len(bill["bill"]["lines"]) == 3
     assert [r["salesperson_ref"] for r in bill["bill"]["lines"]].count("0") == 2
     assert any(r["attribution_status"] == "ABSENT_REFERENCE" for r in bill["bill"]["lines"])
-    store = real_store(tmp_path, vault)
+    store = real_store(tmp_path, vault, flavour)
     stamp = datetime.now(timezone.utc).isoformat()
     store.enqueue_real([bill], stamp, {"turn": 1})
     original = store.head()["body"]
@@ -223,7 +232,7 @@ def test_real_tls_handshake(tmp_path, monkeypatch, case):
 
 
 @pytest.mark.integration
-def test_real_queue_lost_reply_and_global_sequence(tmp_path, vault, backend):
+def test_real_queue_lost_reply_and_global_sequence(tmp_path, vault, backend, flavour):
     from app.radiosoft_real_schemas import RealScope
     from test_integration import ready
 
@@ -267,9 +276,9 @@ def test_real_queue_lost_reply_and_global_sequence(tmp_path, vault, backend):
             return response.json()
 
     store = RealStore.initialize(tmp_path / "delivery", vault)
-    store.put("pilot_kind", "REAL_DEV")
+    store.put("pilot_kind", flavour.kind)
     store.put("expected_binding", b)
-    store.queue_pair("https://dev.example.test", code)
+    store.queue_pair(pair_origin(flavour), code)
     transport = Transport()
     engine = RealEngine(store, transport)
     engine.tick()
@@ -298,7 +307,7 @@ def test_real_queue_lost_reply_and_global_sequence(tmp_path, vault, backend):
     store.close()
 
 
-def test_polling_budget_and_failed_page_never_advance(tmp_path, vault):
+def test_polling_budget_and_failed_page_never_advance(tmp_path, vault, flavour):
     from hishob_connector.extractor import SCHEMA_SQL, ExtractionReview, Reader
     from hishob_connector.real import Poller
 
@@ -307,7 +316,7 @@ def test_polling_budget_and_failed_page_never_advance(tmp_path, vault):
     reader.query(SCHEMA_SQL)
     with pytest.raises(ExtractionReview, match="READ_BUDGET"):
         reader.query(SCHEMA_SQL)
-    store = real_store(tmp_path, vault)
+    store = real_store(tmp_path, vault, flavour)
     poller = Poller(store, Reader(source, [0], "2026-01-01", "2027-01-01", 0))
     poller.capture()  # directory first, including unobserved people
     assert store.count() == 1
@@ -321,7 +330,7 @@ def test_polling_budget_and_failed_page_never_advance(tmp_path, vault):
     store.close()
 
 
-def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeypatch):
+def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeypatch, flavour):
     from datetime import date
 
     from hishob_connector import real
@@ -334,7 +343,7 @@ def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeyp
 
     monkeypatch.setattr(real, "date", FrozenDate)
     source = FakeConnection()
-    store = real_store(tmp_path, vault)
+    store = real_store(tmp_path, vault, flavour)
     poller = real.Poller(store, Reader(source, [0], "2026-01-01", "2027-01-01", 0))
 
     poller.capture()
@@ -347,7 +356,7 @@ def test_recent_poll_prioritizes_pc_local_business_date(tmp_path, vault, monkeyp
     store.close()
 
 
-def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, monkeypatch):
+def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, monkeypatch, flavour):
     from datetime import date
 
     from hishob_connector import real
@@ -360,7 +369,7 @@ def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, mo
 
     monkeypatch.setattr(real, "date", FrozenDate)
     source = FakeConnection()
-    store = real_store(tmp_path, vault)
+    store = real_store(tmp_path, vault, flavour)
     poller = real.Poller(store, Reader(source, [0], "2026-01-01", "2027-01-01", 0))
     for _ in range(6):
         poller.capture()
@@ -373,7 +382,9 @@ def test_recent_scan_stays_on_today_and_rechecks_latest_keys(tmp_path, vault, mo
     store.close()
 
 
-def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(tmp_path, vault, monkeypatch):
+def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(
+    tmp_path, vault, monkeypatch, flavour
+):
     from datetime import date
 
     from hishob_connector import real
@@ -400,7 +411,7 @@ def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(tmp_pat
     source = FakeConnection()
     monkeypatch.setattr(source, "close", lambda: None, raising=False)
     monkeypatch.setattr(real, "open_local_readonly", lambda *_args, **_kwargs: source)
-    store = real_store(tmp_path, vault)
+    store = real_store(tmp_path, vault, flavour)
     transport = Transport()
     engine = real.RealEngine(store, transport)
 
@@ -420,4 +431,72 @@ def test_requested_refresh_scans_latest_keys_and_acknowledges_after_read(tmp_pat
     assert store.get("completed_scan_request_id") == "refresh-1"
     health = [body for path, body in transport.calls if path == "health"]
     assert health[-1]["scan_request_ack"] == "refresh-1"
+    store.close()
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://dev.example.test",
+        "https://hishob-anuj.onrender.com.evil.test",
+        "https://evil.onrender.com",
+        "https://hishob-anuj.onrender.com:8443",
+        "https://hishob-anuj.onrender.com/api",
+        "http://hishob-anuj.onrender.com",
+    ],
+)
+def test_prod_flavour_refuses_any_other_origin(tmp_path, vault, origin):
+    with pytest.raises(ValueError):
+        REAL_PROD.origin(origin)
+    store = RealStore.initialize(tmp_path / "prod", vault)
+    store.put("pilot_kind", REAL_PROD.kind)
+    store.put("expected_binding", binding())
+    with pytest.raises(ValueError):
+        store.queue_pair(origin, "12345678")
+    assert store.get("api") is None and not store.get("pending_pair")
+    store.close()
+
+
+def test_prod_flavour_constants_and_fixed_origin():
+    assert REAL_PROD.origin(None) == "https://hishob-anuj.onrender.com"
+    assert REAL_PROD.origin("https://hishob-anuj.onrender.com/") == "https://hishob-anuj.onrender.com"
+    assert (REAL_PROD.kind, REAL_PROD.service_name, REAL_PROD.state_folder) == (
+        "REAL_PROD",
+        "HishobRadioSoft",
+        "HishobConnector",
+    )
+    assert (REAL_DEV.kind, REAL_DEV.service_name, REAL_DEV.state_folder, REAL_DEV.fixed_origin) == (
+        "REAL_DEV",
+        "HishobRadioSoftDev",
+        "HishobConnectorDev",
+        None,
+    )
+    with pytest.raises(ValueError):
+        REAL_DEV.origin(None)  # DEV still requires an explicit --origin
+
+
+def test_prod_cli_configure_rejects_other_origin_and_pins_fixed(tmp_path, vault, monkeypatch):
+    import sys
+
+    from hishob_connector import real_main, service
+
+    for attr in ("SERVICE_NAME", "default_directory", "run"):
+        monkeypatch.setattr(service, attr, getattr(service, attr))  # main() rebinds these
+    monkeypatch.setattr(real_main, "DPAPI", lambda: vault)
+    state = tmp_path / "prod-cli"
+    path = tmp_path / "binding.json"
+    path.write_text(json.dumps(binding()), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["x", "init", "--state", str(state)])
+    real_main.main(REAL_PROD)
+    for args in (["--origin", "https://dev.example.test"], ["--origin", "https://evil.onrender.com"]):
+        monkeypatch.setattr(
+            sys, "argv", ["x", "configure", "--state", str(state), "--binding", str(path), *args]
+        )
+        with pytest.raises(ValueError):
+            real_main.main(REAL_PROD)
+    monkeypatch.setattr(sys, "argv", ["x", "configure", "--state", str(state), "--binding", str(path)])
+    real_main.main(REAL_PROD)
+    store = RealStore(state, vault)
+    assert store.get("pilot_kind") == "REAL_PROD"
+    assert store.get("api") == "https://hishob-anuj.onrender.com"
     store.close()

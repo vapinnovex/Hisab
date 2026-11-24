@@ -2,7 +2,9 @@
 
 import hashlib
 import json
+import os
 import time
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from importlib.resources import files
@@ -44,6 +46,43 @@ def https_origin(value):
     ):
         raise ValueError("An exact HTTPS origin with certificate verification is required")
     return value.rstrip("/")
+
+
+@dataclass(frozen=True)
+class Flavour:
+    """Per-package constants. The binding JSON is identical for every flavour."""
+
+    kind: str
+    service_name: str
+    state_folder: str
+    description: str
+    fixed_origin: str | None = None
+
+    def default_directory(self):
+        from pathlib import Path
+
+        return Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / self.state_folder
+
+    def origin(self, value):
+        """DEV takes any exact HTTPS origin; PROD accepts only its fixed origin."""
+        if self.fixed_origin is None:
+            return https_origin(value)
+        if value is not None and https_origin(value) != self.fixed_origin:
+            raise ValueError("This connector only connects to " + self.fixed_origin)
+        return self.fixed_origin
+
+
+REAL_DEV = Flavour(
+    "REAL_DEV", "HishobRadioSoftDev", "HishobConnectorDev", "RadioSoft real DEV display-only pilot"
+)
+REAL_PROD = Flavour(
+    "REAL_PROD",
+    "HishobRadioSoft",
+    "HishobConnector",
+    "Hishob RadioSoft display-only connector",
+    "https://hishob-anuj.onrender.com",
+)
+FLAVOURS = {f.kind: f for f in (REAL_DEV, REAL_PROD)}
 
 
 def validate_binding(body):
@@ -140,8 +179,10 @@ class RealStore(Store):
 
     def queue_pair(self, api, code):
         api = https_origin(api)
-        if self.get("pilot_kind") != "REAL_DEV":
+        flavour = FLAVOURS.get(self.get("pilot_kind"))
+        if flavour is None:
             raise ValueError("Real pairing requires initialized real DEV state")
+        api = flavour.origin(api)
         from .pairing_ui import normalize_code
 
         code = normalize_code(code)
@@ -231,7 +272,8 @@ class RealStore(Store):
         result = super().status()
         from .security import service_state
 
-        result["scm_service_state"] = service_state("HishobRadioSoftDev")
+        flavour = FLAVOURS.get(self.get("pilot_kind"), REAL_DEV)
+        result["scm_service_state"] = service_state(flavour.service_name)
         result["source_error"] = self.get("source_error")
         result["connector_version"] = __version__
         result["last_capture_seconds"] = self.get("last_capture_seconds")

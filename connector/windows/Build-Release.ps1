@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$Python,[string]$OutputDirectory='', [switch]$RealDev)
+param([Parameter(Mandatory=$true)][string]$Python,[string]$OutputDirectory='', [switch]$RealDev, [switch]$RealProd)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -7,8 +7,9 @@ if ($env:OS -ne 'Windows_NT' -or -not [Environment]::Is64BitProcess) { throw 'Bu
 $version = '0.3.0'
 $dist = if ($OutputDirectory) { [IO.Path]::GetFullPath($OutputDirectory) } else { Join-Path $root 'dist' }
 $build = Join-Path $root 'build'
-$mode = if ($RealDev) { 'REAL_DEV_DISPLAY_ONLY' } else { 'SYNTHETIC_LOOPBACK_ONLY' }
-$flavor = if ($RealDev) { 'real-dev' } else { 'synthetic' }
+if ($RealDev -and $RealProd) { throw 'Choose one of -RealDev or -RealProd.' }
+$mode = if ($RealProd) { 'REAL_PROD_DISPLAY_ONLY' } elseif ($RealDev) { 'REAL_DEV_DISPLAY_ONLY' } else { 'SYNTHETIC_LOOPBACK_ONLY' }
+$flavor = if ($RealProd) { 'real-prod' } elseif ($RealDev) { 'real-dev' } else { 'synthetic' }
 $release = Join-Path $dist "HishobConnector-$version-$flavor-windows-x64"
 if (Test-Path -LiteralPath $release) { throw 'Release directory already exists; use a clean build checkout.' }
 & $Python -c "import sys,struct; assert sys.version_info[:2]==(3,12) and struct.calcsize('P')==8"
@@ -22,7 +23,18 @@ try {
     $sslPolicy = & $Python -c "import ssl,pathlib; p=pathlib.Path(ssl.__file__).with_name('codex-rejected-cas.pem'); print(str(p) if p.is_file() else '')"
     if ($LASTEXITCODE -ne 0) { throw 'Could not inspect Python TLS runtime data.' }
     if ($sslPolicy) { $common += @('--add-data',"$sslPolicy;.") }
-    if ($RealDev) {
+    $realDocs = @('RADIOSOFT-REAL-BUSINESS-RULES.md','RADIOSOFT-REAL-IMPLEMENTATION.md')
+    if ($RealProd) {
+        & $Python @common --name HishobConnector --console --hidden-import pyodbc --hidden-import win32timezone --hidden-import servicemanager --hidden-import win32service --hidden-import win32serviceutil real_prod_entry.py
+        if ($LASTEXITCODE -ne 0) { throw 'Real PROD build failed.' }
+        # Prod wrappers call the shared parameterised scripts, so ship both.
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-Service-Prod.ps1'),(Join-Path $PSScriptRoot 'Upgrade-Service-Prod.ps1'),(Join-Path $PSScriptRoot 'Install-DevService.ps1'),(Join-Path $PSScriptRoot 'Upgrade-DevService.ps1') -Destination $release
+        foreach ($doc in @('RADIOSOFT-CUSTOMER-ONBOARDING.md') + $realDocs) {
+            Copy-Item -LiteralPath (Join-Path $root "../docs/$doc") -Destination $release
+        }
+        Copy-Item -LiteralPath (Join-Path $root '../docs/dev/radiosoft-fast-refresh-2026-11-10.md') -Destination (Join-Path $release 'RADIOSOFT-FAST-REFRESH.md')
+        Copy-Item -LiteralPath (Join-Path $root '../docs/dev/radiosoft-real-reviewed-files.json') -Destination $release
+    } elseif ($RealDev) {
         & $Python @common --name HishobConnectorDev --console --hidden-import pyodbc --hidden-import win32timezone --hidden-import servicemanager --hidden-import win32service --hidden-import win32serviceutil real_entry.py
         if ($LASTEXITCODE -ne 0) { throw 'Real DEV build failed.' }
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-DevService.ps1'),(Join-Path $PSScriptRoot 'Upgrade-DevService.ps1') -Destination $release

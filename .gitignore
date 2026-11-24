@@ -18,3 +18,5 @@ test-results/
 # Supplied handoffs are local review inputs, not repository source.
 /Hishob-Connector-Source-Handoff-*.zip
 /Hishob-Windows-Connector-*.zip
+/brag-output
+/pitch-deck

@@ -67,6 +67,8 @@ jobs:
         run: ./connector/windows/Build-Release.ps1 -Python (Get-Command python).Source
       - shell: pwsh
         run: ./connector/windows/Build-Release.ps1 -Python (Get-Command python).Source -RealDev
+      - shell: pwsh
+        run: ./connector/windows/Build-Release.ps1 -Python (Get-Command python).Source -RealProd
       - name: Record package checksums
         shell: pwsh
         run: |
